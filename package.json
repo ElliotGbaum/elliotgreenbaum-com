@@ -1,0 +1,26 @@
+{
+  "name": "elliotgreenbaum-com",
+  "version": "1.0.0",
+  "description": "A dark field you move through as a point of light.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "verify": "node tools/verify.mjs",
+    "shoot": "node tools/shoot.mjs",
+    "flow": "node tools/flow.mjs",
+    "filmstrip": "node tools/shoot.mjs \"http://localhost:5173/filmstrip.html?samples=10\" shots/filmstrip --only desktop --full"
+  },
+  "type": "module",
+  "dependencies": {
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "@types/three": "^0.185.1",
+    "playwright-core": "^1.62.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.1.5"
+  },
+  "private": true
+}

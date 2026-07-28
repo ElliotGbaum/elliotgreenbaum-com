@@ -1,0 +1,61 @@
+{
+  "_readme": "Every word the film says. Edit the strings, reload, done — no code. Each key is one act. 'caption' is what a screen reader announces when the act begins, and it is also the subtitle printed under the picture: keep it to one or two short sentences that cover what is on screen. Everything else is drawn on the canvas. Act lengths live in src/film/acts/actN.ts; see the comment block at the top of src/film/timeline.ts.",
+
+  "act0": {
+    "caption": "Elliot Greenbaum — a short film.",
+    "title": "Elliot Greenbaum",
+    "sub": "a short film"
+  },
+
+  "act1": {
+    "caption": "I love to think. Tournament chess from a young age. Philosophy, Politics & Economics at Penn, December 2025.",
+    "index": "01",
+    "heading": "I love to think.",
+    "chess": "Tournament chess from a young age.",
+    "fields": ["Philosophy", "Politics", "Economics"],
+    "school": "Penn · Dec ’25"
+  },
+
+  "act2": {
+    "caption": "I also love to build. E&B Agentic Systems, co-founded with a friend. Three SMB clients, owned end to end.",
+    "index": "02",
+    "heading": "I also love to build.",
+    "company": "E&B Agentic Systems · co-founded with a friend",
+    "nodes": ["intake", "agent", "tools", "handoff"],
+    "stages": ["discovery", "scoping", "implementation"],
+    "line": "Three SMB clients, owned end to end."
+  },
+
+  "act3": {
+    "caption": "Cassidy, AI Solutions Consultant. Improved workflows and agents — cut costs with no client-reported quality loss.",
+    "index": "03",
+    "heading": "Cassidy",
+    "role": "AI Solutions Consultant",
+    "tag": "Cassidy",
+    "graphLine": "Improved workflows and agents.",
+    "metrics": ["cost", "hallucinations", "accuracy"],
+    "hedgeLead": "Cut costs",
+    "hedge": "with no client-reported quality loss.",
+    "contactLine": "Primary technical point of contact.",
+    "duties": ["onboarding", "troubleshooting", "office hours"],
+    "presalesA": "Also pre-sales — demos that landed clients.",
+    "presalesB": "And telling the platform’s story."
+  },
+
+  "act4": {
+    "caption": "Why startups: they need a lot of different skills at once. Building, and talking to people.",
+    "index": "04",
+    "heading": "Why startups.",
+    "threads": ["building", "customers", "teams", "detail", "judgment"],
+    "lineA": "They need a lot of different skills at once.",
+    "lineB": "Building, and talking to people — customers outside, teams inside."
+  },
+
+  "act5": {
+    "caption": "Elliot Greenbaum. [what you’re looking for]. [your email].",
+    "name": "Elliot Greenbaum",
+    "looking": "[what you’re looking for]",
+    "email": "[your email]",
+    "hint": "Résumé and links are one click away."
+  }
+}

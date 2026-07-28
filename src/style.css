@@ -1,0 +1,43 @@
+/* Base shell for the world. Panel, HUD and film chrome live in
+   src/ui/ui.css and src/film/film.css — this file owns only the stage. */
+
+#world {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+#stage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none; /* we handle drag ourselves; let the browser keep out */
+  cursor: grab;
+}
+#stage:active {
+  cursor: grabbing;
+}
+
+/* A short fade up from black on first paint. The world arriving out of
+   darkness is the whole premise, so the load state may as well say it. */
+#world::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #0a1418;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 1.5s ease 0.15s;
+  z-index: 5;
+}
+#world.is-ready::after {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #world::after {
+    transition: opacity 0.2s linear;
+  }
+}

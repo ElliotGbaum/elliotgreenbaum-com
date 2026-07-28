@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Filmstrip — contact sheet</title>
+<style>
+  html,body{margin:0;background:#0A1418;color:#9FAEA6;
+    font:400 12px/1.5 ui-monospace,Menlo,monospace}
+  #strip{padding:20px;display:grid;gap:26px}
+  h2{margin:0 0 10px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+    color:#E3A94A;font-weight:500}
+  .row{display:flex;flex-wrap:wrap;gap:10px}
+  figure{margin:0;display:grid;gap:4px}
+  canvas{display:block;border:1px solid #22343a;background:#000}
+  figcaption{font-size:10px;letter-spacing:.08em;color:#6F7E77}
+</style>
+</head>
+<body>
+  <div id="strip"></div>
+  <script type="module" src="/src/filmstrip.ts"></script>
+</body>
+</html>

@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Elliot Greenbaum</title>
+<meta name="description" content="Elliot Greenbaum — product and AI solutions. Philosophy, Politics &amp; Economics at Penn. Previously Cassidy and E&amp;B Agentic Systems." />
+<meta name="color-scheme" content="dark light" />
+<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+<meta property="og:title" content="Elliot Greenbaum" />
+<meta property="og:description" content="Product and AI solutions. Bring a light." />
+<meta property="og:type" content="website" />
+
+<style>
+  /* ------------------------------------------------------------------
+     Critical CSS — inline so the résumé is correct with no JS, no build,
+     no WebGL. This block must never depend on anything else loading.
+     ------------------------------------------------------------------ */
+  :root{
+    --bg:#0B1113;
+    --surface:#111A1C;
+    --ink:#E9E4D6;
+    --ink-2:#9FAEA6;
+    --ink-3:#6F7E77;
+    --rule:#243230;
+    --amber:#E3A94A;
+    --amber-lit:#F3C77E;
+    --font-display:"Hoefler Text","Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    --font-body:ui-sans-serif,-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
+    --font-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --bg:#F2EEE2; --surface:#FBF8EF; --ink:#141D1B; --ink-2:#4B5A53;
+      --ink-3:#78867F; --rule:#D2C8AE; --amber:#8A5F17; --amber-lit:#A97C23;
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:var(--font-body); line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--amber)}
+  :focus-visible{outline:2px solid var(--amber);outline-offset:3px;border-radius:2px}
+
+  /* ---------- the plain lane ---------- */
+  .plain{max-width:640px;margin:0 auto;padding:clamp(28px,6vw,72px) clamp(20px,5vw,32px) clamp(48px,9vw,96px)}
+  .plain header{display:grid;gap:10px;padding-bottom:26px;border-bottom:1px solid var(--rule)}
+  .plain h1{
+    margin:0;font-family:var(--font-display);font-weight:600;
+    font-size:clamp(1.9rem,5vw,2.6rem);letter-spacing:-.02em;line-height:1.1;
+  }
+  .plain .role{color:var(--ink-2);font-size:1.02rem;max-width:44ch}
+  .contact{
+    display:flex;flex-wrap:wrap;gap:6px 18px;
+    font-family:var(--font-mono);font-size:.74rem;letter-spacing:.06em;padding-top:4px;
+  }
+  .plain section{padding:26px 0;border-bottom:1px solid var(--rule)}
+  .plain section:last-of-type{border-bottom:none}
+  .plain h2{
+    margin:0 0 14px;font-family:var(--font-mono);font-weight:500;
+    font-size:.66rem;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-3);
+  }
+  .entry{display:grid;gap:6px;margin-bottom:24px}
+  .entry:last-child{margin-bottom:0}
+  .entry__head{display:flex;flex-wrap:wrap;gap:2px 12px;align-items:baseline}
+  .entry__head b{font-size:1.02rem;font-weight:600}
+  .entry__head em{font-style:normal;color:var(--ink-2);font-size:.95rem}
+  .entry__head time{
+    margin-left:auto;font-family:var(--font-mono);font-size:.7rem;
+    letter-spacing:.06em;color:var(--ink-3);white-space:nowrap;
+  }
+  .entry ul{margin:4px 0 0;padding-left:17px;display:grid;gap:5px}
+  .entry li{color:var(--ink-2);font-size:.95rem}
+  .entry li::marker{color:var(--amber)}
+  .lede{color:var(--ink-2);max-width:56ch}
+  .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+  .tags span{
+    font-family:var(--font-mono);font-size:.66rem;letter-spacing:.06em;
+    border:1px solid var(--rule);color:var(--ink-2);padding:3px 9px;border-radius:2px;
+  }
+  .todo{color:var(--amber)}
+  .plain footer{
+    padding-top:26px;border-top:1px solid var(--rule);margin-top:26px;
+    font-family:var(--font-mono);font-size:.68rem;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--ink-3);display:grid;gap:8px;
+  }
+
+  /* ---------- the world (hidden until JS confirms WebGL) ---------- */
+  #world{display:none}
+  html.has-webgl #world{display:block}
+  html.has-webgl body{overflow:hidden;overscroll-behavior:none}
+  html.has-webgl .plain{display:none}
+</style>
+</head>
+<body>
+
+<!-- =====================================================================
+     THE PLAIN LANE — the single source of truth for résumé content.
+     Served as real HTML on first byte. Visible when JS or WebGL is
+     unavailable, indexed by search engines, and read by screen readers.
+     The in-world panel CLONES this node, so there is nothing to keep
+     in sync: edit here and both surfaces update.
+
+     ELLIOT: this is the file to edit for résumé content. Everything
+     marked [like this] needs your input.
+     ===================================================================== -->
+<main class="plain" id="resume-source">
+  <header>
+    <h1>Elliot Greenbaum</h1>
+    <p class="role">Product and AI solutions. I like building things and talking to the people who use them — usually in the same afternoon.</p>
+    <p class="contact">
+      <a href="mailto:[your email]">[your email]</a>
+      <a href="[linkedin url]">LinkedIn</a>
+      <a href="[github url]">GitHub</a>
+      <a href="/elliot-greenbaum-resume.pdf">Résumé (PDF)</a>
+    </p>
+  </header>
+
+  <section>
+    <h2>Now</h2>
+    <p class="lede todo">[One or two sentences: what you're looking for. This is the only line nobody else can write, and it's the first thing a recruiter reads.]</p>
+  </section>
+
+  <section>
+    <h2>Experience</h2>
+
+    <div class="entry">
+      <div class="entry__head">
+        <b>Cassidy</b> <em>AI Solutions Consultant</em> <time>[dates]</time>
+      </div>
+      <ul>
+        <li>Primary technical point of contact for customers — troubleshooting, onboarding, teaching the platform, and planning new automations with them.</li>
+        <li>Ran check-ins and hosted office hours.</li>
+        <li>Improved customer workflows and agents: cut costs with no client-reported quality loss, reduced hallucinations and improved accuracy.</li>
+        <li>Worked pre-sales as well as post — built demos that landed new clients and told the platform's story.</li>
+        <li>Fed customer issues, requests and product feedback back to internal teams.</li>
+      </ul>
+    </div>
+
+    <div class="entry">
+      <div class="entry__head">
+        <b>E&amp;B Agentic Systems</b> <em>Co-founder</em> <time>[dates]</time>
+      </div>
+      <ul>
+        <li>AI implementation and builds for small and mid-sized businesses. Co-founded with a friend.</li>
+        <li>Landed 3 SMB clients and owned each project end to end — discovery with non-technical owners, then scoping, then implementation.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>Education</h2>
+    <div class="entry">
+      <div class="entry__head">
+        <b>University of Pennsylvania</b> <em>Philosophy, Politics &amp; Economics</em> <time>Dec 2025</time>
+      </div>
+      <ul>
+        <li>Chose an interdisciplinary major deliberately — it let me take what I wanted across departments instead of down one track.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>Otherwise</h2>
+    <p class="lede">Tournament chess from a young age, and most other board games since. Guitar — classical, then acoustic, then electric — alto sax in jazz ensemble and classical band, and I learned to DJ somewhere along the way.</p>
+    <p class="tags">
+      <span>chess</span><span>backgammon</span><span>poker</span><span>catan</span>
+      <span>guitar</span><span>alto sax</span><span>djing</span>
+    </p>
+  </section>
+
+  <footer>
+    <span id="fallback-note">There is a longer version of this, and it's a world you move through. It needs WebGL.</span>
+  </footer>
+</main>
+
+
+<!-- =====================================================================
+     THE WORLD
+     ===================================================================== -->
+<div id="world" aria-hidden="true">
+  <canvas id="stage"></canvas>
+
+  <!-- HUD -->
+  <div id="hud">
+    <button id="resume-btn" type="button" class="hud-btn hud-btn--corner">Résumé</button>
+    <button id="places-btn" type="button" class="hud-btn hud-btn--corner hud-btn--left">Places</button>
+    <div id="compass" aria-hidden="true"><span></span></div>
+    <p id="prompt"></p>
+  </div>
+
+  <!-- landmark menu -->
+  <nav id="places" hidden aria-label="Places">
+    <div class="sheet">
+      <p class="sheet__title">Places</p>
+      <ul id="places-list"></ul>
+      <button class="sheet__close" id="places-close" type="button">Close</button>
+    </div>
+  </nav>
+
+  <!-- takeover panel -->
+  <div id="panel" hidden role="dialog" aria-modal="true" aria-labelledby="panel-title">
+    <div class="panel__inner">
+      <div class="panel__bar">
+        <span id="panel-title">Panel</span>
+        <button id="panel-close" type="button">Close</button>
+      </div>
+      <div class="panel__body" id="panel-body"></div>
+    </div>
+  </div>
+
+  <!-- the film -->
+  <div id="film" hidden role="dialog" aria-modal="true" aria-label="A short film about Elliot">
+    <canvas id="film-canvas"></canvas>
+    <div id="film-grain" aria-hidden="true"></div>
+    <div id="film-bars" aria-hidden="true"><i></i><i></i></div>
+    <div id="film-ctl">
+      <div id="film-progress"><span></span></div>
+      <button id="film-skip" type="button">Skip</button>
+    </div>
+    <p id="film-caption" aria-live="polite"></p>
+  </div>
+</div>
+
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>

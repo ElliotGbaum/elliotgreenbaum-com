@@ -1,0 +1,851 @@
+/* ==========================================================================
+   ui.css — every piece of 2D chrome that sits on top of the canvas.
+
+   Design brief: precise instrumentation. Thin rules, mono labels with
+   letter-spacing, generous negative space, warm amber on dusk-blue. The
+   world is the spectacle; none of this is. The one exception is the panel,
+   which is where somebody actually reads, so it gets real typography.
+
+   Loaded by hud.ts / panel.ts / places.ts, so it is present whether or not
+   WebGL ever starts.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Tokens
+
+   Declared on #world, not :root, for two reasons: the world is always dusk
+   (the critical CSS in index.html flips :root to a light theme under
+   prefers-color-scheme: light, which would turn the cloned résumé to near
+   black text on a dark panel), and everything of ours lives inside #world.
+   Values are the PALETTE from src/core/contract.ts.
+   -------------------------------------------------------------------------- */
+#world {
+  --ui-night: #0a1418; /* PALETTE.night */
+  --ui-glow: #ffc46b; /* PALETTE.glow */
+  --ui-amber: #e3a94a; /* PALETTE.amber */
+  --ui-amber-lit: #f3c77e; /* PALETTE.amberLit */
+  --ui-buff: #e9e4d6; /* PALETTE.buff */
+  --ui-sage: #9faea6; /* PALETTE.sage */
+
+  --ui-surface: #0e1a1e;
+  --ui-surface-2: #132328;
+  --ui-veil: rgba(6, 12, 15, 0.78);
+  --ui-rule: rgba(233, 228, 214, 0.14);
+  --ui-rule-lit: rgba(227, 169, 74, 0.42);
+  --ui-ink: var(--ui-buff);
+  --ui-ink-2: var(--ui-sage);
+  /* the quietest thing on screen still clears 4.5:1 on --ui-surface */
+  --ui-ink-3: #77867f;
+
+  --ui-font-display: 'Hoefler Text', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia,
+    serif;
+  --ui-font-body: ui-sans-serif, -apple-system, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+  --ui-font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  --ui-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+
+  /* the résumé clone carries the classes from index.html — re-assert its
+     own tokens so it never flips to the light theme inside the dark world */
+  --bg: #0a1418;
+  --surface: #0e1a1e;
+  --ink: #e9e4d6;
+  --ink-2: #9faea6;
+  --ink-3: #77867f;
+  --rule: #26363a;
+  --amber: #e3a94a;
+  --amber-lit: #f3c77e;
+}
+
+/* src/style.css owns the stage itself (#world / #stage layout). Everything
+   below is chrome, and it stacks above the world's load-fade (z-index 5). */
+
+/* --------------------------------------------------------------------------
+   2. Utilities
+   -------------------------------------------------------------------------- */
+
+/* visible to screen readers, to nobody else */
+.u-sr {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* set while any overlay is open */
+html.ui-locked,
+html.ui-locked body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* --------------------------------------------------------------------------
+   3. HUD
+   -------------------------------------------------------------------------- */
+
+#hud {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  transition: opacity 220ms ease;
+
+  --pad-t: max(14px, env(safe-area-inset-top, 0px));
+  --pad-b: max(14px, env(safe-area-inset-bottom, 0px));
+  --pad-l: max(14px, env(safe-area-inset-left, 0px));
+  --pad-r: max(14px, env(safe-area-inset-right, 0px));
+}
+#hud.is-off {
+  opacity: 0;
+}
+#hud.is-off .hud-btn {
+  pointer-events: none;
+}
+#hud[hidden] {
+  display: none;
+}
+
+/* ---- controls ---- */
+
+.hud-btn {
+  pointer-events: auto;
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 17px;
+  margin: 0;
+  border: 1px solid var(--ui-rule);
+  border-radius: 999px;
+  /* deliberately no backdrop-filter on the HUD: it sits over a canvas that
+     repaints every frame, and a live blur is the most expensive thing you can
+     put there. A flat veil reads the same against a dusk world. */
+  background: rgba(10, 20, 24, 0.82);
+  color: var(--ui-ink-2);
+  font-family: var(--ui-font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+.hud-btn:hover {
+  color: var(--ui-ink);
+  border-color: var(--ui-rule-lit);
+}
+.hud-btn:active {
+  transform: translateY(1px);
+}
+
+/* Bottom corners on a phone — that is where thumbs are. */
+#places-btn {
+  left: var(--pad-l);
+  bottom: var(--pad-b);
+}
+#resume-btn {
+  right: var(--pad-r);
+  bottom: var(--pad-b);
+}
+
+/* The recruiter fast lane. The most important control on screen after
+   movement, so it is the only warm thing in the chrome and it never leaves. */
+#resume-btn {
+  color: var(--ui-night);
+  border-color: var(--ui-amber);
+  background: linear-gradient(180deg, var(--ui-amber-lit), var(--ui-amber));
+  box-shadow:
+    0 2px 22px rgba(227, 169, 74, 0.22),
+    0 1px 2px rgba(0, 0, 0, 0.5);
+  font-weight: 600;
+  padding: 0 20px;
+}
+#resume-btn:hover {
+  color: var(--ui-night);
+  border-color: var(--ui-amber-lit);
+  background: linear-gradient(180deg, #ffdca6, var(--ui-amber-lit));
+}
+
+/* ---- compass ---- */
+
+#compass {
+  position: absolute;
+  top: var(--pad-t);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--ui-rule);
+  border-radius: 50%;
+  background: rgba(10, 20, 24, 0.45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 240ms ease;
+}
+/* the needle — rotated from JS, 0rad points at the top of the screen */
+#compass > span {
+  position: absolute;
+  inset: 0;
+  display: block;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+#compass > span::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 5px;
+  width: 0;
+  height: 0;
+  transform: translateX(-50%);
+  border-left: 4.5px solid transparent;
+  border-right: 4.5px solid transparent;
+  border-bottom: 10px solid var(--ui-glow);
+  filter: drop-shadow(0 0 5px rgba(255, 196, 107, 0.55));
+}
+#compass > span::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1px;
+  height: 11px;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, rgba(255, 196, 107, 0.45), rgba(255, 196, 107, 0));
+}
+#compass::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 3px;
+  height: 3px;
+  margin: -1.5px 0 0 -1.5px;
+  border-radius: 50%;
+  background: var(--ui-ink-3);
+}
+
+/* ---- prompt ---- */
+
+#prompt {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--pad-b) + 74px);
+  margin: 0;
+  width: min(32rem, calc(100% - 36px));
+  text-align: center;
+  font-family: var(--ui-font-display);
+  font-size: clamp(1rem, 0.94rem + 0.45vw, 1.2rem);
+  line-height: 1.35;
+  color: var(--ui-ink);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.85),
+    0 0 24px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+  opacity: 0;
+  /* absolutely positioned, so the copy can change without moving anything */
+  transform: translate(-50%, 7px);
+  transition:
+    opacity 200ms ease,
+    transform 260ms cubic-bezier(0.16, 0.84, 0.28, 1);
+}
+#prompt[data-on='true'] {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* ---- HUD, desktop ---- */
+@media (min-width: 721px) {
+  #places-btn,
+  #resume-btn {
+    top: var(--pad-t);
+    bottom: auto;
+  }
+  #prompt {
+    bottom: calc(var(--pad-b) + 36px);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   4. Places
+   -------------------------------------------------------------------------- */
+
+#places {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  /* the veil carries the effect on its own; the blur is a bonus where cheap */
+  background: rgba(6, 12, 15, 0.74);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+#places.is-open {
+  opacity: 1;
+}
+#places[hidden] {
+  display: none;
+}
+
+.sheet {
+  position: relative;
+  width: 100%;
+  max-width: 520px;
+  max-height: 78vh;
+  max-height: 78dvh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  padding: 22px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-rule);
+  border-bottom: 0;
+  border-radius: 16px 16px 0 0;
+  box-shadow: var(--ui-shadow);
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity 200ms ease,
+    transform 220ms cubic-bezier(0.16, 0.84, 0.28, 1);
+}
+#places.is-open .sheet {
+  opacity: 1;
+  transform: none;
+}
+/* grab bar */
+.sheet::before {
+  content: '';
+  position: absolute;
+  top: 9px;
+  left: 50%;
+  width: 34px;
+  height: 3px;
+  margin-left: -17px;
+  border-radius: 2px;
+  background: var(--ui-rule);
+}
+
+.sheet__title {
+  margin: 0;
+  padding: 0 8px;
+  font-family: var(--ui-font-mono);
+  font-size: 0.66rem;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ui-ink-2);
+}
+
+#places-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+#places-list li + li {
+  border-top: 1px solid var(--ui-rule);
+}
+
+.place {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) 10px;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 58px;
+  padding: 13px 8px;
+  margin: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 140ms ease;
+}
+.place:hover {
+  background: rgba(233, 228, 214, 0.05);
+}
+.place::after {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-right: 1px solid var(--ui-ink-3);
+  border-top: 1px solid var(--ui-ink-3);
+  transform: rotate(45deg);
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease;
+}
+.place:hover::after {
+  border-color: var(--ui-amber);
+  transform: rotate(45deg) translate(2px, -2px);
+}
+
+/* visited is a filled mark and a word, never colour on its own */
+.place__mark {
+  width: 9px;
+  height: 9px;
+  border: 1px solid var(--ui-ink-3);
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+.place[data-visited='true'] .place__mark {
+  background: var(--ui-amber);
+  border-color: var(--ui-amber);
+  box-shadow: 0 0 9px rgba(227, 169, 74, 0.55);
+}
+
+.place__text {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.place__title {
+  font-family: var(--ui-font-body);
+  font-size: 1rem;
+  color: var(--ui-ink);
+  letter-spacing: 0.005em;
+}
+.place[data-visited='true'] .place__title {
+  color: var(--ui-buff);
+}
+.place__hint {
+  font-family: var(--ui-font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  color: var(--ui-ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sheet__close {
+  justify-self: stretch;
+  min-height: 46px;
+  padding: 0 16px;
+  border: 1px solid var(--ui-rule);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ui-ink-2);
+  font-family: var(--ui-font-mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    color 160ms ease,
+    border-color 160ms ease;
+}
+.sheet__close:hover {
+  color: var(--ui-ink);
+  border-color: var(--ui-rule-lit);
+}
+
+@media (min-width: 721px) {
+  #places {
+    align-items: center;
+    padding: 24px;
+  }
+  .sheet {
+    max-width: 440px;
+    max-height: min(76vh, 680px);
+    max-height: min(76dvh, 680px);
+    padding: 20px 18px 18px;
+    border-bottom: 1px solid var(--ui-rule);
+    border-radius: 8px;
+    transform: translateY(10px) scale(0.99);
+  }
+  .sheet::before {
+    display: none;
+  }
+  .sheet__title {
+    padding: 0 4px;
+  }
+  .sheet__close {
+    justify-self: end;
+    min-width: 124px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   5. Panel
+   -------------------------------------------------------------------------- */
+
+#panel {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  background: var(--ui-veil);
+  -webkit-backdrop-filter: blur(6px) saturate(0.9);
+  backdrop-filter: blur(6px) saturate(0.9);
+  opacity: 0;
+  transition: opacity 260ms ease;
+}
+#panel.is-open {
+  opacity: 1;
+}
+#panel[hidden] {
+  display: none;
+}
+#panel:focus {
+  outline: none;
+}
+
+.panel__inner {
+  position: relative;
+  width: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  background: var(--ui-surface);
+  opacity: 0;
+  /* a short rise, then it settles — confident, not bouncy */
+  transform: translateY(16px);
+  transition:
+    opacity 200ms ease,
+    transform 260ms cubic-bezier(0.16, 0.84, 0.28, 1);
+}
+#panel.is-open .panel__inner {
+  opacity: 1;
+  transform: none;
+}
+
+.panel__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: max(8px, env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-right, 0px)) 8px
+    max(18px, env(safe-area-inset-left, 0px));
+  border-bottom: 1px solid var(--ui-rule);
+  background: linear-gradient(180deg, var(--ui-surface-2), var(--ui-surface));
+}
+#panel-title {
+  font-family: var(--ui-font-mono);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ui-ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#panel-close {
+  flex: none;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 14px;
+  margin: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ui-ink-2);
+  font-family: var(--ui-font-mono);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    color 160ms ease,
+    background-color 160ms ease;
+}
+#panel-close:hover {
+  color: var(--ui-amber-lit);
+  background: rgba(233, 228, 214, 0.06);
+}
+
+.panel__body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: clamp(24px, 5vw, 44px) max(20px, env(safe-area-inset-right, 0px))
+    calc(clamp(44px, 9vh, 88px) + env(safe-area-inset-bottom, 0px))
+    max(20px, env(safe-area-inset-left, 0px));
+}
+.panel__body:focus {
+  outline: none;
+}
+.panel__body:focus-visible {
+  outline: 2px solid var(--ui-amber-lit);
+  outline-offset: -3px;
+  border-radius: 0;
+}
+
+/* the measure. This is the part that does the work. */
+.panel__doc {
+  max-width: 65ch;
+  margin: 0 auto;
+  font-family: var(--ui-font-body);
+  font-size: clamp(1rem, 0.97rem + 0.16vw, 1.07rem);
+  line-height: 1.65;
+  color: var(--ui-ink);
+}
+
+@media (min-width: 721px) {
+  #panel {
+    place-items: center;
+    padding: clamp(24px, 5vh, 60px) 24px;
+  }
+  .panel__inner {
+    width: min(800px, 100%);
+    max-height: min(88vh, 940px);
+    max-height: min(88dvh, 940px);
+    border: 1px solid var(--ui-rule);
+    border-radius: 8px;
+    box-shadow: var(--ui-shadow);
+    overflow: hidden;
+  }
+  .panel__bar {
+    padding: 8px 10px 8px 22px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   6. Panel document typography
+
+   Two audiences. The résumé arrives as a clone of #resume-source and keeps
+   the classes it was written with, so the critical CSS in index.html styles
+   it and there is nothing to keep in sync — the rules below only fix the
+   container. Everything else (markdown-derived HTML from src/content) gets
+   the :where() defaults, which carry zero specificity and therefore never
+   fight the résumé's own rules.
+   -------------------------------------------------------------------------- */
+
+/* the clone is display:none by default (html.has-webgl .plain) — undo that,
+   and hand the measure and padding back to .panel__doc */
+#panel-body .plain {
+  display: block;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+#panel-body .plain h1 {
+  font-size: clamp(2rem, 1.5rem + 2.2vw, 2.9rem);
+}
+#panel-body .plain header {
+  padding-bottom: 24px;
+}
+#panel-body .plain section:first-of-type {
+  padding-top: 24px;
+}
+#panel-body .contact {
+  gap: 8px 20px;
+}
+#panel-body .contact a {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* generic authored content */
+.panel__doc :where(h1) {
+  margin: 0 0 0.4em;
+  font-family: var(--ui-font-display);
+  font-weight: 600;
+  font-size: clamp(1.9rem, 1.5rem + 1.8vw, 2.6rem);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--ui-buff);
+}
+.panel__doc :where(h2) {
+  margin: 2em 0 0.6em;
+  font-family: var(--ui-font-mono);
+  font-weight: 500;
+  font-size: 0.68rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ui-ink-3);
+}
+.panel__doc :where(h3) {
+  margin: 1.6em 0 0.4em;
+  font-family: var(--ui-font-body);
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--ui-buff);
+}
+.panel__doc :where(p) {
+  margin: 0 0 1.05em;
+}
+.panel__doc :where(ul, ol) {
+  margin: 0 0 1.2em;
+  padding-left: 1.15em;
+  display: grid;
+  gap: 0.4em;
+}
+.panel__doc :where(li) {
+  color: var(--ui-ink-2);
+}
+.panel__doc :where(li)::marker {
+  color: var(--ui-amber);
+}
+.panel__doc :where(a) {
+  color: var(--ui-amber);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  text-decoration-color: rgba(227, 169, 74, 0.45);
+}
+.panel__doc :where(a):hover {
+  color: var(--ui-amber-lit);
+  text-decoration-color: currentColor;
+}
+.panel__doc :where(hr) {
+  height: 0;
+  margin: 2em 0;
+  border: 0;
+  border-top: 1px solid var(--ui-rule);
+}
+.panel__doc :where(blockquote) {
+  margin: 1.6em 0;
+  padding-left: 18px;
+  border-left: 1px solid var(--ui-rule-lit);
+  color: var(--ui-ink-2);
+  font-family: var(--ui-font-display);
+  font-size: 1.1em;
+}
+.panel__doc :where(code, kbd, samp) {
+  font-family: var(--ui-font-mono);
+  font-size: 0.88em;
+}
+.panel__doc :where(img, svg, video) {
+  max-width: 100%;
+  height: auto;
+}
+.panel__doc :where(strong, b) {
+  color: var(--ui-buff);
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------------------
+   7. Focus
+
+   index.html sets a global :focus-visible ring with border-radius:2px, which
+   would square off the pills. Each control restates its own shape.
+   -------------------------------------------------------------------------- */
+#world :focus-visible {
+  outline: 2px solid var(--ui-amber-lit);
+  outline-offset: 3px;
+}
+#world .hud-btn:focus-visible,
+#world .sheet__close:focus-visible {
+  border-radius: 999px;
+}
+#world .place:focus-visible,
+#world #panel-close:focus-visible {
+  border-radius: 6px;
+  outline-offset: 2px;
+}
+#world #resume-btn:focus-visible {
+  outline-color: var(--ui-buff);
+}
+#panel-body :focus-visible {
+  border-radius: 3px;
+  outline-offset: 2px;
+}
+#panel:focus,
+.sheet:focus {
+  outline: none;
+}
+
+/* --------------------------------------------------------------------------
+   8. Reduced motion — everything stays reachable, nothing travels.
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  #hud,
+  #compass,
+  #prompt,
+  #panel,
+  .panel__inner,
+  #places,
+  .sheet,
+  .hud-btn,
+  .place,
+  .place::after,
+  .sheet__close,
+  #panel-close {
+    transition-duration: 1ms !important;
+    transition-delay: 0ms !important;
+    animation: none !important;
+  }
+  .panel__inner,
+  .sheet,
+  .hud-btn:active {
+    transform: none !important;
+  }
+  #prompt,
+  #prompt[data-on='true'] {
+    transform: translate(-50%, 0) !important;
+  }
+  .place:hover::after {
+    transform: rotate(45deg) !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   9. Small screens — 375px is the floor, and it is checked.
+   -------------------------------------------------------------------------- */
+@media (max-width: 400px) {
+  .hud-btn {
+    padding: 0 14px;
+    font-size: 0.68rem;
+    letter-spacing: 0.13em;
+  }
+  #resume-btn {
+    padding: 0 17px;
+  }
+  #prompt {
+    bottom: calc(var(--pad-b) + 68px);
+    font-size: 1.02rem;
+  }
+  .sheet {
+    padding-left: max(12px, env(safe-area-inset-left, 0px));
+    padding-right: max(12px, env(safe-area-inset-right, 0px));
+  }
+  .place {
+    gap: 12px;
+    padding: 12px 6px;
+  }
+}
+
+/* landscape phone: the world is short, so give the panel every pixel */
+@media (max-height: 480px) and (min-width: 721px) {
+  #panel {
+    padding: 12px;
+  }
+  .panel__inner {
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
+  }
+}
