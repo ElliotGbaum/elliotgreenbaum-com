@@ -1,7 +1,7 @@
 /**
  * Shared contract — the only file every subsystem is allowed to depend on.
  *
- * If you are adding a landmark, a film act, or a panel, you implement one of
+ * If you are adding a landmark, a prop or a film act, you implement one of
  * the interfaces below and you do not reach into any other module.
  */
 
@@ -47,17 +47,56 @@ export const PALETTE = {
  * ------------------------------------------------------------------ */
 
 export interface LandmarkContext {
-  /** open a takeover panel by id; resolves when it closes */
-  openPanel(id: string): void
   /** start the film */
   playFilm(): void
+  /**
+   * Go through the portal, into the parkour — and OPTIONAL, along with the one
+   * below it, because the field is not currently offering either door. Both
+   * minigames are shelved; see the note at the top of src/main.ts.
+   *
+   * Optional rather than deleted, and optional rather than a no-op stub in
+   * main: a landmark asking for a way out of the field that the world does not
+   * have is a real state, and `?.()` at the two call sites is the honest way to
+   * say so. It also keeps the shelved worlds' names out of the shipped bundle,
+   * which a stub in main did not.
+   */
+  enterParkour?(): void
+  /** …and out the other side of the projector, into the trainyard run */
+  enterSurf?(): void
   /** show a transient line of text near the bottom of the screen */
   setPrompt(text: string | null): void
 }
 
+/**
+ * A world of its own that borrows the field's renderer and canvas.
+ *
+ * While `active` is true, main.ts's frame loop hands it the frame and the field
+ * simply stops being drawn — not paused, not drawn. Two of these exist (the
+ * parkour and the runner) and NEVER both at once: the loop picks one, and every
+ * door into either checks that no other is already open.
+ *
+ * `Parkour` in src/parkour/parkour.ts already has exactly this shape and is NOT
+ * modified to say so — structural typing is the whole reason this interface
+ * lives here instead of being inherited. A minigame is a thing that answers
+ * these seven questions; it is not a thing that imports this file to promise it
+ * will. (It may, and the runner does, because being told at compile time that
+ * the mount will still accept you is worth one type import.)
+ */
+export interface Minigame {
+  readonly active: boolean
+  enter(level?: number): void
+  leave(): void
+  /** called from the world's frame loop while active */
+  update(dt: number): void
+  render(renderer: THREE.WebGLRenderer): void
+  resize(w: number, h: number): void
+  onLeave(cb: () => void): void
+  dispose(): void
+}
+
 export interface Landmark {
   readonly id: string
-  /** shown in the Places menu and as the panel title */
+  /** what this is, for anything that has to name it out loud */
   readonly title: string
   /** the 3D object added to the scene. Positioned by the landmark itself. */
   readonly object: THREE.Object3D
@@ -74,14 +113,84 @@ export interface Landmark {
    * without a line here there'd be no visible way to replay it on the spot.
    */
   readonly again: string
-  /** fired when the player enters radius and confirms (click / Enter / auto) */
+  /** fired when the player enters radius and confirms (click / Enter / E / dwell) */
   activate(ctx: LandmarkContext): void
+  /**
+   * The verb for the key badge that floats at this thing once you are close
+   * enough to reach it — see src/ui/interact.ts. It completes "Press E to …",
+   * so it is two or three words, lower case, no full stop: `'turn on'`.
+   *
+   * It is NOT a shorter `prompt`. `prompt` is the sentence at the bottom of
+   * the screen that says what the thing is *for*, readable from across the
+   * field; this is the label on the switch, and it only ever names the
+   * mechanical action. A landmark with no `verb` gets no badge, which is right
+   * for anything that opens by being stood on rather than pressed.
+   */
+  readonly verb?: string
+  /** …and the verb once it has been used and you have not left. See `again`. */
+  readonly verbAgain?: string
+  /**
+   * World point the badge hangs over: the switch, the handle, the thing your
+   * hand goes to. There is no default — `anchor` is a patch of ground several
+   * units in front of the object, and a label floating over grass is a label
+   * attached to nothing.
+   */
+  readonly reach?: THREE.Vector3
+  /**
+   * How close you have to be to the `reach` point, in world units, before the
+   * badge appears — measured on the ground plane, so height never counts.
+   * This is deliberately much tighter than `radius`: the radius is "the
+   * projector is what you are near", and this is "you could put your hand on
+   * it". Defaults to 9.
+   */
+  readonly reachRadius?: number
+  /**
+   * What a click on this landmark is allowed to land on: the meshes — or the
+   * groups holding them, the cast is recursive — that mean "you pointed at
+   * this thing". A landmark that publishes none takes no pointer at all.
+   *
+   * It is a published list rather than simply `object`, because most landmarks
+   * carry something that is not the thing itself: the projector's beacon is a
+   * seventy-unit column of light standing in the sky, and its invitation rings
+   * are painted flat on the ground you would much rather be told to walk to.
+   *
+   * Pointing at one from across the field does not fire it — main.ts walks the
+   * figure over first and uses it on arrival. See `onPointerDown` there.
+   */
+  readonly hitTargets?: THREE.Object3D[]
+  /**
+   * False when standing inside `radius` must NOT be enough to fire this — it
+   * takes E, Enter or Space, or a click, or the arrival of a walk you asked
+   * for with one. Defaults to true, which is right for a threshold you walk
+   * through; all three landmarks in this field say no, because every one of
+   * them takes the screen away from you and none of that is something to have
+   * done TO you merely for standing somewhere.
+   */
+  readonly autoActivate?: boolean
+  /**
+   * False while this landmark is locked. Everything that iterates landmarks —
+   * proximity, prompts, the dwell timer, clicks — skips one that says no, so a
+   * locked landmark is not merely unusable, it is not there at all. The gate
+   * past the projector uses it: before the film has been watched there is
+   * nothing beyond the screen but field.
+   */
+  isEnabled?(): boolean
+  /** release GPU resources. Only HMR and teardown call it. */
+  dispose?(): void
   /**
    * Per-frame hook. `lit` is 0..1 — how strongly the player's light is
    * currently reaching this landmark. Use it to fade detail in and out
    * rather than popping.
    */
   update?(dt: number, elapsed: number, lit: number, ctx: LandmarkContext): void
+  /**
+   * 0 = night, 1 = daylight — the field's crossfade value, pushed here once a
+   * frame. Implement it if this landmark carries anything that only makes
+   * sense in the dark: a beacon, a warm pool on the ground, a glow that is
+   * really a wayfinder. `lit` above is about *your lantern* and is unaffected
+   * by the time of day, so activation and proximity behave the same in both.
+   */
+  setDaylight?(k: number): void
 }
 
 /* ------------------------------------------------------------------ *
@@ -105,6 +214,12 @@ export interface Act {
   readonly id: string
   /** seconds this act runs for */
   readonly duration: number
+  /**
+   * Two or three words naming this stretch of the film. Printed on the
+   * scrubber and in the hover tooltip, exactly like a chapter marker on a
+   * video player — so it has to make sense out of context and read at 11px.
+   */
+  readonly chapter: string
   /** spoken-equivalent text, announced to screen readers as the act begins */
   readonly caption: string
   draw(c: ActRenderContext): void
@@ -122,6 +237,19 @@ export const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * 
 /** ease out — for things arriving */
 export const easeOut = (t: number) => 1 - Math.pow(1 - t, 3)
 
+/**
+ * Shortest signed turn from angle a to angle b, radians.
+ *
+ * Without it, anything that steers turns through π the long way round exactly
+ * once per session and looks broken.
+ */
+export const angleDelta = (a: number, b: number) => {
+  let d = (b - a) % (Math.PI * 2)
+  if (d > Math.PI) d -= Math.PI * 2
+  if (d < -Math.PI) d += Math.PI * 2
+  return d
+}
+
 /** remap v from [a,b] to [0,1], clamped. The workhorse of act timing. */
 export const range = (v: number, a: number, b: number) => clamp((v - a) / (b - a))
 
@@ -131,6 +259,17 @@ export const rand = (i: number) => {
   return x - Math.floor(x)
 }
 
-export const REDUCED_MOTION =
-  typeof window !== 'undefined' &&
-  window.matchMedia('(prefers-reduced-motion: reduce)').matches
+const RM_QUERY =
+  typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia('(prefers-reduced-motion: reduce)')
+    : null
+
+/** the answer at boot — good enough for anything built once */
+export const REDUCED_MOTION = RM_QUERY?.matches === true
+
+/**
+ * …and the answer *now*, for anything that runs on a timer. Stays honest if
+ * the OS setting changes mid-session, so the JS timings never drift out of
+ * step with the `prefers-reduced-motion` rules in the stylesheets.
+ */
+export const reducedMotion = (): boolean => REDUCED_MOTION || RM_QUERY?.matches === true

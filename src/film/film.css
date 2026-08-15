@@ -1,305 +1,334 @@
 /* ---------------------------------------------------------------------
-   THE FILM — cinema treatment for the full-viewport takeover.
+   THE FILM — the player chrome.
 
-   The picture itself is drawn on #film-canvas (see src/film/acts/*).
-   Everything here is the projector around it: letterbox, grain, vignette,
-   the warm flicker, and the two controls.
+   The picture is not in the DOM. It is drawn to an offscreen canvas in
+   src/film/film.ts and mapped onto the projector screen out in the world,
+   so while this bar is up you are still standing in the field watching a
+   projector throw a film at a screen. Everything here is the *transport*.
 
-   Nothing loads. The grain is layered gradients, not an image, so this
-   costs bytes in the hundreds rather than the tens of thousands.
+   What used to live in this file — letterbox, grain, vignette, the lamp
+   flicker — is gone from CSS, because CSS cannot reach a texture. Grain and
+   vignette moved onto the canvas (film.ts, `finish()`); the flicker and the
+   spill moved into the projector's materials (world/landmarks/projector.ts).
 
-   Stacking, bottom to top:
-     0  canvas .......... the picture
-     1  #film-grain ..... emulsion
-     2  #film::before ... projector flicker
-     3  #film::after .... vignette
-     4  #film-bars ...... letterbox
-     5  #film-caption ... subtitle
-     6  #film-ctl ....... progress + Skip
+   Stacking is flat: one bar pinned to the bottom, over the canvas.
+
+   Layout, top to bottom:
+     #film-caption ... the subtitle, and the aria-live announcement
+     #film-scrub ..... chaptered seek bar (segments built in controls.ts)
+     #film-row ....... pause · time · chapter · speed picker · Exit
    --------------------------------------------------------------------- */
 
 #film {
-  --film-bar: clamp(30px, 7.5vh, 88px);
   --film-ink: #e9e4d6;
   --film-sage: #9faea6;
   --film-amber: #e3a94a;
   --film-amber-lit: #f3c77e;
   --film-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --film-bar-h: 5px;
+
+  /* The one surface every control in the row is made of — pause, the speed
+     pill, Exit. They were each carrying their own hairline and their own
+     near-transparent fill, and the fills were light enough that the buttons
+     read as outlines floating on the field rather than as things to press.
+     One pair of tokens, so a control cannot drift away from its neighbours:
+     they are the same object at three widths. */
+  --film-chrome-bg: rgba(12, 20, 25, 0.86);
+  --film-chrome-line: rgba(233, 228, 214, 0.44);
+  --film-chrome-lift: 0 1px 12px rgba(0, 0, 0, 0.5);
 
   position: fixed;
-  inset: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 60;
-  overflow: hidden;
-  isolation: isolate;
-  background: #05090b;
+  padding: 0 clamp(12px, 3vw, 34px);
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
   color-scheme: dark;
-  touch-action: none;
   -webkit-tap-highlight-color: transparent;
+
+  /* Every gesture down here is ours too — the same call src/style.css makes for
+     the canvas, and for the same reason. This bar is the strip a thumb rests on
+     for two minutes, so it is where a stray second finger lands; without this a
+     pinch on it zoomed the PAGE, and since the renderer never repaints at that
+     scale the visitor got a magnified crop of black field with the film still
+     running somewhere underneath it and nothing on screen saying what happened.
+     It does not stop the buttons taking taps — touch-action has no say in click
+     dispatch. */
+  touch-action: none;
+
+  /* the world is still live and still beautiful under this — lift the
+     controls off it with a gradient rather than a panel */
+  background: linear-gradient(
+    to top,
+    rgba(4, 9, 11, 0.94) 0%,
+    rgba(4, 9, 11, 0.82) 46%,
+    rgba(4, 9, 11, 0.45) 74%,
+    rgba(4, 9, 11, 0) 100%
+  );
 }
 
-/* the dialog is opened by removing [hidden]; make sure nothing can override it */
 #film[hidden] {
   display: none !important;
 }
 
-#film.is-live {
-  animation: film-open 0.5s ease both;
+#film:not([hidden]) {
+  animation: film-rise 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
-@keyframes film-open {
+@keyframes film-rise {
   from {
     opacity: 0;
+    transform: translateY(14px);
   }
   to {
     opacity: 1;
+    transform: translateY(0);
   }
 }
 
-/* ---------- the picture ---------- */
-
-#film-canvas {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-/* ---------- emulsion ----------
-   Three offset dot fields at three prime-ish sizes, so the pattern never
-   visibly repeats. Oversized and translated in steps: film grain moves,
-   it does not drift. */
-
-#film-grain {
-  position: absolute;
-  inset: -40%;
-  z-index: 1;
-  pointer-events: none;
-  opacity: 0.5;
-  mix-blend-mode: screen;
-  background-image:
-    radial-gradient(circle at 25% 25%, rgba(255, 246, 230, 0.14) 0 18%, rgba(255, 246, 230, 0) 19%),
-    radial-gradient(circle at 72% 62%, rgba(255, 246, 230, 0.1) 0 15%, rgba(255, 246, 230, 0) 16%),
-    radial-gradient(circle at 48% 86%, rgba(180, 210, 205, 0.09) 0 13%, rgba(180, 210, 205, 0) 14%);
-  background-size:
-    3px 3px,
-    5px 5px,
-    7px 7px;
-  animation: film-grain 0.48s steps(1, end) infinite;
-  will-change: transform;
-}
-
-@keyframes film-grain {
-  0% {
-    transform: translate3d(0, 0, 0);
-  }
-  14% {
-    transform: translate3d(-1.4%, 0.9%, 0);
-  }
-  28% {
-    transform: translate3d(1.1%, -1.2%, 0);
-  }
-  42% {
-    transform: translate3d(-0.7%, -0.6%, 0);
-  }
-  56% {
-    transform: translate3d(1.5%, 0.5%, 0);
-  }
-  70% {
-    transform: translate3d(-1.1%, 1.3%, 0);
-  }
-  84% {
-    transform: translate3d(0.6%, -0.9%, 0);
-  }
-  100% {
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-/* ---------- the lamp ----------
-   A warm wash over the whole surface whose brightness is never quite
-   steady. Irregular keyframes so it never reads as a loop. */
-
-#film::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  mix-blend-mode: screen;
-  background: radial-gradient(
-    124% 92% at 50% 44%,
-    rgba(255, 196, 107, 0.55),
-    rgba(255, 196, 107, 0.16) 46%,
-    rgba(255, 196, 107, 0) 74%
-  );
-  animation: film-lamp 4.3s linear infinite;
-}
-
-@keyframes film-lamp {
-  0%,
-  100% {
-    opacity: 0.055;
-  }
-  7% {
-    opacity: 0.092;
-  }
-  11% {
-    opacity: 0.032;
-  }
-  23% {
-    opacity: 0.076;
-  }
-  37% {
-    opacity: 0.048;
-  }
-  53% {
-    opacity: 0.086;
-  }
-  61% {
-    opacity: 0.038;
-  }
-  79% {
-    opacity: 0.07;
-  }
-  91% {
-    opacity: 0.05;
-  }
-}
-
-/* ---------- vignette ---------- */
-
-#film::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  pointer-events: none;
-  background: radial-gradient(
-    132% 106% at 50% 47%,
-    rgba(0, 0, 0, 0) 44%,
-    rgba(0, 0, 0, 0.5) 80%,
-    rgba(0, 0, 0, 0.82) 100%
-  );
-}
-
-/* ---------- letterbox ---------- */
-
-#film-bars {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  pointer-events: none;
-}
-
-#film-bars i {
-  position: absolute;
-  left: 0;
-  right: 0;
-  display: block;
-  height: var(--film-bar);
-  background: #000;
-}
-
-#film-bars i:first-child {
-  top: 0;
-  box-shadow: 0 1px 0 rgba(233, 228, 214, 0.06);
-}
-
-#film-bars i:last-child {
-  bottom: 0;
-  box-shadow: 0 -1px 0 rgba(233, 228, 214, 0.06);
-}
-
-#film.is-live #film-bars i {
-  animation: film-mask 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-
-@keyframes film-mask {
-  from {
-    height: 0;
-  }
-  to {
-    height: var(--film-bar);
-  }
-}
-
-/* ---------- subtitle ----------
-   Doubles as the screen-reader announcement (aria-live). Legible, but it
-   must never compete with the picture. */
+/* ---------- caption ----------
+   Announced to screen readers when each act begins, and drawn nowhere.
+   It used to be printed under the picture as a subtitle, and it was the one
+   element in the whole build that admitted the film was a web page: a strip
+   of browser text below a projector screen, repeating words that were already
+   on the screen. The picture carries its own words now. This stays because
+   somebody listening to the page still needs them. */
 
 #film-caption {
   position: absolute;
-  left: 50%;
-  bottom: calc(var(--film-bar) + clamp(12px, 2.4vh, 28px));
-  z-index: 5;
-  transform: translateX(-50%);
-  margin: 0;
-  max-width: min(42rem, 84vw);
-  pointer-events: none;
-  text-align: center;
-  text-wrap: balance;
-  font-family: var(--film-mono);
-  font-size: clamp(11px, 1.55vh, 14px);
-  line-height: 1.7;
-  letter-spacing: 0.02em;
-  color: rgba(159, 174, 166, 0.74);
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.95);
-}
-
-#film-caption:empty {
-  display: none;
-}
-
-/* ---------- controls ---------- */
-
-#film-ctl {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 6;
-  display: flex;
-  align-items: center;
-  gap: clamp(12px, 2.6vw, 24px);
-  padding: 10px clamp(14px, 3.4vw, 36px);
-  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.7) 55%, rgba(0, 0, 0, 0) 100%);
-}
-
-#film-progress {
-  flex: 1 1 auto;
-  min-width: 0;
-  height: 2px;
-  border-radius: 2px;
-  background: rgba(233, 228, 214, 0.16);
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
   overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
-#film-progress span {
+/* ---------- the scrubber ----------
+   A row of chapter segments with gaps between them, so the shape of the
+   film — a short title, a long middle, a short close — is visible before
+   you touch anything. The whole strip grows on hover the way a video
+   player's does. That is a MOUSE affordance and only a mouse affordance —
+   see the `hover: none` block further down, where the grown state is simply
+   the resting state, because a finger has no way to ask for it. */
+
+#film-scrub {
+  position: relative;
+  display: block;
+  padding: 9px 0;
+  cursor: pointer;
+  touch-action: none;
+}
+
+/* No focus ring on the scrubber, deliberately — and it has to be turned off
+   by name, because index.html's critical CSS puts an amber outline on
+   EVERYTHING that takes focus.
+   The scrubber is focused programmatically the moment the film starts, so
+   that Space is the 2× shuttle rather than a button press — which meant the
+   first thing you did with the keyboard drew a bright amber box around the
+   whole transport and left it there for the rest of the film. The focus
+   indicator is the strip itself: focus grows it and shows the playhead,
+   exactly as hover does. That is visible, and it is not a highlighted bar
+   sitting under the picture. */
+
+#film-scrub:focus,
+#film-scrub:focus-visible {
+  outline: none;
+}
+
+.film-chaps {
+  display: flex;
+  gap: 2px;
+  height: var(--film-bar-h);
+  transition: height 0.14s ease;
+}
+
+#film-scrub:hover .film-chaps,
+#film-scrub:focus-visible .film-chaps,
+#film-scrub[data-drag="true"] .film-chaps {
+  height: 8px;
+}
+
+.film-chap {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 2px;
+  overflow: hidden;
+  border-radius: 1.5px;
+  background: rgba(233, 228, 214, 0.2);
+}
+
+.film-chap[data-on="true"] {
+  background: rgba(233, 228, 214, 0.32);
+}
+
+.film-chap i {
   display: block;
   width: 0%;
   height: 100%;
-  background: linear-gradient(90deg, rgba(227, 169, 74, 0.6), var(--film-amber-lit));
+  background: linear-gradient(90deg, var(--film-amber), var(--film-amber-lit));
 }
 
+/* the playhead. Sits on the strip, not in a segment, so it crosses the
+   chapter gaps instead of stopping at them. */
+.film-head {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 11px;
+  height: 11px;
+  margin: -5.5px 0 0 -5.5px;
+  border-radius: 50%;
+  background: var(--film-amber-lit);
+  box-shadow: 0 0 10px rgba(227, 169, 74, 0.55);
+  transform: scale(0);
+  transition: transform 0.14s ease;
+  pointer-events: none;
+}
+
+#film-scrub:hover .film-head,
+#film-scrub:focus-visible .film-head,
+#film-scrub[data-drag="true"] .film-head {
+  transform: scale(1);
+}
+
+/* ---------- hover label ---------- */
+
+#film-tip {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  transform: translateX(-50%);
+  z-index: 2;
+  padding: 5px 9px;
+  border: 1px solid rgba(233, 228, 214, 0.16);
+  border-radius: 3px;
+  background: rgba(6, 12, 15, 0.94);
+  font-family: var(--film-mono);
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  color: var(--film-ink);
+  pointer-events: none;
+}
+
+#film-tip[hidden] {
+  display: none;
+}
+
+/* ---------- the row ---------- */
+
+#film-row {
+  display: flex;
+  align-items: center;
+  gap: clamp(9px, 1.8vw, 16px);
+  padding-top: 3px;
+}
+
+#film-time {
+  flex: 0 0 auto;
+  font-family: var(--film-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  color: rgba(233, 228, 214, 0.78);
+  font-variant-numeric: tabular-nums;
+}
+
+#film-chapter {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--film-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--film-amber);
+}
+
+/* ---------- the speed picker ----------
+   One button per speed, in a single hairline pill — a segmented control, not
+   four loose buttons, because they are one choice. It sits to the right of the
+   chapter name and takes the slack that the old HOLD SPACE hint used to hold,
+   so the Exit button stays pinned to the right edge of the bar. */
+
+#film-speed {
+  flex: 0 0 auto;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid var(--film-chrome-line);
+  border-radius: 999px;
+  background: var(--film-chrome-bg);
+  box-shadow: var(--film-chrome-lift);
+}
+
+.film-rate {
+  -webkit-appearance: none;
+  appearance: none;
+  border: 0;
+  /* the divider between segments, so there is one hairline between each pair
+     and none on the two outer edges — a border on every button doubles up.
+     Kept lighter than the pill's own edge: it divides, it does not enclose. */
+  border-left: 1px solid rgba(233, 228, 214, 0.24);
+  background: none;
+  padding: 0 clamp(7px, 1.2vw, 11px);
+  min-height: 30px;
+  font-family: var(--film-mono);
+  font-size: 10.5px;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  color: rgba(233, 228, 214, 0.76);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition:
+    color 0.18s ease,
+    background-color 0.18s ease;
+}
+
+.film-rate:first-child {
+  border-left: 0;
+}
+
+.film-rate:hover {
+  color: var(--film-amber-lit);
+  background: rgba(227, 169, 74, 0.08);
+}
+
+/* the one you are at. `data-on` is written from film.state.rate, so holding
+   space lights 2× and gives it back on release — see src/film/controls.ts. */
+.film-rate[data-on="true"] {
+  color: var(--film-amber-lit);
+  background: rgba(227, 169, 74, 0.16);
+}
+
+.film-rate:focus-visible {
+  outline: 2px solid var(--film-amber);
+  outline-offset: -2px;
+}
+
+/* ---------- buttons ---------- */
+
+#film-play,
 #film-skip {
   flex: 0 0 auto;
   -webkit-appearance: none;
   appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 44px;
-  min-width: 84px;
-  padding: 0 18px;
-  border: 1px solid rgba(233, 228, 214, 0.22);
+  border: 1px solid var(--film-chrome-line);
   border-radius: 999px;
-  background: rgba(10, 20, 24, 0.55);
-  color: rgba(233, 228, 214, 0.86);
+  background: var(--film-chrome-bg);
+  box-shadow: var(--film-chrome-lift);
+  color: rgba(233, 228, 214, 0.94);
   font-family: var(--film-mono);
-  font-size: 12px;
-  line-height: 1;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
   cursor: pointer;
   transition:
     color 0.18s ease,
@@ -307,68 +336,160 @@
     background-color 0.18s ease;
 }
 
+#film-play {
+  min-width: 44px;
+  padding: 0;
+}
+
+#film-skip {
+  min-width: 84px;
+  padding: 0 18px;
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+#film-play:hover,
 #film-skip:hover {
   color: var(--film-amber-lit);
   border-color: rgba(227, 169, 74, 0.6);
   background: rgba(227, 169, 74, 0.1);
 }
 
+#film-play:focus-visible,
 #film-skip:focus-visible {
   outline: 2px solid var(--film-amber);
   outline-offset: 3px;
 }
 
-/* ---------- small screens ---------- */
+/* the two-bar pause glyph, drawn in CSS so there is nothing to load;
+   it becomes a play triangle when the film is paused */
+.film-icon {
+  display: block;
+  width: 13px;
+  height: 13px;
+  background:
+    linear-gradient(currentColor, currentColor) left / 32% 100% no-repeat,
+    linear-gradient(currentColor, currentColor) right / 32% 100% no-repeat;
+}
+
+#film-play[data-paused="true"] .film-icon {
+  background: currentColor;
+  clip-path: polygon(10% 0, 100% 50%, 10% 100%);
+}
+
+/* ---------- a device with no hover ----------
+   Everything above that reveals itself on hover has to be ALREADY REVEALED
+   here, because there is no state a finger can put the bar into that a mouse
+   gets for free by arriving.
+
+   The scrubber is the case that actually broke. Its strip grows and its
+   playhead appears on `:hover, :focus-visible, [data-drag]` — and on a phone
+   the only one of those three that ever matched was the focus the film puts on
+   the scrubber at boot so that Space is the shuttle. Tap any control in the
+   row and controls.ts hands that focus back programmatically, which is not
+   `:focus-visible`; the strip collapsed to five pixels, the playhead scaled to
+   zero, and with no hover to bring either back it stayed that way for the rest
+   of the film. So the phone gets the grown strip permanently: it is the only
+   thing on the bar showing where in the film you are.
+
+   The speed picker is the other one. Four segments across a 375px bar sit on a
+   26px pitch with no separation, and a tap thirteen pixels off centre changes
+   the speed to the wrong one — touch adjustment cannot arbitrate between two
+   equally-clickable neighbours. Scoped to `hover: none` on purpose: unscoped,
+   a 44px pill is two pixels taller than the pause and EXIT buttons it sits
+   between, and on desktop that pill is deliberately the lighter object. */
+
+@media (hover: none) {
+  .film-chaps {
+    height: 8px;
+  }
+  .film-head {
+    transform: scale(1);
+  }
+  .film-rate {
+    min-height: 44px;
+  }
+}
+
+/* ---------- small screens ----------
+   The chapter name is what gives way, and the speed picker is what it gives
+   way to. The name is a nicety — the scrubber names the chapter you are
+   hovering and the caption above the bar is the act's own words — whereas the
+   picker is a control, and a control that has been squeezed off the bar is a
+   control nobody on a phone has. */
+
+@media (max-width: 640px) {
+  #film-chapter {
+    flex: 0 1 auto;
+  }
+  .film-rate {
+    padding: 0 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  #film-chapter {
+    display: none;
+  }
+}
 
 @media (max-width: 420px) {
-  #film {
-    --film-bar: clamp(26px, 6vh, 48px);
+  /* the bar overran its own width by a couple of pixels at 375, and the slack
+     has to come from between the controls rather than out of any of them —
+     every one of them is already at the size a thumb needs */
+  #film-row {
+    gap: 6px;
   }
   #film-skip {
-    min-width: 74px;
-    padding: 0 14px;
+    min-width: 68px;
+    padding: 0 12px;
     font-size: 11px;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.1em;
+  }
+  .film-rate {
+    padding: 0 6px;
+    font-size: 10px;
+    letter-spacing: 0.02em;
   }
   #film-caption {
-    max-width: 88vw;
+    font-size: 12px;
+    margin-bottom: 8px;
   }
 }
 
-/* landscape phones: the bars would eat the picture */
+/* landscape phones: give the picture back as much height as possible */
 @media (max-height: 460px) {
-  #film {
-    --film-bar: clamp(18px, 4.5vh, 34px);
-  }
   #film-caption {
-    bottom: calc(var(--film-bar) + 8px);
+    margin-bottom: 6px;
     font-size: 11px;
-    line-height: 1.5;
+    line-height: 1.45;
   }
-  #film-ctl {
-    padding-top: 6px;
-    padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+  #film-scrub {
+    padding: 7px 0;
+  }
+  #film-play,
+  #film-skip {
+    min-height: 38px;
+  }
+  .film-rate {
+    min-height: 26px;
   }
 }
 
-/* ---------- reduced motion ----------
-   The film still plays — it holds each act's settled frame — but nothing
-   here is allowed to move. */
+/* ---------- reduced motion ---------- */
 
 @media (prefers-reduced-motion: reduce) {
-  #film.is-live,
-  #film.is-live #film-bars i {
+  #film:not([hidden]) {
     animation: none;
   }
-  #film-grain {
-    animation: none;
-    opacity: 0.3;
-  }
-  #film::before {
-    animation: none;
-    opacity: 0.05;
-  }
-  #film-skip {
+  .film-chaps,
+  .film-head,
+  .film-icon,
+  #film-play,
+  #film-skip,
+  .film-rate {
     transition: none;
   }
 }
@@ -376,13 +497,29 @@
 /* ---------- forced colours ---------- */
 
 @media (forced-colors: active) {
-  #film-grain,
-  #film::before,
-  #film::after {
-    display: none;
+  #film {
+    background: Canvas;
   }
-  #film-skip {
+  .film-chap {
+    border: 1px solid CanvasText;
+  }
+  .film-chap i {
+    background: Highlight;
+  }
+  #film-play,
+  #film-skip,
+  #film-speed {
     border-color: ButtonBorder;
     color: ButtonText;
+    /* the lift is there to separate the control from the field behind it, and
+       in forced colours there is no field — just a dark smear under a button */
+    box-shadow: none;
+  }
+  /* the lit segment carries no border of its own, so in forced colours the
+     background is the only thing saying which speed is on — and backgrounds
+     are exactly what forced colours throws away */
+  .film-rate[data-on="true"] {
+    background: Highlight;
+    color: HighlightText;
   }
 }

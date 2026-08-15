@@ -2,18 +2,48 @@
  * The projector — the destination, and the whole reason the concept works.
  *
  * A projector without light is furniture. It sits dark in the middle of the
- * field with a vertical beacon so it can be found from anywhere; bring your
- * light and the beam swings onto the screen and the film starts.
+ * field with a vertical beacon so it can be found from anywhere; walk over
+ * with your lantern, switch it on, and it throws the film at the screen.
+ *
+ * THE FILM PLAYS HERE, ON THE SCREEN, and you watch it from out in the field
+ * with the projector and the sky still in frame. That is a deliberate reversal
+ * of how this used to work — the camera used to push in and hand over to a
+ * full-screen DOM layer — and it costs something: text thirty units away is
+ * text thirty units away. Three things pay that back, and if you change any of
+ * them, check the film is still readable at 375px before you ship:
+ *
+ *   1. `watchVantage()` below frames the shot on a long lens from far back,
+ *      which is what lets the screen be large in frame while the figure in
+ *      the foreground stays a figure and not a wall.
+ *   2. The picture texture is 1280 across (see src/film/film.ts) — sized so
+ *      body copy survives the mapping.
+ *   3. The screen material opts out of fog. At this distance the fog would
+ *      eat half the contrast, and a lit screen punching through haze is more
+ *      believable than a hazy one anyway.
+ *
+ * The words also exist as subtitles in the DOM, under the controls, which is
+ * the path that actually works on a phone.
+ *
+ * IT ALSO HAS TO ASK. There is exactly one thing to do in this world and it
+ * is done to this object, so the machine carries its own call to action —
+ * rings pinging out across the ground under it, built further down under
+ * "the invitation". Everything else here is atmosphere; that part is the
+ * interface.
  */
 
 import * as THREE from 'three'
-import { clamp, easeOut, type Landmark, type LandmarkContext } from '../../core/contract'
+import { PALETTE, clamp, easeOut, type Landmark, type LandmarkContext } from '../../core/contract'
 
 const SCREEN_Z = -30
 const SCREEN_W = 30
-const SCREEN_H = 17
-const SCREEN_Y = 11
+/** Height of the screen's centre. Raised from 11 when the film moved onto it:
+ *  you now watch from behind the projector, and at 11 the machine's silhouette
+ *  sat squarely in the bottom third of the picture. */
+const SCREEN_Y = 13
 const PROJ_Z = 4
+
+/** a cylinder's own axis — what the reels spin about */
+const SPIN = new THREE.Vector3(0, 1, 0)
 
 /** vertical gradient used for both beams — bright at the source, gone at the end */
 function beamTexture(): THREE.CanvasTexture {
@@ -35,36 +65,83 @@ function beamTexture(): THREE.CanvasTexture {
   return t
 }
 
-/** soft-edged rectangle — what light on a screen actually looks like */
-function screenTexture(): THREE.CanvasTexture {
-  const W = 256
-  const H = 144
-  const cv = document.createElement('canvas')
-  cv.width = W
-  cv.height = H
-  const c = cv.getContext('2d')!
-  c.fillStyle = '#000'
-  c.fillRect(0, 0, W, H)
-  const g = c.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * 0.62)
-  g.addColorStop(0, 'rgba(255,247,229,1)')
-  g.addColorStop(0.62, 'rgba(255,236,201,0.72)')
-  g.addColorStop(1, 'rgba(227,169,74,0.08)')
-  c.fillStyle = g
-  c.fillRect(0, 0, W, H)
-  const t = new THREE.CanvasTexture(cv)
-  t.colorSpace = THREE.SRGBColorSpace
-  return t
+/* ---------------- the invitation ----------------
+ * A dark machine in a big empty field is furniture until somebody tells you
+ * it is a switch. This is that: a pair of rings pinging outward across the
+ * ground under it, answering *where do I go* without a tutorial, a modal or a
+ * line of onboarding copy.
+ *
+ * There used to be a plaque hanging over it as well, reading SWITCH IT ON and
+ * then WATCH IT AGAIN. It is gone on purpose. Floating type in world space is
+ * the loudest thing in a frame this dark — it sat over the screen, said what
+ * the HUD prompt already says on approach, and turned the one object in the
+ * field into a billboard. The rings point at the machine without shouting.
+ *
+ * They retire the instant the lamp strikes: the invitation has done its job.
+ */
+
+/** where the camera sits to watch, what it aims at, and on what lens */
+export interface Vantage {
+  position: THREE.Vector3
+  lookAt: THREE.Vector3
+  fov: number
 }
 
 export interface Projector extends Landmark {
-  /** where the camera should sit to watch the film, and what it looks at */
-  readonly vantage: { position: THREE.Vector3; lookAt: THREE.Vector3 }
+  /** stand here to reach the switch */
+  readonly pressSpot: THREE.Vector3
+  /** …and reach for this */
+  readonly pressPoint: THREE.Vector3
+  /** stand here to watch, once it's running */
+  readonly watchSpot: THREE.Vector3
+  /** the third-person shot, framed for this viewport shape */
+  watchVantage(aspect: number): Vantage
+  /**
+   * How wide the picture actually lands, in device pixels, on a viewport of
+   * this shape and this many device pixels tall — which is how many texels
+   * the film is worth painting.
+   *
+   * It is the projector's answer to give because the projector owns both
+   * halves of it: the size of the screen and the shot it is watched from.
+   * src/film/film.ts sizes its buffer from this.
+   */
+  pictureTexels(aspect: number, viewportDevicePxHigh: number): number
   /** 0 → dormant beacon, 1 → beam fully on the screen */
   setFiring(on: boolean): void
+  /**
+   * 0 = night, 1 = daylight. The beacon is an additive amber column authored
+   * for a dark sky; against a bright one it is a smear that reads as a render
+   * bug. It also has nothing left to do by day — a thirty-unit screen and a
+   * machine on a stand are the most visible things in the field once you can
+   * see the field — so it goes, and the HUD compass carries the wayfinding.
+   */
+  setDaylight(k: number): void
+  /** the picture canvas changed; push it to the GPU */
+  refreshScreen(): void
+  /**
+   * The picture canvas changed SIZE. That is a different job from a refresh:
+   * the texture on the card is the old shape and re-uploading into it is at
+   * best wasted and at worst a driver error, so the old one is thrown away
+   * and the next frame allocates a new one.
+   */
+  resizeScreen(): void
+  /**
+   * Where a ray lands on the picture, in picture coordinates: 0…1 across and
+   * 0…1 DOWN, matching the film canvas rather than the plane's own UVs. Null
+   * if the ray misses the screen. This is how the card's links are clicked —
+   * see src/film/acts/act6.ts.
+   */
+  hitScreen(ray: THREE.Raycaster): { u: number; v: number } | null
 }
 
-export function createProjector(): Projector {
+/**
+ * @param picture the film's canvas. Its aspect sets the screen's shape, so the
+ *   picture lands edge to edge with no letterboxing of its own.
+ */
+export function createProjector(picture: HTMLCanvasElement): Projector {
   const group = new THREE.Group()
+
+  const SCREEN_H = SCREEN_W / (picture.width / picture.height)
 
   const metal = new THREE.MeshStandardMaterial({
     color: 0x3d4a4a,
@@ -94,13 +171,23 @@ export function createProjector(): Projector {
     group.add(leg)
   }
 
-  const screenTex = screenTexture()
+  // the film itself. LinearFilter with no mipmaps: the texture is re-uploaded
+  // 30 times a second and regenerating a mip chain each time costs more than
+  // the shimmer it saves — and the buffer is now sized for the screen it
+  // lands on (see pictureTexels below), so 1:1 is the case being filtered.
+  const screenTex = new THREE.CanvasTexture(picture)
+  screenTex.colorSpace = THREE.SRGBColorSpace
+  screenTex.minFilter = THREE.LinearFilter
+  screenTex.magFilter = THREE.LinearFilter
+  screenTex.generateMipmaps = false
+  screenTex.anisotropy = 4
+
   const screenMat = new THREE.MeshBasicMaterial({
     map: screenTex,
     color: 0xffffff,
     transparent: true,
     opacity: 0,
-    fog: true,
+    fog: false,
     toneMapped: false,
   })
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(SCREEN_W, SCREEN_H), screenMat)
@@ -132,12 +219,46 @@ export function createProjector(): Projector {
   lens.rotation.y = Math.PI
   group.add(lens)
 
-  // reels, because a projector without reels doesn't read as a projector
-  for (const z of [PROJ_Z + 0.6, PROJ_Z + 1.7]) {
-    const reel = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.15, 0.18, 22), metal)
-    reel.rotation.z = Math.PI / 2
-    reel.position.set(0, 4.1, z)
+  // Reels, because a projector without reels doesn't read as a projector —
+  // and turned to face back down the throw, because that is where you now
+  // stand to watch. Edge-on (which is how a real projector carries them) they
+  // resolve into a single thin post rising out of the housing, and the eye
+  // reads that as a mast, not as a machine doing something.
+  //
+  // TWO EQUAL DISCS SIDE BY SIDE ON TOP OF A ROUNDED BODY IS A CARTOON MOUSE.
+  // That is not a joke about the silhouette, it is what it was: same radius,
+  // same height, symmetric about the body, and in a dark shot where all you
+  // get is the outline the head reads before the machine does. Real projectors
+  // aren't symmetric anyway — feed reel high and back, take-up reel low and
+  // forward, different sizes, each on its own arm — so the fix and the truth
+  // are the same shape. Keep them unequal and off-axis if you touch this.
+  const reels: THREE.Mesh[] = []
+  const REELS: Array<[number, number, number, number]> = [
+    // x, y, z, radius
+    [-0.6, 4.15, PROJ_Z + 1.2, 0.62],
+    [0.95, 3.3, PROJ_Z - 0.1, 0.44],
+  ]
+  for (const [x, y, z, r] of REELS) {
+    const reel = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.14, 22), metal)
+    reel.rotation.x = Math.PI / 2
+    // a few degrees off square, so the two never line up into one shape
+    reel.rotation.z = 0.12
+    reel.position.set(x, y, z)
     group.add(reel)
+    reels.push(reel)
+
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.22, 10), dark)
+    hub.rotation.x = Math.PI / 2
+    hub.position.set(x, y, z + 0.1)
+    group.add(hub)
+
+    // the arm it hangs off — the thing that makes it machinery rather than
+    // a disc floating above a box
+    const armLen = Math.hypot(x - 0.1, y - 2.9)
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.22, armLen, 0.22), dark)
+    arm.position.set((x + 0.1) / 2, (y + 2.9) / 2, z)
+    arm.rotation.z = Math.atan2(x - 0.1, y - 2.9) * -1
+    group.add(arm)
   }
 
   const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.34, 1.7, 12), dark)
@@ -146,6 +267,19 @@ export function createProjector(): Projector {
   const foot = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.7, 0.22, 20), dark)
   foot.position.set(0, 0.11, PROJ_Z)
   group.add(foot)
+
+  // The switch. It exists so that "turn it on" is a thing you can see happen
+  // to a specific object rather than an event that occurs near the projector.
+  const switchMat = new THREE.MeshStandardMaterial({
+    color: 0x8a3f26,
+    roughness: 0.5,
+    metalness: 0.3,
+    emissive: 0x000000,
+  })
+  const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.14, 12), switchMat)
+  knob.rotation.z = Math.PI / 2
+  knob.position.set(1.32, 3.1, PROJ_Z + 0.6)
+  group.add(knob)
 
   /* ---------------- beams ---------------- */
   const beamTex = beamTexture()
@@ -162,50 +296,145 @@ export function createProjector(): Projector {
     toneMapped: false,
   })
   const beacon = new THREE.Mesh(
-    new THREE.CylinderGeometry(3.4, 0.9, 70, 14, 1, true),
+    new THREE.CylinderGeometry(3.0, 0.8, 70, 14, 1, true),
     beaconMat,
   )
   beacon.position.set(0, 35 + 2.6, PROJ_Z)
   group.add(beacon)
 
-  // the projection beam — lens to screen
-  const throwDist = Math.abs(SCREEN_Z - (PROJ_Z - 3.4))
-  const projMat = new THREE.MeshBasicMaterial({
-    map: beamTex,
-    transparent: true,
-    opacity: 0,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-    side: THREE.DoubleSide,
-    fog: false,
-    toneMapped: false,
-  })
-  // Far radius stays *inside* the screen rectangle. At 0.52 the cone's end
-  // circle cleared the top edge and you could see the beam silhouette spilling
-  // into the sky above the frame, which instantly breaks the illusion that the
-  // light is landing on anything.
-  const throwBeam = new THREE.Mesh(
-    new THREE.CylinderGeometry(SCREEN_H * 0.44, 0.5, throwDist, 16, 1, true),
-    projMat,
-  )
-  throwBeam.rotation.x = Math.PI / 2
-  throwBeam.position.set(0, 2.6 + (SCREEN_Y - 2.6) * 0.5, (PROJ_Z - 3.4 + SCREEN_Z) / 2)
-  throwBeam.lookAt(new THREE.Vector3(0, SCREEN_Y, SCREEN_Z))
-  group.add(throwBeam)
+  /* NO THROW BEAM — deliberately, and it is not coming back.
+   *
+   * There used to be a cone of amber light from the lens to the screen. It
+   * belonged to the version where you watched the film in a DOM takeover and
+   * the beam was scenery you saw for a second and a half on the way in. Now
+   * that the film plays on the screen and you sit behind the machine for
+   * the length of the film, the beam is between the camera and the picture, and
+   * *anything* between the camera and the picture is painted over the picture.
+   * It washed a bright wedge across the middle of every act.
+   *
+   * There is no version of this that works. A beam that fades before the
+   * screen is closer to the camera, so it projects *larger*; a dimmer one is
+   * a fainter wedge, not no wedge. The geometry is the problem.
+   *
+   * The machine still reads as running without it: the screen is lit, the
+   * reels turn, the switch glows, and `bounce` below throws the screen's
+   * light back across the field and onto whoever is standing in it.
+   */
 
   // light thrown back into the field from the screen
   const bounce = new THREE.PointLight(0xffe6bd, 0, 62, 2)
   bounce.position.set(0, SCREEN_Y, SCREEN_Z + 6)
   group.add(bounce)
 
+  /* ---------------- the invitation ---------------- */
+
+  // Rings pinging out across the ground. Normal blending rather than additive:
+  // additive amber is beautiful at night and completely invisible over sunlit
+  // grass, and this is the one cue that has to work at both times of day.
+  const ringGeo = new THREE.RingGeometry(0.93, 1, 56)
+  const rings = [0, 1].map(() => {
+    const mat = new THREE.MeshBasicMaterial({
+      color: PALETTE.amber,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      fog: true,
+      toneMapped: false,
+    })
+    const mesh = new THREE.Mesh(ringGeo, mat)
+    mesh.rotation.x = -Math.PI / 2
+    mesh.position.set(0, 0.07, PROJ_Z)
+    group.add(mesh)
+    return { mesh, mat }
+  })
+  const RING_MIN = 2.2
+  const RING_MAX = 8.5
+
+  /* ---------------- what a click on "the projector" means ----------------
+     Every solid part of it: the machine, its stand, the screen and the frame
+     the screen hangs in. Pointing at any of them is pointing at the thing.
+
+     NOT the beacon and NOT the rings, which is the whole reason this is a
+     published list rather than `group` itself. The beacon is a seventy-unit
+     column of light in the sky — clicking a patch of empty air above the field
+     is not asking for a film — and the rings are painted flat on the ground,
+     where a click already means the one thing it should mean out here: walk
+     there. They are the invitation to walk over, so they must not swallow the
+     walk. */
+  const hitTargets = group.children.filter(
+    (o) =>
+      (o as THREE.Mesh).isMesh && o !== beacon && !rings.some((r) => r.mesh === (o as THREE.Mesh)),
+  )
+
   /* ---------------- behaviour ---------------- */
   let firing = 0
   let firingTarget = 0
+  let daylight = 0
 
   const anchor = new THREE.Vector3(0, 0, PROJ_Z + 12)
-  const vantage = {
-    position: new THREE.Vector3(0, SCREEN_Y - 1.5, SCREEN_Z + 30),
-    lookAt: new THREE.Vector3(0, SCREEN_Y, SCREEN_Z),
+  const screenCentre = new THREE.Vector3(0, SCREEN_Y, SCREEN_Z)
+
+  /* ---------------- the third-person shot ----------------
+     Two rigs, blended by how portrait the viewport is, then widened if it
+     has to be to keep the screen inside the frame.
+
+     Landscape is a long lens from a long way back. That is the entire trick:
+     a 22° lens at fifty units compresses the figure, the projector and the
+     screen into one plane, so all three read at once — which is what "you are
+     still standing in the field watching it" has to mean visually. Move the
+     camera closer and widen the lens to compensate and the figure becomes a
+     foreground obstruction.
+
+     Portrait cannot have that. A 30-unit screen in a frame twice as tall as
+     it is wide has to be far away to fit, so the shot opens up and the film
+     gets smaller — which is why the subtitles in the DOM are not optional. */
+  const LAND = {
+    position: new THREE.Vector3(3.5, 3.0, 50),
+    lookAt: new THREE.Vector3(0, 11.2, SCREEN_Z),
+    fov: 22,
+  }
+  const PORT = {
+    position: new THREE.Vector3(1.5, 3.0, 50),
+    lookAt: new THREE.Vector3(0, 9.5, SCREEN_Z),
+    fov: 47,
+  }
+
+  function watchVantage(aspect: number): Vantage {
+    const k = clamp((1.0 - aspect) / 0.55)
+    const position = LAND.position.clone().lerp(PORT.position, k)
+    const lookAt = LAND.lookAt.clone().lerp(PORT.lookAt, k)
+
+    const dist = position.distanceTo(screenCentre)
+    // widen until the screen fits, with a margin — a cropped film is worse
+    // than a small one, and at some aspect ratios the blend alone won't do it
+    const half = (m: number) => (2 * Math.atan(m / dist) * 180) / Math.PI
+    const needW = half((SCREEN_W / 2) * 1.07 / Math.max(0.2, aspect))
+    const needH = half((SCREEN_H / 2) * 1.09)
+
+    return {
+      position,
+      lookAt,
+      fov: Math.max(LAND.fov + (PORT.fov - LAND.fov) * k, needW, needH),
+    }
+  }
+
+  /**
+   * The same shot, measured rather than framed: how many device pixels wide
+   * the thirty-unit screen comes out at.
+   *
+   * Straight perspective — the visible world height at the screen's distance
+   * is `2·d·tan(fov/2)`, the screen takes `SCREEN_H` of it, and the viewport
+   * is `deviceHigh` pixels for the whole of it. The shot is square enough to
+   * the screen that the tilt is not worth a term; measured against real
+   * frames this lands within half a percent.
+   */
+  function pictureTexels(aspect: number, deviceHigh: number): number {
+    const v = watchVantage(aspect)
+    const dist = v.position.distanceTo(screenCentre)
+    const visibleH = 2 * dist * Math.tan((v.fov * Math.PI) / 360)
+    if (!(visibleH > 0) || !(deviceHigh > 0)) return 0
+    return (SCREEN_W / visibleH) * deviceHigh
   }
 
   return {
@@ -213,13 +442,95 @@ export function createProjector(): Projector {
     title: 'The projector',
     object: group,
     anchor,
-    radius: 15,
-    prompt: 'Bring your light',
-    again: 'Enter to watch again',
-    vantage,
+    // Wide, because this is the only interactive thing in the field and the
+    // cost of arming it a beat early is nothing.
+    radius: 17,
+    /**
+     * THE SAME SENTENCE AT EVERY DISTANCE, and that is the point. This used to
+     * read "Switch on the projector — it plays the film" while the standing
+     * line at the bottom of the screen said "Walk to the projector and switch
+     * it on to play the film", so the instruction rewrote itself under you as
+     * you walked. Two phrasings of one idea is not extra information, it is a
+     * flicker: the eye goes back to re-read a line it had already finished.
+     * main.ts takes its standing line from this string (`LEAD`), so the two
+     * cannot drift apart again — edit it here and it changes in both places.
+     */
+    prompt: 'Walk to the projector and switch it on to play the film',
+    again: 'Switch it on again to replay the film',
+    /**
+     * …and up at the machine itself, once you are within arm's reach of it,
+     * the badge every game puts on an interactable: PRESS [E] TO TURN ON,
+     * floating at the switch. It is not a third phrasing of the sentence above
+     * — that one says what the projector is for, from across a field, and this
+     * one names the mechanical action while you are standing at the knob it
+     * happens to. Different job, different register, and it is small and mono
+     * and grey precisely so the two are never read as one instruction.
+     *
+     * `reach` stands in the knob's own column — same x and z as the switch, so
+     * the badge is over the thing it names rather than over "the projector"
+     * generally, which you already knew the position of. Its height is the
+     * one part that is not the switch: the badge hangs *above* the point it is
+     * given, and at the knob's own 3.1 it would be pinned across the reels.
+     * 5.5 clears the tallest of them (4.15 + its 0.62 radius) with room for
+     * the gap, so the label sits in clean sky and still points down the
+     * switch's column. Move the reels and this moves with them.
+     */
+    verb: 'turn on',
+    verbAgain: 'play it again',
+    reach: new THREE.Vector3(1.32, 5.5, PROJ_Z + 0.6),
+    hitTargets,
+    /**
+     * Standing here is not consent. The film is a two-minute commitment and it
+     * takes the camera off you to make it, so it starts when someone asks for
+     * it — walk up and press E — and never merely because they wandered into
+     * the radius. See the dwell block in main.ts.
+     *
+     * A CLICK ON THE MACHINE IS AN ERRAND, NOT A SWITCH, and the distinction is
+     * the whole of how the pointer is allowed to work here. Pointing at it from
+     * across the field used to start the film outright, which is two minutes of
+     * commitment entered from thirty units away by the one gesture that carries
+     * no intent — you click to look around, you click to dismiss, you click
+     * because the cursor was already there. Now it sends the figure over and the
+     * film starts when the figure arrives, which is the same bargain walking
+     * there on the keys has always made. See `hitTargets` above and the note over
+     * `onPointerDown` in main.ts.
+     */
+    autoActivate: false,
+
+    // beside the body, within arm's reach of the switch
+    pressSpot: new THREE.Vector3(2.6, 0, PROJ_Z + 2.1),
+    pressPoint: new THREE.Vector3(1.32, 3.1, PROJ_Z + 0.6),
+    // off to one side and behind the lens, so the figure is in the shot and
+    // not in the beam
+    watchSpot: new THREE.Vector3(-6, 0, PROJ_Z + 1),
+    watchVantage,
+    pictureTexels,
 
     setFiring(on: boolean) {
       firingTarget = on ? 1 : 0
+    },
+
+    setDaylight(k: number) {
+      daylight = clamp(k)
+    },
+
+    refreshScreen() {
+      screenTex.needsUpdate = true
+    },
+
+    resizeScreen() {
+      // dispose drops the GPU texture and its properties; the next frame that
+      // wants the screen allocates one the size the canvas is now
+      screenTex.dispose()
+      screenTex.needsUpdate = true
+    },
+
+    hitScreen(ray: THREE.Raycaster) {
+      const hit = ray.intersectObject(screen, false)[0]
+      if (!hit?.uv) return null
+      // the texture is uploaded flipped (three's default), so the plane's v
+      // counts up from the bottom while the canvas counts down from the top
+      return { u: hit.uv.x, v: 1 - hit.uv.y }
     },
 
     activate(ctx: LandmarkContext) {
@@ -230,24 +541,64 @@ export function createProjector(): Projector {
       firing += (firingTarget - firing) * Math.min(1, dt * 2.6)
 
       // the beacon breathes while dormant, and gets out of the way once the
-      // film is running — it has done its job by then
+      // film is running — it has done its job by then. Daylight retires it
+      // for the same reason, a good deal earlier.
+      const night = 1 - daylight
       const idle = 1 - firing
       const pulse = 0.30 + Math.sin(elapsed * 0.85) * 0.07
-      beaconMat.opacity = idle * pulse * (0.62 + lit * 0.38)
+      beaconMat.opacity = idle * pulse * (0.62 + lit * 0.38) * night * night
       beacon.visible = beaconMat.opacity > 0.01
 
-      // a projector lamp flicker: two frequencies so it never reads as a sine
+      // a projector lamp flicker: two frequencies so it never reads as a sine.
+      // This is the *only* flicker in the film now — it used to be a CSS layer
+      // over the picture, and there is no picture in the DOM to cover.
       const flick = 1 + Math.sin(elapsed * 27) * 0.03 + Math.sin(elapsed * 8.3) * 0.02
       const f = easeOut(clamp(firing))
-      projMat.opacity = f * 0.42 * flick
-      throwBeam.visible = projMat.opacity > 0.01
-      screenMat.opacity = f * flick
-      bounce.intensity = f * 190 * flick
+
+      // Opacity strikes the lamp; colour carries the brightness and the
+      // flicker. Two separate jobs that were one before, and they have to be
+      // separate now: with no beam washing over the picture, the only thing
+      // making the screen read as *lit* rather than as a dark board is the
+      // picture's own gain. Above 1 is deliberate — the material is
+      // toneMapped:false, so this multiplies the texture straight through.
+      screenMat.opacity = f
+      // A screen has to out-punch whatever is falling on it. The picture is
+      // toneMapped:false, so this gain goes straight through — and in daylight
+      // it has to go further, or the film reads as a poster rather than a
+      // projection.
+      screenMat.color.setScalar(f * (1.3 + daylight * 0.35) * flick)
+      screen.visible = screenMat.opacity > 0.004
+      bounce.intensity = f * 190 * flick * (1 - daylight * 0.72)
       lensMat.color.setRGB(0.16 + f * 0.84, 0.12 + f * 0.75, 0.06 + f * 0.55)
+      switchMat.emissive.setRGB(f * 0.5, f * 0.14, 0.02)
+
+      // The reels turn while it's running — nothing else in the shot says
+      // "this machine is doing something". rotateOnAxis, not rotation.y: the
+      // reels are already tipped on their side, and adding to an Euler
+      // component after that spins them about the wrong axis.
+      for (const r of reels) r.rotateOnAxis(SPIN, dt * f * 2.4)
 
       // as you approach, the housing catches your light before the beam fires
-      const warm = clamp(lit * 1.2) * (1 - f)
+      // — which is only a thing that happens when your light is the light
+      const warm = clamp(lit * 1.2) * (1 - f) * night
       metal.emissive.setRGB(warm * 0.06, warm * 0.045, warm * 0.02)
+
+      /* the invitation. It has done its job the moment the lamp strikes, so
+         `idle` takes it off screen for the length of the film. */
+      const invited = idle * idle
+
+      for (let i = 0; i < rings.length; i++) {
+        const r = rings[i]!
+        // two rings, half a cycle apart, each expanding and fading as it goes
+        const phase = (elapsed * 0.42 + i * 0.5) % 1
+        const s = RING_MIN + (RING_MAX - RING_MIN) * phase
+        r.mesh.scale.setScalar(s)
+        // fade in off the floor as well as out at the edge, so a ring never
+        // pops into existence at full strength on top of the machine
+        const shape = Math.min(1, phase * 6) * (1 - phase) * (1 - phase)
+        r.mat.opacity = invited * shape * 0.75
+        r.mesh.visible = r.mat.opacity > 0.01
+      }
     },
   }
 }

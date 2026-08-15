@@ -1,88 +1,91 @@
 /**
- * ACT 2 — I also love to build.
+ * ACT 2 — Music.
  *
- * One idea: a blueprint draws itself, then runs.
- * Grid, boxes, routed edges — engineering-drawing restraint — and once the
- * diagram is complete a pulse of light makes a full circuit through it three
- * times. Underneath, three markers light along a rail: the arc of owning a
- * project from discovery to implementation.
+ * One idea: the curiosity in act 1 was never only about the board, so this act
+ * shows two things at once. A boy singing with an electric guitar draws itself
+ * on the left; the same boy on an alto sax draws itself on the right; both stay
+ * up. Two drawings that are still on screen when the act ends is the only
+ * composition in the film that does that, and it is the point — the act is
+ * about the *and*.
  *
- * This act carries more furniture than any other — head, credit, six boxes and
- * their labels, a rail and its labels, and a closing line — so every one of
- * them is given an explicit horizontal band measured off the one above it.
- * Nothing here is positioned as a fraction of the frame any more; the frame is
- * only 116 points tall at contact-sheet size and the fractions all landed on
- * top of one another.
+ * THE DRAWINGS ARE HIM NOW, NOT THE INSTRUMENTS, and everything else about
+ * this act followed from that.
+ *
+ * They used to be a bare guitar and a bare saxophone standing on end, which
+ * was right for the labels they carried: "Guitar / age 5 / talent shows, open
+ * mics, gigs" and "Alto sax / jazz band, grade school to college". A label
+ * naming a thing wants a picture of the thing, and two boys who differ only in
+ * what they are holding are two smudges.
+ *
+ * The captions are stories now — a specific talent show, a specific song, a
+ * specific town party — and a story wants the person in it. So the act lost
+ * three things it no longer needs: the instrument NAMES (the picture says
+ * guitar faster than the word does), the hand-lettered "age 5" callout (the
+ * caption carries the year), and the closing line under the pair (there is
+ * nothing left to sum up — the two captions ARE the act).
+ *
+ * WHAT THE CAPTIONS COST. They are long, they WRAP, and the wrap is measured
+ * before the pictures are sized, not after. Both captions are laid out at the
+ * same size and the block is as tall as the taller of the two, so the pair of
+ * drawings sit on one line however the text breaks. And CAP_W is bounded by
+ * the gap between the columns: the first pass let each caption run wider than
+ * the space between the two centres and "…by Aerosmith" printed straight
+ * through "Playing Sax at…".
  */
 
-import { PALETTE, ease, easeOut, range } from '../../core/contract'
+import { PALETTE, clamp, ease, easeOut, range } from '../../core/contract'
 import type { Act, ActRenderContext } from '../../core/contract'
 import type { Pt } from '../timeline'
 import {
+  RAMP,
   disc,
-  drawPath,
-  drawTracked,
-  fitText,
-  fitTracked,
+  drawLines,
   frameOf,
   hair,
   header,
-  pointAt,
   reset,
-  ring,
   scale,
   setFont,
   softDot,
-  trackedWidth,
   wash,
   withAlpha,
+  wrapText,
 } from '../timeline'
+import type { SketchBox } from '../sketch'
+import { drawSketch, prepare } from '../sketch'
+import { GUITAR } from '../sketches/guitar'
+import { SAX } from '../sketches/sax'
 import copy from '../../content/film.json'
 
 const C = copy.act2
-const DURATION = 20
+/**
+ * 10.4 — back up where it started, having gone down to 9.6 in between. The trim
+ * was made on the captions alone: they are three words each now, so the second
+ * one is read a second after it arrives and the rest looked like a still frame.
+ * What that missed is that the PICTURES are the act. The sax pen lifts at 6.3
+ * and both drawings are on screen together for the first time, side by side,
+ * and that is the frame this act exists to make. It gets four seconds now
+ * instead of three.
+ */
+/* 10.1, down from 10.4. The sax caption lands at 6.9 and the rest is a held
+   frame; three tenths came off that hold, not off the four seconds above. */
+const DURATION = 10.1
 
-const L_INTAKE = C.nodes[0] ?? 'intake'
-const L_AGENT = C.nodes[1] ?? 'agent'
-const L_TOOLS = C.nodes[2] ?? 'tools'
-const L_HANDOFF = C.nodes[3] ?? 'handoff'
+const G = prepare(GUITAR)
+const X = prepare(SAX)
 
-const TOOL_X = [0.58, 0.74, 0.9]
+/** each drawing gets about two and a half seconds of pen, a beat apart */
+const G_A = 0.4
+const G_B = 3.0
+const X_A = 3.7
+const X_B = 6.3
 
-const BOX_IN = [1.8, 2.4, 3.2, 3.6, 4.0, 4.6] // intake, agent, tool0..2, handoff
-const EDGE_IN = [5.0, 5.5, 5.8, 6.1, 6.5] // intake→agent, agent→tool0..2, agent→handoff
-const PASS = [7.6, 9.1, 10.6]
-const PASS_LEN = 1.35
-
-const RAIL_A = 12.2
-const MARKER_IN = [13.0, 14.15, 15.3]
-
-/** the credit hands the foot of the frame over to the closing line */
-const CREDIT_OUT = [15.2, 16.2] as const
-
-interface Box {
-  x: number
-  y: number
-  w: number
-  h: number
-}
-
-function boxPath(b: Box): Pt[] {
-  const l = b.x - b.w / 2
-  const r = b.x + b.w / 2
-  const tp = b.y - b.h / 2
-  const bt = b.y + b.h / 2
-  return [
-    { x: l, y: tp },
-    { x: r, y: tp },
-    { x: r, y: bt },
-    { x: l, y: bt },
-    { x: l, y: tp },
-  ]
-}
+/** each caption lands as its own drawing finishes */
+const G_CAP = 2.9
+const X_CAP = 6.2
 
 function draw(c: ActRenderContext): void {
-  const { ctx, w, h, t } = c
+  const { ctx, w, h, t, reduced } = c
   reset(ctx)
 
   const F = frameOf(w, h)
@@ -90,255 +93,105 @@ function draw(c: ActRenderContext): void {
   const hw = hair(F)
   wash(ctx, w, h, 0.85)
 
-  // opens from before t=0 so the cut into this act is never a black frame
   const hy = header(ctx, F, S, C.index, C.heading, easeOut(range(t, -0.3, 0.7)))
 
-  /* ---------------- the bands ----------------
-     Measured bottom-up: one line at the foot, the rail and its labels above
-     it, and whatever is left over is the drawing board. */
-  const footY = F.y + F.h * 0.985
-  const footTop = footY - S.body * 0.75
-  /** how far the largest marker ring reaches either side of the rail */
-  const markerR = F.s * 0.016
-  const stageY = footTop - S.micro * 0.75
-  // clearance is measured off the ring, not off the rail — the ring is wider
-  // than a micro line once the frame is desktop-sized
-  const railY = stageY - markerR - S.micro * 1.0
-  /** the lowest the node labels may sit before they touch the rail markers */
-  const labelLimit = railY - markerR - S.micro * 0.9
-  const dx = F.x + F.w * 0.06
-  const dw = F.w * 0.88
-  const dyTop = hy + S.micro * 0.7
-  // the band is the ceiling, not the target — on a phone in portrait it is
-  // four hundred points tall and a blueprint stretched to fill it is all lane
-  const avail = Math.max(18, labelLimit - S.micro * 0.95 - dyTop)
-  const dh = Math.min(avail, dw * 0.55)
-  const dy = dyTop + (avail - dh) / 2
-  // the labels belong to the boxes, so they follow the board, not the rail
-  const nodeLabelY = dy + dh + S.micro * 0.95
+  /* How far apart the two columns stand, and therefore the widest a caption
+     under either of them may be. These two numbers are a pair, and a caption
+     may never be wider than the gap between the centres. */
+  const COL = F.w * 0.23
+  const CAP_W = F.w * 0.42
 
-  const bw = F.s * 0.14
-  const bh = Math.min(F.s * 0.058, dh * 0.22)
-  const aw = F.s * 0.18
-  const ah = Math.min(F.s * 0.082, dh * 0.3)
-  const tw = F.s * 0.1
-  const th = Math.min(F.s * 0.046, dh * 0.2)
+  /* ---------------- measure the captions, then size the band ----------------
+     The block is as tall as the taller caption, so both drawings stand on the
+     same line whatever the wrap does. */
+  const capSize = S.small
+  const capLh = capSize * 1.42
+  setFont(ctx, capSize, 'display', 400)
+  const gLines = wrapText(ctx, C.guitarNote, CAP_W)
+  const xLines = wrapText(ctx, C.saxNote, CAP_W)
+  const capRows = Math.max(gLines.length, xLines.length)
 
-  const toolY = dy + th / 2
-  const spineY = dy + dh - ah / 2
-  // the clear run between the two rows — the routed lanes live in it
-  const laneTop = toolY + th / 2
-  const laneBot = spineY - ah / 2
-  const busY = (laneTop + laneBot) / 2
-  const laneStep = Math.max(hw * 2, (laneBot - laneTop) * 0.22)
+  const footY = F.y + F.h * 0.99
+  const capTop = footY - (capRows - 1) * capLh
+  const bandTop = hy + S.micro * 0.6
+  const bandBot = capTop - capSize * 2.2
+  const bandH = Math.max(28, bandBot - bandTop)
 
-  const intake: Box = { x: dx + dw * 0.09, y: spineY, w: bw, h: bh }
-  const agent: Box = { x: dx + dw * 0.4, y: spineY, w: aw, h: ah }
-  const handoff: Box = { x: dx + dw * 0.86, y: spineY, w: bw, h: bh }
-  const tools: Box[] = TOOL_X.map((k) => ({ x: dx + dw * k, y: toolY, w: tw, h: th }))
-
-  /* grid — the blueprint's paper */
-  const step = Math.max(6, F.s * 0.034)
-  ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.055)
-  for (let gx = dx; gx <= dx + dw + 0.5; gx += step) {
-    const k = easeOut(range(t, 0.7 + ((gx - dx) / dw) * 0.8, 1.2 + ((gx - dx) / dw) * 0.8))
-    if (k <= 0.01) continue
-    ctx.globalAlpha = k
-    for (let gy = dy; gy <= dy + dh + 0.5; gy += step) {
-      ctx.fillRect(gx, gy, hw, hw)
-    }
+  /** the lit tip of the pen, shared by both drawings */
+  const nib = (a: number) => (p: Pt) => {
+    softDot(ctx, p.x, p.y, bandH * 0.1, PALETTE.glowCss, 0.45 * a)
+    ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.95 * a)
+    disc(ctx, p.x, p.y, hw * 1.4)
   }
-  ctx.globalAlpha = 1
 
-  /* boxes */
-  const boxes: Box[] = [intake, agent, ...tools, handoff]
-  ctx.lineJoin = 'round'
-  let bi = 0
-  for (const b of boxes) {
-    const start = BOX_IN[bi] ?? 2
-    bi++
-    const k = easeOut(range(t, start, start + 0.9))
-    if (k <= 0.004) continue
-    ctx.strokeStyle = withAlpha(PALETTE.amberCss, b === agent ? 0.62 : 0.42)
-    ctx.lineWidth = b === agent ? hw * 1.5 : hw
-    drawPath(ctx, boxPath(b), k)
-    if (b === agent && k >= 1) {
-      ctx.fillStyle = withAlpha(PALETTE.amberCss, 0.05)
-      ctx.fillRect(b.x - b.w / 2, b.y - b.h / 2, b.w, b.h)
-    }
-  }
-  ctx.lineJoin = 'miter'
+  /* ---------------- the two drawings ----------------
+     Both figures are tall and narrow, so they are given generous boxes and
+     fit themselves inside — `drawSketch` returns the rectangle it actually
+     used, and the stage rules hang off that rather than off the box, which is
+     mostly empty air either side. */
+  const half = F.w * 0.44
+  const gA = easeOut(range(t, 0.2, 0.9))
+  const xA = easeOut(range(t, 3.5, 4.2))
 
-  /* labels — each fitted to the clear run between its box and its neighbour */
-  ctx.textBaseline = 'alphabetic'
-  const label = (text: string, x: number, room: number, start: number): void => {
-    const k = ease(range(t, start, start + 0.7))
-    if (k <= 0.004) return
-    const fit = fitTracked(ctx, text, Math.max(14, room), S.micro, 0.18, 'mono', 400)
-    ctx.fillStyle = withAlpha(PALETTE.sageCss, 0.75 * k)
-    drawTracked(ctx, text, x, nodeLabelY, fit.track, 'center')
-  }
-  const spineGapL = agent.x - intake.x
-  const spineGapR = handoff.x - agent.x
-  label(L_INTAKE, intake.x, Math.min(spineGapL, (intake.x - F.x) * 2) * 0.92, (BOX_IN[0] ?? 2) + 0.7)
-  label(L_AGENT, agent.x, Math.min(spineGapL, spineGapR) * 0.92, (BOX_IN[1] ?? 2) + 0.7)
-  label(
-    L_HANDOFF,
-    handoff.x,
-    Math.min(spineGapR, (F.x + F.w - handoff.x) * 2) * 0.92,
-    (BOX_IN[5] ?? 2) + 0.7,
+  const gFit = drawSketch(
+    ctx,
+    G,
+    { x: F.cx - COL - half / 2, y: bandTop, w: half, h: bandH },
+    clamp(range(t, G_A, G_B)),
+    { alpha: 0.9 * gA, hair: hw, color: PALETTE.buffCss, pen: reduced ? undefined : nib(gA) },
   )
 
-  /* the tools group is labelled beside its row, not above it — above it is
-     where the heading lives on a short frame */
-  const toolsK = ease(range(t, (BOX_IN[4] ?? 2) + 0.7, (BOX_IN[4] ?? 2) + 1.4))
-  if (toolsK > 0.004) {
-    const edge = (tools[0]?.x ?? dx) - tw / 2 - S.micro * 0.9
-    const fitT = fitTracked(ctx, L_TOOLS, Math.max(14, edge - dx), S.micro, 0.18, 'mono', 400)
-    ctx.textBaseline = 'middle'
-    ctx.fillStyle = withAlpha(PALETTE.sageCss, 0.75 * toolsK)
-    drawTracked(ctx, L_TOOLS, edge, toolY, fitT.track, 'right')
-    ctx.textBaseline = 'alphabetic'
+  const xFit = drawSketch(
+    ctx,
+    X,
+    { x: F.cx + COL - half / 2, y: bandTop, w: half, h: bandH },
+    clamp(range(t, X_A, X_B)),
+    { alpha: 0.9 * xA, hair: hw, color: PALETTE.buffCss, pen: reduced ? undefined : nib(xA) },
+  )
+
+  /* the boards they are standing on — one mark each, and a figure stops
+     floating and starts being on a stage */
+  ctx.textAlign = 'center'
+  const RULE = CAP_W * 0.6
+  const stage = (fit: SketchBox, born: number) => {
+    const k = easeOut(range(t, born, born + 1.1))
+    if (k <= 0.004) return
+    ctx.fillStyle = withAlpha(PALETTE.sageCss, 0.18 * k)
+    // ONE width for both, not each drawing's own. Sized off `fit.w`, the
+    // guitar's rule came out nearly twice the sax's — the sax figure is a
+    // narrow drawing — which is unbalanced furniture under balanced objects.
+    ctx.fillRect(fit.x + fit.w / 2 - (RULE / 2) * k, fit.y + fit.h * 0.995, RULE * k, hw)
   }
+  stage(gFit, 2.4)
+  stage(xFit, 5.7)
 
-  /* edges */
-  const eIntake: Pt[] = [
-    { x: intake.x + bw / 2, y: spineY },
-    { x: agent.x - aw / 2, y: spineY },
-  ]
-  const eHandoff: Pt[] = [
-    { x: agent.x + aw / 2, y: spineY },
-    { x: handoff.x - bw / 2, y: spineY },
-  ]
-  // each tool gets its own routed lane — no two lines ever share a pixel
-  const eTools: Pt[][] = tools.map((b, i) => {
-    const lane = busY + laneStep * (1 - i)
-    const stem = agent.x + (i - 1) * aw * 0.3
-    return [
-      { x: stem, y: spineY - ah / 2 },
-      { x: stem, y: lane },
-      { x: b.x, y: lane },
-      { x: b.x, y: toolY + th / 2 },
-    ]
-  })
-
-  const edges: Pt[][] = [eIntake, ...eTools, eHandoff]
-  ctx.lineCap = 'round'
-  ctx.lineJoin = 'round'
-  let ei = 0
-  for (const e of edges) {
-    const start = EDGE_IN[ei] ?? 5
-    ei++
-    const k = easeOut(range(t, start, start + 0.7))
-    if (k <= 0.004) continue
-    ctx.strokeStyle = withAlpha(PALETTE.sageCss, 0.34)
-    ctx.lineWidth = hw
-    drawPath(ctx, e, k)
-  }
-
-  /* the diagram runs */
-  for (const p0 of PASS) {
-    const u = range(t, p0, p0 + PASS_LEN)
-    if (u <= 0 || u >= 1) continue
-    const dots: Array<Pt | null> = []
-    if (u < 0.3) dots.push(pointAt(eIntake, u / 0.3))
-    else if (u < 0.58) for (const e of eTools) dots.push(pointAt(e, (u - 0.3) / 0.28))
-    else if (u < 0.76) for (const e of eTools) dots.push(pointAt(e, 1 - (u - 0.58) / 0.18))
-    else dots.push(pointAt(eHandoff, (u - 0.76) / 0.24))
-
-    for (const p of dots) {
-      if (!p) continue
-      softDot(ctx, p.x, p.y, F.s * 0.026, PALETTE.glowCss, 0.7)
-      ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.95)
-      disc(ctx, p.x, p.y, hw * 1.6)
-    }
-    // the agent lights while it is working
-    const busy = u > 0.28 && u < 0.8 ? 1 : 0
-    if (busy) {
-      ctx.strokeStyle = withAlpha(PALETTE.glowCss, 0.45)
-      ctx.lineWidth = hw * 1.5
-      ctx.strokeRect(agent.x - aw / 2, agent.y - ah / 2, aw, ah)
+  /* ---------------- the two captions ----------------
+     Wrapped, centred under their own drawing, and arriving a line at a time
+     so a three-line caption is not a paragraph landing in one frame. */
+  ctx.textBaseline = 'alphabetic'
+  const caption = (fit: SketchBox, lines: string[], born: number) => {
+    setFont(ctx, capSize, 'display', 400)
+    const cx = fit.x + fit.w / 2
+    let i = 0
+    for (const line of lines) {
+      const a = ease(range(t, born + i * 0.28, born + RAMP + i * 0.28))
+      if (a > 0.004) {
+        ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.92 * a)
+        drawLines(ctx, [line], cx, capTop + i * capLh, capLh, 'center')
+      }
+      i++
     }
   }
-  ctx.lineCap = 'butt'
-  ctx.lineJoin = 'miter'
+  caption(gFit, gLines, G_CAP)
+  caption(xFit, xLines, X_CAP)
 
-  /* ---------------- the rail: discovery → scoping → implementation ----------
-     The three names are very different lengths, so the rail is divided in
-     proportion to them rather than into equal thirds. Equal thirds forced
-     "implementation" down to an unreadable size and it ran into "scoping"
-     anyway. */
-  const rx = F.x + F.w * 0.08
-  const rw = F.w * 0.84
-  const railK = easeOut(range(t, RAIL_A, RAIL_A + 1.1))
-  if (railK > 0.004) {
-    ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.16 * railK)
-    ctx.fillRect(rx, railY, rw * railK, hw)
-
-    const stages = C.stages
-    const gaps = Math.max(1, stages.length - 1)
-
-    // measure at full size, shrink only as far as legibility allows, then
-    // re-measure and spread the slack — so each name owns its own column
-    setFont(ctx, S.micro, 'mono', 500)
-    let wanted = 0
-    for (const stage of stages) wanted += trackedWidth(ctx, stage, S.micro * 0.18)
-    const room = rw - S.micro * 1.4 * gaps
-    const kFit = Math.min(1, Math.max(7 / S.micro, room / Math.max(1, wanted)))
-    const size = S.micro * kFit
-    const fitTrack = size * 0.18
-    setFont(ctx, size, 'mono', 500)
-
-    const widths = stages.map((s) => trackedWidth(ctx, s, fitTrack))
-    const used = widths.reduce((a, b) => a + b, 0)
-    const gutter = Math.max(size * 0.6, (rw - used) / gaps)
-
-    let cursor = rx
-    let si = 0
-    for (const stage of stages) {
-      const colW = widths[si] ?? 0
-      const at = cursor + colW / 2
-      cursor += colW + gutter
-      const start = MARKER_IN[si] ?? 13
-      si++
-      const mk = easeOut(range(t, start, start + 0.8))
-      if (mk <= 0.004) continue
-
-      softDot(ctx, at, railY, F.s * 0.05 * mk, PALETTE.glowCss, 0.3 * mk)
-      ctx.fillStyle = withAlpha(PALETTE.amberLitCss, 0.95 * mk)
-      disc(ctx, at, railY, markerR * 0.4)
-      ctx.strokeStyle = withAlpha(PALETTE.amberCss, 0.4 * mk)
-      ctx.lineWidth = hw
-      ring(ctx, at, railY, markerR * (0.4 + 0.6 * mk))
-
-      ctx.fillStyle = withAlpha(PALETTE.sageCss, 0.8 * mk)
-      drawTracked(ctx, stage, at, stageY, fitTrack, 'center')
-    }
-  }
-
-  /* ---------------- the foot ----------------
-     The credit sits here first and hands over to the claim. It used to sit
-     directly under the heading, where the tool lane ran straight through it. */
-  const companyA = ease(range(t, 0.8, 1.8)) * (1 - ease(range(t, CREDIT_OUT[0], CREDIT_OUT[1])))
-  if (companyA > 0.004) {
-    const fit = fitTracked(ctx, C.company, F.w * 0.98, S.micro, 0.16, 'mono', 400)
-    ctx.fillStyle = withAlpha(PALETTE.sageCss, 0.68 * companyA)
-    drawTracked(ctx, C.company, F.cx, footY, fit.track, 'center')
-  }
-
-  const lineA = ease(range(t, 16.4, 17.6))
-  if (lineA > 0.004) {
-    fitText(ctx, C.line, F.w * 0.96, S.body, 'display', 400)
-    ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.92 * lineA)
-    ctx.textAlign = 'center'
-    ctx.fillText(C.line, F.cx, footY)
-    ctx.textAlign = 'left'
-  }
+  ctx.textAlign = 'left'
 }
 
 export const act2: Act = {
   id: 'act2',
   duration: DURATION,
+  chapter: C.chapter,
   caption: C.caption,
   draw,
 }

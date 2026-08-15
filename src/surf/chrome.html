@@ -1,0 +1,127 @@
+<!-- ============================================================ ==
+     THE TRAINYARD RUN'S CHROME — SHELVED, AND KEPT VERBATIM.
+
+     This is the block that used to sit in index.html, immediately after the
+     parkour's and before the closing </div> of #ui. The game itself is shelved
+     (see the note at the top of src/main.ts): none of it is wired up, so the
+     markup came out of the served page rather than sitting in it hidden, where
+     a view-source is all it takes to find a thing that is meant to not be here.
+
+     THIS FILE IS NOT LOADED BY ANYTHING. It is a snapshot, unchanged, so that
+     putting the runner back is a paste rather than an archaeology dig:
+     src/surf/hud.ts reads every id in here by hand and none of them are
+     generated. Paste it back where it came from and re-wire main.ts.
+     ============================================================ -->
+
+  <!-- THE TRAINYARD RUN
+       The second thing the film unlocks, out the other side of the projector,
+       and the same deal as the parkour: hidden until the sign at x=-26 is lit
+       and pressed, drawn on the same canvas as the field, chrome only in here.
+
+       WHAT IS DELIBERATELY MISSING, because every one of them was available and
+       every one of them was left out: no health bar, no lives, no minimap, no
+       speedometer, no joystick, no combo meter, no tutorial text after the
+       first run. The centre of the screen is the game and the bottom of it is
+       thumbs; a runner at this speed can afford a number in each top corner and
+       a column of rings down the left edge, and nothing else. Distance is not
+       shown twice — the score IS the distance, and #sf-dist is the small grey
+       line under it that the automated checks read.
+
+       Nothing in here is aria-live="assertive". At a runner's event rate an
+       assertive region talks over itself continuously and the screen reader
+       never finishes a sentence; the toast is polite and the rest is silent. -->
+  <div id="sf" hidden>
+    <div id="sf-bar">
+      <div id="sf-read">
+        <b id="sf-score">0</b>
+        <span id="sf-mult" data-on="false">&#215;1</span>
+        <!-- the near-miss tick: `close ×3  +120`, up for a beat and gone.
+             aria-hidden because it fires several times a second at speed and
+             a screen reader would never finish reading one. -->
+        <span id="sf-near" data-on="false" aria-hidden="true"></span>
+        <span id="sf-dist">0 m</span>
+      </div>
+      <div id="sf-tally">
+        <span id="sf-motes">0</span>
+        <span id="sf-best">best 0</span>
+      </div>
+      <div id="sf-actions">
+        <button id="sf-pause" type="button" class="sf-btn" aria-label="Pause">Pause</button>
+        <button id="sf-restart" type="button" class="sf-btn">Restart</button>
+        <button id="sf-exit" type="button" class="sf-btn">Leave</button>
+      </div>
+    </div>
+
+    <!-- The powerup timers. One 44px ring each, filled by the HUD; a ring is
+         the only timer shape that still reads in peripheral vision while you
+         are watching the track. Empty until something is running. -->
+    <div id="sf-rings" aria-hidden="true"></div>
+
+    <!-- the guard closing on you: a shadow strip up the bottom edge, opacity
+         driven by heat. Not a bar with a number on it — it is a feeling. -->
+    <div id="sf-heat" data-on="false" aria-hidden="true"></div>
+
+    <!-- three chevrons, one per lane, lit when the night service is coming
+         down that one. The only warning in the game that is not the track. -->
+    <div id="sf-lanes" aria-hidden="true">
+      <span data-lane="-1"></span><span data-lane="0"></span><span data-lane="1"></span>
+    </div>
+
+    <!-- names the yard on arrival, then gets out of the way -->
+    <div id="sf-card" data-on="false" aria-live="polite">
+      <span id="sf-card-no">The trainyard</span>
+      <b id="sf-card-name">Trainyard Run</b>
+      <p id="sf-card-hint"></p>
+    </div>
+
+    <p id="sf-toast" data-on="false" role="status" aria-live="polite"></p>
+
+    <!-- The bottom of the screen as one column, the way #pk-foot is: the state
+         chip has to sit directly above the key legend, and the legend wraps to
+         two or three lines depending on the window, so they stack in flow
+         rather than both being pinned to the bottom edge and overlapping. -->
+    <div id="sf-foot" aria-hidden="true">
+      <p id="sf-state" data-on="false"></p>
+      <p id="sf-keys">
+        <kbd>&#8592;</kbd><kbd>&#8594;</kbd> or <kbd>A</kbd><kbd>D</kbd> switch lane
+        &middot; <kbd>&#8593;</kbd> or <kbd>Space</kbd> jump
+        &middot; <kbd>&#8595;</kbd> roll
+        &middot; <kbd>E</kbd> handcar
+        &middot; <kbd>P</kbd> pause
+        &middot; <kbd>Esc</kbd> leave
+      </p>
+    </div>
+
+    <!-- The handcar. It is the one action in the game that is rare and never
+         time-critical, so it gets a real button instead of a gesture: double
+         tap is two fast jumps to a thumb, and mapping it here would burn the
+         board every time somebody hopped twice. -->
+    <button id="sf-deploy" type="button" class="sf-btn" hidden>Handcar</button>
+
+    <!-- Run over. The revive button carries its own countdown: the HUD sets
+         the custom property --sf-rev (1 &rarr; 0) on the button and the
+         stylesheet draws the ring, so there is no extra element to keep in
+         step with it. -->
+    <div id="sf-panel" hidden data-on="false" role="dialog" aria-labelledby="sf-panel-title">
+      <h2 id="sf-panel-title">Run over</h2>
+      <div id="sf-panel-body"></div>
+      <div id="sf-panel-row">
+        <button id="sf-revive" type="button" class="sf-btn sf-btn--go" hidden>Carry on</button>
+        <button id="sf-again" type="button" class="sf-btn sf-btn--go">Again</button>
+        <button id="sf-leave" type="button" class="sf-btn">Back to the field</button>
+      </div>
+    </div>
+
+    <!-- thumbs. Every one of these is &ge;44px and lit from the same flag the
+         simulation reads, never from :active — a thumb that slides off the
+         button still holds the input, and the two come apart exactly when the
+         player is mid-jump looking for reassurance. -->
+    <div id="sf-touch" hidden>
+      <button id="sf-left" type="button" aria-label="Left">&#8592;</button>
+      <button id="sf-jump" type="button" aria-label="Jump">Jump</button>
+      <button id="sf-roll" type="button" aria-label="Roll">Roll</button>
+      <button id="sf-right" type="button" aria-label="Right">&#8594;</button>
+    </div>
+
+    <div id="sf-fade"></div>
+  </div>

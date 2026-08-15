@@ -2,14 +2,27 @@
 /**
  * The HUD — the only chrome that is on screen while you are moving.
  *
- * Three things and no more: a compass that points at the projector so nobody
- * gets lost, a prompt line that appears when the world has something to say,
- * and two controls. The Résumé control is the important one: a recruiter with
- * eleven tabs open should never have to learn how to move.
+ * Three things and no more: a compass that points at the projector and says so,
+ * a prompt line that tells you what to do about it, and a switch for the time
+ * of day.
+ *
+ * It was four. The fourth was a picture of the four arrow keys, tapping
+ * themselves in the bottom-right corner as the site's only tutorial, and it
+ * came out when clicking the ground became a way to walk: the keyboard is no
+ * longer the only route across the field, and a permanent diagram of one in
+ * the corner was furniture nobody was reading twice. If a control ever needs
+ * explaining again, #prompt is where it gets explained, in words.
+ *
+ * There is no menu and no Résumé button. There used to be both, and they were
+ * the same mistake twice: a field with one thing in it does not need a way to
+ * navigate to the thing, and a résumé button next to a film telling the same
+ * story is an invitation to skip the only thing here. There is no HTML résumé
+ * to link to any more either — index.html holds a name-and-contact card for
+ * anyone the world cannot serve, and nothing in here points at it.
  */
 import './ui.css'
-import { clamp, ease } from '../core/contract'
-import { reducedMotion } from './panel'
+import { clamp, ease, reducedMotion } from '../core/contract'
+import type { TimeOfDay } from '../world/field'
 
 export interface Hud {
   setPrompt(text: string | null): void
@@ -21,8 +34,17 @@ export interface Hud {
    *   you close in; it is a way-finder, not a permanent fixture.
    */
   setCompass(angle: number | null, distance: number): void
-  onResume(cb: () => void): void
-  onPlaces(cb: () => void): void
+  /**
+   * Rename what the needle is pointing at. The compass has always named its
+   * destination rather than just indicating a direction — that is the whole
+   * reason it earns its place — so when the destination changes, the word has
+   * to change with it.
+   */
+  setCompassLabel(text: string): void
+  /** repoint the time-of-day switch at whatever it will do next */
+  setTimeOfDay(mode: TimeOfDay): void
+  /** the time-of-day switch was thrown; `mode` is the one being asked for */
+  onDayNight(cb: (mode: TimeOfDay) => void): void
   show(): void
   hide(): void
 }
@@ -39,8 +61,9 @@ function noopHud(): Hud {
   return {
     setPrompt() {},
     setCompass() {},
-    onResume() {},
-    onPlaces() {},
+    setCompassLabel() {},
+    setTimeOfDay() {},
+    onDayNight() {},
     show() {},
     hide() {},
   }
@@ -50,19 +73,16 @@ export function createHud(): Hud {
   const hud = document.getElementById('hud')
   if (!hud) return noopHud()
 
-  const resumeBtn = document.getElementById('resume-btn')
-  const placesBtn = document.getElementById('places-btn')
+  const dayBtn = document.getElementById('day-btn')
   const compass = document.getElementById('compass')
   const needle = compass?.querySelector<HTMLElement>('span') ?? null
+  const compassName = compass?.querySelector<HTMLElement>('em') ?? null
   const prompt = document.getElementById('prompt')
 
   // The markup ships `aria-hidden` on #world for the pre-boot state. The HUD
   // existing means the world is live and everything in it is real.
   document.getElementById('world')?.removeAttribute('aria-hidden')
 
-  resumeBtn?.setAttribute('aria-haspopup', 'dialog')
-  placesBtn?.setAttribute('aria-haspopup', 'dialog')
-  placesBtn?.setAttribute('aria-expanded', 'false')
   compass?.setAttribute('aria-hidden', 'true')
 
   if (prompt) {
@@ -72,13 +92,28 @@ export function createHud(): Hud {
     prompt.dataset.on = 'false'
   }
 
-  const resumeCbs: Array<() => void> = []
-  const placesCbs: Array<() => void> = []
-  resumeBtn?.addEventListener('click', () => {
-    for (const cb of resumeCbs.slice()) cb()
-  })
-  placesBtn?.addEventListener('click', () => {
-    for (const cb of placesCbs.slice()) cb()
+  const dayCbs: Array<(mode: TimeOfDay) => void> = []
+
+  /* ---------------- time of day ---------------- */
+
+  // The button is an action, not a state: it always names the time you are
+  // about to be in. Which means the ONLY thing tracked here is what it is
+  // currently offering, and the world is told about it rather than asked.
+  let offering: TimeOfDay = 'day'
+
+  const setTimeOfDay = (mode: TimeOfDay) => {
+    offering = mode === 'day' ? 'night' : 'day'
+    document.documentElement.classList.toggle('is-day', mode === 'day')
+    if (!dayBtn) return
+    dayBtn.textContent = offering === 'day' ? 'Daytime' : 'Night'
+    dayBtn.setAttribute(
+      'aria-label',
+      offering === 'day' ? 'Switch to daytime' : 'Switch to night',
+    )
+  }
+
+  dayBtn?.addEventListener('click', () => {
+    for (const cb of dayCbs.slice()) cb(offering)
   })
 
   /* ---------------- prompt ---------------- */
@@ -185,11 +220,12 @@ export function createHud(): Hud {
   return {
     setPrompt,
     setCompass,
-    onResume(cb: () => void) {
-      resumeCbs.push(cb)
+    setCompassLabel(text: string) {
+      if (compassName && compassName.textContent !== text) compassName.textContent = text
     },
-    onPlaces(cb: () => void) {
-      placesCbs.push(cb)
+    setTimeOfDay,
+    onDayNight(cb: (mode: TimeOfDay) => void) {
+      dayCbs.push(cb)
     },
     show,
     hide,

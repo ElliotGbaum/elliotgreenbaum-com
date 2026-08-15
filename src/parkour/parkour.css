@@ -1,0 +1,589 @@
+/* ==========================================================================
+   parkour.css — the minigame's chrome.
+
+   The same register as the rest of the site: thin rules, letter-spaced mono,
+   warm amber on dusk-blue. It has more to say than the field's HUD does —
+   which level, how long, how many falls — but it says it in the same voice,
+   because the parkour is a room in this house rather than a different game
+   embedded in it.
+
+   Everything sits above the film's chrome (z-index 40) and below nothing.
+   ========================================================================== */
+
+#pk {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 260ms ease;
+
+  --pk-pad-t: max(14px, env(safe-area-inset-top, 0px));
+  --pk-pad-b: max(14px, env(safe-area-inset-bottom, 0px));
+  --pk-pad-l: max(14px, env(safe-area-inset-left, 0px));
+  --pk-pad-r: max(14px, env(safe-area-inset-right, 0px));
+
+  /* PALETTE, from src/core/contract.ts — the field's exact values */
+  --pk-ink: #e9e4d6; /* buff */
+  --pk-ink-2: #9faea6; /* sage */
+  --pk-veil: rgba(10, 20, 24, 0.82); /* night */
+  --pk-rule: rgba(233, 228, 214, 0.14);
+  --pk-go: #e3a94a; /* amber */
+  --pk-go-lit: #f3c77e;
+  --pk-font: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --pk-display: 'Hoefler Text', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+}
+#pk.is-on {
+  opacity: 1;
+}
+#pk[hidden] {
+  display: none;
+}
+
+/* --------------------------------------------------------------------------
+   The bar: where you are, how it is going, and the way out
+   -------------------------------------------------------------------------- */
+
+/* Above the pointer-lock overlay on purpose. Escape drops the lock and puts
+   that overlay up, and if it covered the bar there would be no way to leave
+   the game — the only two buttons that matter would be behind the thing
+   asking you to carry on playing. */
+#pk-bar {
+  position: absolute;
+  z-index: 2;
+  top: var(--pk-pad-t);
+  left: var(--pk-pad-l);
+  right: var(--pk-pad-r);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  pointer-events: none;
+}
+
+#pk-id {
+  display: flex;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  align-items: baseline;
+  gap: 10px;
+  padding: 9px 15px;
+  border: 1px solid var(--pk-rule);
+  border-radius: 999px;
+  background: var(--pk-veil);
+}
+#pk-level-no {
+  font-family: var(--pk-font);
+  font-size: 0.66rem;
+  letter-spacing: 0.18em;
+  color: var(--pk-ink-2);
+}
+#pk-level-name {
+  font-family: var(--pk-display);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--pk-ink);
+}
+
+#pk-stats {
+  display: flex;
+  gap: 14px;
+  padding: 9px 15px;
+  border: 1px solid var(--pk-rule);
+  border-radius: 999px;
+  background: var(--pk-veil);
+  font-family: var(--pk-font);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  color: var(--pk-ink-2);
+}
+#pk-timer {
+  color: var(--pk-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+#pk-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.pk-btn {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 17px;
+  border: 1px solid var(--pk-rule);
+  border-radius: 999px;
+  background: var(--pk-veil);
+  color: var(--pk-ink-2);
+  font-family: var(--pk-font);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease,
+    background-color 150ms ease;
+}
+.pk-btn:hover {
+  color: var(--pk-ink);
+  border-color: rgba(227, 169, 74, 0.42);
+}
+.pk-btn--go {
+  color: #0a1418;
+  background: var(--pk-go);
+  border-color: var(--pk-go);
+}
+.pk-btn--go:hover {
+  color: #0a1418;
+  background: var(--pk-go-lit);
+}
+
+/* --------------------------------------------------------------------------
+   The level card — three seconds, then gone
+   -------------------------------------------------------------------------- */
+
+/* Out of the middle. The pointer-lock panel is centred and appears at exactly
+   the same moment on every arrival, and the two of them stacked — the hint
+   rendered clipped mid-word behind the panel, on the one screen where the
+   hint is the only instruction you get. */
+#pk-card {
+  position: absolute;
+  left: 50%;
+  top: 12%;
+  width: min(28rem, calc(100% - 40px));
+  transform: translate(-50%, 8px);
+  text-align: center;
+  opacity: 0;
+  transition:
+    opacity 320ms ease,
+    transform 420ms cubic-bezier(0.16, 0.84, 0.28, 1);
+}
+#pk-card[data-on='true'] {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+#pk-card-no {
+  display: block;
+  font-family: var(--pk-font);
+  font-size: 0.64rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--pk-go);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.8);
+}
+#pk-card-name {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--pk-display);
+  font-size: clamp(1.9rem, 1.2rem + 3vw, 3rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #fff;
+  text-shadow: 0 2px 22px rgba(0, 0, 0, 0.85);
+}
+#pk-card-hint {
+  margin: 10px auto 0;
+  max-width: 26rem;
+  font-size: 0.94rem;
+  line-height: 1.5;
+  color: var(--pk-ink);
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.9);
+}
+
+/* --------------------------------------------------------------------------
+   Toast, and the key legend
+   -------------------------------------------------------------------------- */
+
+#pk-toast {
+  position: absolute;
+  left: 50%;
+  top: 15%;
+  margin: 0;
+  transform: translate(-50%, 6px);
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--pk-veil);
+  border: 1px solid var(--pk-rule);
+  font-family: var(--pk-font);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  color: var(--pk-ink);
+  opacity: 0;
+  transition:
+    opacity 200ms ease,
+    transform 260ms ease;
+}
+#pk-toast[data-on='true'] {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* --------------------------------------------------------------------------
+   Sneaking / sprinting
+
+   Above the key legend rather than beside the stats, because it is a thing the
+   hands are doing right now and the eye reads the bottom-centre of a game
+   screen without moving. Amber like everything else that means "this is on".
+   -------------------------------------------------------------------------- */
+
+#pk-foot {
+  position: absolute;
+  left: 50%;
+  bottom: var(--pk-pad-b);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  max-width: min(62rem, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+#pk-state {
+  margin: 0;
+  padding: 4px 12px;
+  border: 1px solid rgba(227, 169, 74, 0.4);
+  border-radius: 999px;
+  background: rgba(10, 20, 24, 0.66);
+  font-family: var(--pk-font);
+  font-size: 0.62rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--pk-go-lit);
+  white-space: nowrap;
+  /* it never leaves the flow, so the legend under it does not jump when a
+     crouch starts — it just stops being visible */
+  min-height: 1em;
+  opacity: 0;
+  transform: translateY(5px);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+#pk-state[data-on='true'] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* The legend is long, and `nowrap` on a 900px laptop window clipped both ends
+   of it — losing "W A" on the left and half of "release the mouse" on the
+   right. It wraps now, and it leaves entirely on anything narrow enough that
+   two lines of it would be more chrome than course. */
+#pk-keys {
+  text-align: center;
+  margin: 0;
+  font-family: var(--pk-font);
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  color: var(--pk-ink-2);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+  line-height: 1.9;
+  opacity: 0.72;
+}
+#pk-keys kbd {
+  display: inline-block;
+  min-width: 20px;
+  padding: 2px 5px;
+  margin: 0 1px;
+  border: 1px solid var(--pk-rule);
+  border-radius: 4px;
+  background: rgba(10, 20, 24, 0.72);
+  font: inherit;
+  color: var(--pk-ink);
+}
+
+/* --------------------------------------------------------------------------
+   Pointer lock, and the completion panel
+   -------------------------------------------------------------------------- */
+
+/* `display: grid` below beats the `hidden` attribute's own `display: none`,
+   so it has to be restated — otherwise an invisible full-screen overlay sits
+   over the game eating every click. */
+#pk-lock[hidden] {
+  display: none;
+}
+#pk-lock {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  pointer-events: auto;
+  display: grid;
+  place-items: center;
+  background: rgba(8, 16, 20, 0.6);
+  cursor: pointer;
+}
+#pk-lock > div {
+  margin-top: 12vh;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  padding: 26px 34px;
+  border: 1px solid var(--pk-rule);
+  border-radius: 12px;
+  background: var(--pk-veil);
+  text-align: center;
+}
+#pk-lock b {
+  font-family: var(--pk-display);
+  font-size: 1.4rem;
+  color: #fff;
+}
+#pk-lock span {
+  font-family: var(--pk-font);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  color: var(--pk-ink-2);
+}
+
+#pk-panel[hidden] {
+  display: none;
+}
+#pk-panel {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, calc(-50% + 10px));
+  width: min(30rem, calc(100% - 36px));
+  padding: 26px 28px 22px;
+  border: 1px solid var(--pk-rule);
+  border-radius: 14px;
+  background: rgba(11, 21, 25, 0.94);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.6);
+  pointer-events: auto;
+  opacity: 0;
+  transition:
+    opacity 220ms ease,
+    transform 320ms cubic-bezier(0.16, 0.84, 0.28, 1);
+}
+#pk-panel[data-on='true'] {
+  opacity: 1;
+  transform: translate(-50%, -50%);
+}
+#pk-panel h2 {
+  margin: 0 0 10px;
+  font-family: var(--pk-display);
+  font-size: 1.7rem;
+  font-weight: 600;
+  color: #fff;
+}
+#pk-panel-body p {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--pk-ink-2);
+}
+#pk-panel-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+/* ---- the crosshair ----
+   Minecraft's is a 9×9 inverse-colour cross. Difference blending gets the
+   same "always visible whatever is behind it" behaviour. */
+#pk-cross {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  pointer-events: none;
+  mix-blend-mode: difference;
+}
+#pk-cross[hidden] {
+  display: none;
+}
+#pk-cross::before,
+#pk-cross::after {
+  content: '';
+  position: absolute;
+  background: #fff;
+}
+#pk-cross::before {
+  left: 50%;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  margin-left: -1px;
+}
+#pk-cross::after {
+  top: 50%;
+  left: 0;
+  height: 2px;
+  width: 100%;
+  margin-top: -1px;
+}
+
+/* --------------------------------------------------------------------------
+   Thumbs
+   -------------------------------------------------------------------------- */
+
+#pk-touch {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+#pk-touch[hidden] {
+  display: none;
+}
+#pk-stick {
+  position: absolute;
+  width: 108px;
+  height: 108px;
+  margin: -54px 0 0 -54px;
+  border: 1px solid var(--pk-rule);
+  border-radius: 50%;
+  background: rgba(10, 20, 24, 0.28);
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+#pk-stick[data-on='true'] {
+  opacity: 1;
+}
+#pk-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  border-radius: 50%;
+  background: rgba(233, 228, 214, 0.3);
+}
+#pk-jump,
+#pk-sprint,
+#pk-sneak {
+  position: absolute;
+  pointer-events: auto;
+  border: 1px solid var(--pk-rule);
+  border-radius: 50%;
+  background: var(--pk-veil);
+  color: var(--pk-ink);
+  font-family: var(--pk-font);
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#pk-jump {
+  right: calc(var(--pk-pad-r) + 8px);
+  bottom: calc(var(--pk-pad-b) + 72px);
+  width: 92px;
+  height: 92px;
+}
+#pk-sprint {
+  right: calc(var(--pk-pad-r) + 108px);
+  bottom: calc(var(--pk-pad-b) + 92px);
+  width: 72px;
+  height: 72px;
+}
+#pk-sneak {
+  right: calc(var(--pk-pad-r) + 108px);
+  bottom: calc(var(--pk-pad-b) + 12px);
+  width: 72px;
+  height: 72px;
+}
+/* `:active` alone was wrong: a thumb that slides off the button still holds
+   the sneak (the pointerleave handler is what releases it), so the two states
+   came apart exactly when a player is mid-jump and looking for reassurance.
+   The button now lights off the same flag the physics reads. */
+#pk-sneak:active,
+#pk-sneak[data-on='true'] {
+  color: #0a1418;
+  background: var(--pk-go);
+  border-color: var(--pk-go);
+}
+#pk-sprint[data-on='true'] {
+  color: #0a1418;
+  background: var(--pk-go);
+  border-color: var(--pk-go);
+}
+
+/* --------------------------------------------------------------------------
+   The trip in and out
+   -------------------------------------------------------------------------- */
+
+#pk-fade {
+  position: absolute;
+  inset: 0;
+  background: #0a1418;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#pk :focus-visible {
+  outline: 2px solid var(--pk-go);
+  outline-offset: 3px;
+  border-radius: 999px;
+}
+
+/* --------------------------------------------------------------------------
+   Small screens: the bar loses its stats row rather than wrapping into two
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 900px) {
+  #pk-keys {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  #pk-bar {
+    gap: 8px;
+  }
+  #pk-id {
+    padding: 7px 12px;
+  }
+  #pk-level-name {
+    font-size: 0.9rem;
+  }
+  #pk-stats {
+    padding: 7px 12px;
+    gap: 10px;
+    font-size: 0.66rem;
+  }
+  #pk-falls {
+    display: none;
+  }
+  .pk-btn {
+    padding: 0 12px;
+    font-size: 0.64rem;
+    letter-spacing: 0.1em;
+  }
+  #pk-keys {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #pk,
+  #pk-card,
+  #pk-toast,
+  #pk-state,
+  #pk-panel,
+  .pk-btn {
+    transition-duration: 1ms !important;
+  }
+  #pk-state,
+  #pk-state[data-on='true'] {
+    transform: none !important;
+  }
+  #pk-card,
+  #pk-card[data-on='true'] {
+    transform: translate(-50%, 0) !important;
+  }
+  #pk-panel,
+  #pk-panel[data-on='true'] {
+    transform: translate(-50%, -50%) !important;
+  }
+}

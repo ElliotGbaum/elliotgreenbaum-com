@@ -1,5 +1,5 @@
 /**
- * Dev-only harness: the world with no chrome, no film, no panels.
+ * Dev-only harness: the world with no chrome and no film sequence.
  *
  * Exists so lighting, fog density and camera framing can be judged on their
  * own — those are the numbers most easily wrecked by a change somewhere else,
@@ -12,7 +12,7 @@ import { createField } from './world/field'
 import { createPlayer } from './world/player'
 import { createRig } from './world/camera'
 import { createProjector } from './world/landmarks/projector'
-import { createSign } from './world/landmarks/sign'
+import { createFilm } from './film/film'
 
 const canvas = document.getElementById('stage') as HTMLCanvasElement
 
@@ -25,18 +25,25 @@ renderer.toneMappingExposure = 1.28
 const scene = new THREE.Scene()
 const rig = createRig()
 createField(scene)
-const player = createPlayer(scene, rig.camera, canvas)
+const player = createPlayer(scene)
 
-const projector = createProjector()
-const sign = createSign()
-scene.add(projector.object, sign.object)
+// the film is the projector's screen, so the harness needs one even though
+// nothing here plays it back — press F to strike the lamp, P to run it
+const film = createFilm()
+const projector = createProjector(film.canvas)
+scene.add(projector.object)
 
-// let the beam be inspected without needing to walk over and trigger it
+// let the beam and the picture be inspected without walking over to trigger it
 let firing = false
 window.addEventListener('keydown', (e) => {
-  if (e.key.toLowerCase() !== 'f') return
-  firing = !firing
-  projector.setFiring(firing)
+  const k = e.key.toLowerCase()
+  if (k === 'f') {
+    firing = !firing
+    projector.setFiring(firing)
+  } else if (k === 'p') {
+    if (film.state.running) film.stop()
+    else film.play()
+  }
 })
 
 function resize() {
@@ -60,8 +67,9 @@ function frame() {
   last.copy(player.position)
   rig.update(dt, player.position, vel)
 
+  if (film.state.running && film.update(dt)) projector.refreshScreen()
+
   projector.update?.(dt, elapsed, player.litAt(projector.anchor), null as never)
-  sign.update?.(dt, elapsed, player.litAt(sign.anchor), null as never)
 
   renderer.render(scene, rig.camera)
   requestAnimationFrame(frame)

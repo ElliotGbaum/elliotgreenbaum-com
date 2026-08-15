@@ -10,7 +10,17 @@
     "verify": "node tools/verify.mjs",
     "shoot": "node tools/shoot.mjs",
     "flow": "node tools/flow.mjs",
-    "filmstrip": "node tools/shoot.mjs \"http://localhost:5173/filmstrip.html?samples=10\" shots/filmstrip --only desktop --full"
+    "film": "node tools/film.mjs",
+    "filmstrip": "node tools/shoot.mjs \"http://localhost:5173/filmstrip.html?samples=10\" shots/filmstrip --only desktop --full",
+    "sketch": "node tools/sketch.mjs"
+  },
+  "_shelvedScripts": {
+    "_": "The two minigames are shelved — see the note at the top of src/main.ts. Their harnesses are still in tools/ and unchanged, but they are not runnable as things stand: every one of them reaches the games through the ?unlock / ?parkour / ?surf query strings, and those came out with the wiring. Restore the entries below along with the games.",
+    "signs": "node tools/signs.mjs",
+    "parkour:check": "node tools/parkour-check.mjs",
+    "parkour:play": "node tools/parkour-play.mjs",
+    "surf:check": "node tools/surf-check.mjs",
+    "surf:play": "node tools/surf-play.mjs"
   },
   "type": "module",
   "dependencies": {

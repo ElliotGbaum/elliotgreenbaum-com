@@ -48,8 +48,8 @@ for (const v of VIEWS) {
   })
   const page = await ctx.newPage()
 
-  // --no-webgl captures the plain lane: what a recruiter on a locked-down
-  // machine, a crawler, or anyone with WebGL blocked actually sees.
+  // --no-webgl captures the card: what a recruiter on a locked-down machine,
+  // a crawler, or anyone with WebGL blocked actually sees.
   if (args.includes('--no-webgl')) {
     await page.addInitScript(() => {
       const real = HTMLCanvasElement.prototype.getContext

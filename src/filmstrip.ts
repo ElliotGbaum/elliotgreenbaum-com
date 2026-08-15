@@ -1,7 +1,7 @@
 /**
  * Dev-only contact sheet: every act sampled across its runtime, in a grid.
  *
- * Reviewing a 94-second film by watching it is a 94-second feedback loop and
+ * Reviewing a 77-second film by watching it is a 77-second feedback loop and
  * you still miss the half-second dips between beats — which is exactly the
  * bug it was built to catch. This renders the whole thing as stills in one
  * screenshot. Not shipped; safe to delete.
@@ -17,15 +17,36 @@ import { act2 } from './film/acts/act2'
 import { act3 } from './film/acts/act3'
 import { act4 } from './film/acts/act4'
 import { act5 } from './film/acts/act5'
+import { act6 } from './film/acts/act6'
+import { act7 } from './film/acts/act7'
+import { act8 } from './film/acts/act8'
+import { act9 } from './film/acts/act9'
+import { act10 } from './film/acts/act10'
+import { act11 } from './film/acts/act11'
 
-const ACTS: Act[] = [act0, act1, act2, act3, act4, act5]
+const ACTS: Act[] = [
+  act0,
+  act1,
+  act2,
+  act3,
+  act4,
+  act5,
+  act6,
+  act7,
+  act8,
+  act9,
+  act10,
+  act11,
+]
 
 const params = new URLSearchParams(location.search)
 const samples = Math.max(2, Number(params.get('samples') ?? 7))
 const only = params.get('act')
 
 const root = document.getElementById('strip') as HTMLDivElement
-const W = 384
+// ?w= to review at something nearer the real 1280-wide picture; the default is
+// contact-sheet size, which is deliberately the harshest legibility test
+const W = Math.max(240, Number(params.get('w') ?? 384))
 const H = Math.round((W * 9) / 16)
 const dpr = Math.min(window.devicePixelRatio || 1, 2)
 

@@ -1,6 +1,6 @@
 # elliotgreenbaum.com
 
-A dark field you move through as a point of light. At the centre is a projector that needs your light; bring it and a short film about Elliot plays.
+A dark field you walk through carrying a lantern. At the centre is a projector that needs your light; switch it on and a short film about Elliot plays on the screen while you stand there and watch it.
 
 - **`PLAN.md`** — what we're building and in what order.
 - **`CONTEXT.md`** — why it's built this way. Read this before changing anything structural.
@@ -20,27 +20,36 @@ npm run preview  # serve the production build locally
 
 ```bash
 npm run preview            # in one terminal
-npm run verify             # in another — 29 checks, must be 29/29
+npm run verify             # in another — 38 checks, must be 38/38
 ```
 
-`npm run verify` is the gate. It runs the checklist from `PLAN.md`: the résumé is
-in the served HTML, the site works with JavaScript disabled and with WebGL
+`npm run verify` is the gate. It runs the checklist from `PLAN.md`: the fallback
+card is in the served HTML and no résumé is, the site works with JavaScript disabled and with WebGL
 blocked, reduced-motion is honoured, everything is keyboard-operable with focus
-trapped and returned, tap targets clear 44px at 375px, and landmarks disarm after
-use so the film can't loop. **Do not ship on a red.**
+trapped and returned, tap targets clear 44px at 375px, landmarks disarm after
+use so the film can't loop, and the film's transport actually transports —
+clicking the projector starts it, pause holds, the scrubber seeks, space runs it
+at 2×. **Do not ship on a red.**
 
-Two more tools, both driving real Chrome on the real GPU:
+Three more tools, all driving real Chrome on the real GPU:
 
 ```bash
 npm run flow                # walk the whole site, screenshot every stage
+npm run film                # the film as framed in the world, plus every control state
 npm run filmstrip           # contact sheet: every act as stills, in one image
+npm run sketch [name]       # contact sheet of the four drawings, part-way and done
 npm run shoot -- <url> <outdir> [--only phone] [--no-webgl] [--full]
 ```
 
-The filmstrip is how the film gets reviewed. Watching it is a 94-second feedback
-loop and you still miss the half-second dips between beats. Each cell is 384×216,
-which is close to the film's real picture area on a phone in portrait — **if it
-collides in the contact sheet, it collides on a phone.**
+`filmstrip` and `film` answer different questions and neither can answer for the
+other. **`filmstrip` reviews the picture:** every act sampled across its runtime
+at full size, because watching the film is a two-minute feedback loop and you
+still miss the half-second dips between beats. Each cell is 384×216, close to
+the film's picture area on a phone — if it collides in the contact sheet, it
+collides on a phone. **`film` reviews the shot:** the picture as it actually
+arrives, mapped onto a screen thirty units away with the projector's silhouette
+in front of it and the transport bar under it. Type that is perfect in the
+contact sheet can still be unreadable in the shot, and vice versa.
 
 ---
 
@@ -48,56 +57,103 @@ collides in the contact sheet, it collides on a phone.**
 
 You should never need to touch TypeScript to change what the site says.
 
-### The résumé → `index.html`
+### The fallback card → `index.html`
 
-Everything inside `<main class="plain" id="resume-source">` is the résumé. It's plain HTML with comments, and it is the **single source of truth**: the panel that opens inside the world clones this exact node, so editing it once updates both places.
+Everything inside `<main class="card" id="card">` is the fallback: a name, one line, three links. That is the whole of it.
 
-It's also what gets served to anyone without JavaScript or WebGL, what search engines index, and what screen readers read. It is never allowed to fall out of date.
+**There is no résumé on this site.** There used to be a full one in this block, and it meant the visitor the world could not serve got handed the least interesting version of the thing — bullets and dates — as if that were the point. It is deleted. The film the projector throws is the long version, and the card is the short one.
 
-Anything marked `[like this]` needs your input.
+The card is what no-JS, no-WebGL, a dead bundle, a screen reader and every crawler get, so it has to stay real HTML in the first response. It does **not** grow back into a CV: `npm run verify` §1 asserts the absence and goes red if experience bullets, dated entries or the word "résumé" reappear in the markup. If the film is ever unreachable, fix the film.
+
+Because there is no second place for detail to go, a number either earns a line in an act or does not ship at all.
 
 ### The film's words → `src/content/film.json`
 
 One entry per act. Change the text, not the code.
 
+Two keys in each entry do double duty and are worth knowing about:
+
+- **`chapter`** — the section name on the scrubber, the way chapter markers work
+  on a video player. Two or three words; it has to read at 11px and make sense
+  out of context.
+- **`caption`** — what a screen reader announces when the act begins. It is no
+  longer printed anywhere: the subtitle strip under the picture is gone, because
+  a line of browser text under a projector screen was the one element in the
+  build that admitted this was a web page, and it repeated words the picture was
+  already showing. The picture carries all of its own words now — which is also
+  why every act's closing line has to be legible ON the screen. Keep the caption
+  to one or two plain sentences; nobody sees it, somebody hears it.
+
 ### Things to keep
 
 - **"no client-reported quality loss"** — keep that hedge exactly. Never shorten it to "no quality loss."
-- No customer names, no numbers, nothing that isn't already public. Naming Cassidy and E&B is fine.
+- No customer names, no numbers, nothing that isn't already public. Naming Cassidy, E&B and EAS Advisors is fine.
 
 ---
 
 ## Structure
 
 ```
-index.html            shell + the plain résumé (the fallback and the source of truth)
+index.html            shell + the fallback card (name, one line, three links — no résumé)
 src/
   main.ts             boot, the frame loop, proximity/activation
   core/contract.ts    palette, shared interfaces, easing helpers — the only shared import
   world/
     field.ts          ground, stars, fog, ambient
-    player.ts         you: a point light with velocity and damping
-    camera.ts         lagging follow rig
-    landmarks/        projector.ts, sign.ts
+    player.ts         you: a figure with a lantern, a walk cycle and damping
+    camera.ts         lagging follow rig, and the lens for the watching shot
+    landmarks/        projector.ts — the one interactive thing in the field
+    filmstage.ts      the depth cues a few acts throw off the screen (3D / `d`)
   film/
-    timeline.ts       act sequencing, skip, progress
+    film.ts           the act list, the picture buffer, the transport
+    controls.ts       the player chrome: chaptered scrubber, pause, 2×, 3D
+    timeline.ts       the drawing kit the acts share
+    sketch.ts         line art, and the pen that draws it
+    sketches/         the four drawings, by hand — kit.ts is what they are drawn with
     acts/             one file per act, each drawing to a 2D canvas
   ui/
-    panel.ts places.ts hud.ts
+    hud.ts            compass, prompt line, key hint, time-of-day switch
   content/
     film.json
 ```
 
 ### Adding a landmark
 
-Implement `Landmark` from `src/core/contract.ts` — geometry, an anchor, a radius, a prompt, and what `activate()` does — then add it to the `landmarks` array in `main.ts`. Nothing else needs to change.
+`src/core/contract.ts` has the shape. A **`Landmark`** is something you can walk up to and use: geometry, an anchor, a radius, a prompt, and what `activate()` does — add it to the `landmarks` array in `main.ts`.
+
+Scenery — an object that is simply *there* — had its own `Prop` type, and it went with the lit billboard that was the only one. If something comes back that can't be used, add the type back rather than giving a `Landmark` an empty `activate()`: everything that can be activated competes with the projector, and the projector is the point.
 
 ---
 
 ## House rules
 
-- **Screens are doorways, not containers.** Never render readable content inside 3D geometry at doll-house scale. The world does the theatre; real DOM does the reading.
-- **The résumé is one click from anywhere, always.** The corner button is the most important control on screen after movement.
+- **The film plays in the world; the words are still HTML.** You watch from where you are standing, in third person, on a shot framed by `watchVantage()` in `projector.ts`. That only works because the shot is framed for it — change the camera, the screen height or the picture size and re-check the film is readable at 375px. The film's captions are announced to screen readers act by act; anyone the world cannot serve at all gets the card in `index.html`.
+- **The figure is nobody.** No face, no hair, no clothing, no cue that reads as a gender, an age or a build. If you are tempted to add a detail, ask whether it describes a *person* or describes *walking*. Only the second kind belongs.
+- **One thing to do, and the world says so unprompted.** No menu, no corner buttons, no second route to the same content. Three things carry the instruction and all three are checked by `npm run verify`: the standing line at the bottom of the screen, the compass naming the projector, and the plaque and floor rings on the machine itself. If you add chrome, ask what it is competing with.
 - **Nothing half-finished ships.** Each milestone should look complete on its own.
 - **375px is a hard requirement**, checked before a milestone ships rather than after.
 - No `Math.random()` in anything that renders — use `rand()` from the contract so frames are reproducible.
+
+
+---
+
+## Shelved: the two minigames
+
+There were two of them — five courses of Minecraft parkour east of the
+projector, and an endless trainyard run west of it — each behind a sign that
+built itself out of the ground once the film had been watched. **Neither is in
+the world at the moment.** No sign, no ceremony, no compass label, no URL, and
+nothing in the shipped bundle: the field is back to one thing to do.
+
+Every line of both is still here and still typechecked. What was unwired:
+
+| | |
+|---|---|
+| `src/parkour/`, `src/surf/` | the two worlds, untouched |
+| `src/world/landmarks/gate.ts`, `signal.ts` | the two signs that opened them |
+| `src/parkour/chrome.html`, `src/surf/chrome.html` | their DOM, lifted verbatim out of `index.html` |
+| `tools/parkour-*.mjs`, `tools/surf-*.mjs`, `tools/signs.mjs` | their harnesses — see the note in `package.json` |
+
+The wiring that came out of `src/main.ts` is listed at the top of that file, and
+that list is the whole of what putting them back costs. CONTEXT §8 and PLAN §9
+are the design record and still describe how the parkour works.

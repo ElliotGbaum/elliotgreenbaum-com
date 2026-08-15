@@ -1,0 +1,100 @@
+<!-- ============================================================ ==
+     THE PARKOUR'S CHROME — SHELVED, AND KEPT VERBATIM.
+
+     This is the block that used to sit in index.html, immediately after the
+     film's transport bar and before the trainyard run's. The game itself is
+     shelved (see the note at the top of src/main.ts): none of it is wired up,
+     so the markup came out of the served page rather than sitting in it hidden,
+     where a view-source is all it takes to find a thing that is meant to not be
+     here.
+
+     THIS FILE IS NOT LOADED BY ANYTHING. It is a snapshot, unchanged, so that
+     putting the parkour back is a paste rather than an archaeology dig:
+     src/parkour/hud.ts reads every id in here by hand and none of them are
+     generated. Paste it back where it came from and re-wire main.ts.
+     ============================================================ -->
+
+  <!-- THE PARKOUR
+       Hidden until you go through the portal past the projector, which is
+       itself hidden until the film has been watched. Everything here is chrome
+       for the minigame — which level, how long, how many falls, how to leave,
+       and thumb controls for anyone playing on a phone. The course itself is
+       drawn on the same canvas as the field. -->
+  <div id="pk" hidden>
+    <div id="pk-bar">
+      <div id="pk-id">
+        <span id="pk-level-no">1 / 5</span>
+        <b id="pk-level-name">First Light</b>
+      </div>
+      <div id="pk-stats">
+        <span id="pk-timer">0:00</span>
+        <span id="pk-falls">0 falls</span>
+      </div>
+      <div id="pk-actions">
+        <button id="pk-restart" type="button" class="pk-btn">Restart</button>
+        <button id="pk-exit" type="button" class="pk-btn">Leave</button>
+      </div>
+    </div>
+
+    <!-- names the course on arrival, then gets out of the way -->
+    <div id="pk-card" data-on="false" aria-live="polite">
+      <span id="pk-card-no">Level 1</span>
+      <b id="pk-card-name">First Light</b>
+      <p id="pk-card-hint"></p>
+    </div>
+
+    <p id="pk-toast" data-on="false" role="status" aria-live="polite"></p>
+
+    <!-- the reticle. In first person it is what you aim a jump with. -->
+    <div id="pk-cross" hidden aria-hidden="true"></div>
+
+    <!-- The bottom of the screen, as one column. The state chip has to sit
+         directly above the key legend, and the legend wraps to two or three
+         lines depending on the window — so they stack in flow rather than
+         both being pinned to the bottom edge and overlapping, which is
+         exactly what they did. The chip keeps its box when it is off, so
+         nothing below it moves when it comes on. -->
+    <div id="pk-foot" aria-hidden="true">
+      <!-- sneaking / sprinting. Named, because the pose and the camera height
+           are both analogue and neither of them says the word. -->
+      <p id="pk-state" data-on="false"></p>
+
+      <p id="pk-keys">
+        <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows
+        &middot; <kbd>Space</kbd> jump
+        &middot; <kbd>Shift</kbd> sneak
+        &middot; <kbd>Ctrl</kbd> or double-tap <kbd>W</kbd> sprint
+        &middot; <kbd>F5</kbd> view
+        &middot; <kbd>R</kbd> restart
+        &middot; <kbd>Esc</kbd> release the mouse
+      </p>
+    </div>
+
+    <!-- pointer lock can only be asked for from a click, so this is the ask -->
+    <div id="pk-lock" hidden>
+      <div>
+        <b>Click to play</b>
+        <span>The mouse steers. Escape hands it back &mdash; Leave is up there.</span>
+      </div>
+    </div>
+
+    <div id="pk-panel" hidden data-on="false" role="dialog" aria-labelledby="pk-panel-title">
+      <h2 id="pk-panel-title">Clear</h2>
+      <div id="pk-panel-body"></div>
+      <div id="pk-panel-row">
+        <button id="pk-next" type="button" class="pk-btn pk-btn--go">Next level</button>
+        <button id="pk-retry" type="button" class="pk-btn">Again</button>
+        <button id="pk-leave" type="button" class="pk-btn">Back to the field</button>
+      </div>
+    </div>
+
+    <!-- thumbs -->
+    <div id="pk-touch" hidden>
+      <div id="pk-stick" data-on="false"><span id="pk-knob"></span></div>
+      <button id="pk-sneak" type="button">Sneak</button>
+      <button id="pk-sprint" type="button" data-on="false">Sprint</button>
+      <button id="pk-jump" type="button">Jump</button>
+    </div>
+
+    <div id="pk-fade"></div>
+  </div>

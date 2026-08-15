@@ -1,0 +1,884 @@
+/* ==========================================================================
+   surf.css — the runner's chrome.
+
+   Same register as parkour.css, and deliberately so: thin rules, letter-spaced
+   mono, warm amber on dusk-blue. The trainyard is another room in this house,
+   not a different game embedded in it, so the score reads in the same voice as
+   the level timer next door.
+
+   It says less, though. A runner is played with the eyes fixed on a point
+   about two thirds up the screen, and everything in the corners is read in
+   peripheral vision or not at all — which is why the powerup timers are rings
+   rather than bars, why the score is 30 px and the multiplier 18, and why
+   there is no health bar, no minimap, no speedometer and no combo meter. The
+   centre 60 % of the screen is the game and the bottom 30 % is thumbs.
+
+   THE TRAP, WRITTEN AT THE TOP WHERE IT CANNOT BE MISSED: any element this
+   stylesheet gives a `display` must restate the `hidden` attribute's own rule,
+   because a stylesheet declaration beats the attribute's UA rule. Get it wrong
+   and an invisible full-screen panel sits over the game eating every click,
+   and the bug looks like "the buttons stopped working". The blanket at the
+   bottom of the root block covers it; the specific restatements are kept as
+   well, because a blanket is easy to delete by accident.
+
+   Layout note: every readout is positioned against #sf itself, and #sf-bar is
+   `display: contents` so it groups the markup without owning the geometry.
+   That is what lets the bar's contents be re-nested without every number
+   sliding somewhere new.
+
+   Sits at z-index 60, level with the parkour, above the film's chrome at 40.
+   ========================================================================== */
+
+#sf {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 260ms ease;
+
+  /* the browser must keep out: no rubber-band, no text selection, no
+     magnifier, no callout menu on a long press mid-run. The canvas carries
+     `touch-action: none` from style.css — this is the chrome's half. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+
+  --sf-pad-t: max(14px, env(safe-area-inset-top, 0px));
+  --sf-pad-b: max(14px, env(safe-area-inset-bottom, 0px));
+  --sf-pad-l: max(14px, env(safe-area-inset-left, 0px));
+  --sf-pad-r: max(14px, env(safe-area-inset-right, 0px));
+
+  /* PALETTE, from src/core/contract.ts — the field's exact values */
+  --sf-ink: #e9e4d6; /* buff */
+  --sf-ink-2: #9faea6; /* sage */
+  --sf-veil: rgba(10, 20, 24, 0.82); /* night */
+  --sf-rule: rgba(233, 228, 214, 0.14);
+  --sf-go: #e3a94a; /* amber */
+  --sf-go-lit: #f3c77e; /* amberLit */
+  --sf-mint: #63c9a8;
+  --sf-font: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --sf-display: 'Hoefler Text', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+
+  /* the bar's buttons are laid out by arithmetic, not by a flex parent, so the
+     widths have to be known */
+  --sf-btn-w: 5.4rem;
+  --sf-btn-gap: 8px;
+}
+#sf.is-on {
+  opacity: 1;
+}
+#sf[hidden] {
+  display: none;
+}
+/* the blanket. See the note at the top. */
+#sf [hidden] {
+  display: none !important;
+}
+
+/* #sf-bar carries no geometry of its own; it is a grouping in the markup so
+   the readouts read together in source order and in a screen reader. */
+#sf-bar {
+  display: contents;
+}
+
+/* --------------------------------------------------------------------------
+   Top left: the score, and what is multiplying it
+
+   Tabular numerals are not a nicety here. The score changes every frame, and
+   proportional digits make the whole number shuffle sideways as a 1 becomes a
+   7 — a readout that moves is a readout the eye keeps going back to.
+   -------------------------------------------------------------------------- */
+
+#sf-score {
+  position: absolute;
+  top: var(--sf-pad-t);
+  left: var(--sf-pad-l);
+  margin: 0;
+  font-family: var(--sf-font);
+  font-size: 30px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--sf-ink);
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.9);
+}
+
+#sf-mult {
+  position: absolute;
+  top: calc(var(--sf-pad-t) + 36px);
+  left: var(--sf-pad-l);
+  margin: 0;
+  font-family: var(--sf-font);
+  font-size: 18px;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  color: var(--sf-go);
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.9);
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+#sf-mult[data-on='true'] {
+  opacity: 1;
+}
+
+/* the near-miss tick. It is a flash under the score and then it is gone —
+   confirmation that the thing you just did on purpose counted. */
+#sf-near {
+  position: absolute;
+  top: calc(var(--sf-pad-t) + 60px);
+  left: var(--sf-pad-l);
+  margin: 0;
+  font-family: var(--sf-font);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sf-mint);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9);
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(4px);
+  transition:
+    opacity 140ms ease,
+    transform 220ms cubic-bezier(0.16, 0.84, 0.28, 1);
+}
+#sf-near[data-on='true'] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* --------------------------------------------------------------------------
+   Top right: this run's motes, how far, and the number to beat
+   -------------------------------------------------------------------------- */
+
+#sf-motes {
+  position: absolute;
+  top: calc(var(--sf-pad-t) + 54px);
+  right: var(--sf-pad-r);
+  margin: 0;
+  font-family: var(--sf-font);
+  font-size: 22px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--sf-go-lit);
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.9);
+}
+#sf-dist,
+#sf-best {
+  position: absolute;
+  right: var(--sf-pad-r);
+  margin: 0;
+  font-family: var(--sf-font);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  font-variant-numeric: tabular-nums;
+  color: var(--sf-ink-2);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9);
+}
+#sf-dist {
+  top: calc(var(--sf-pad-t) + 82px);
+}
+#sf-best {
+  top: calc(var(--sf-pad-t) + 100px);
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+#sf-best[data-on='true'] {
+  opacity: 0.75;
+}
+
+/* --------------------------------------------------------------------------
+   The bar's controls
+
+   Laid out from the right edge by arithmetic because there is no wrapper to
+   flex. Leave is outermost — it is the one you reach for in a hurry and the
+   corner is the easiest target on any screen.
+   -------------------------------------------------------------------------- */
+
+.sf-btn {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--sf-rule);
+  border-radius: 999px;
+  background: var(--sf-veil);
+  color: var(--sf-ink-2);
+  font-family: var(--sf-font);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease,
+    background-color 150ms ease;
+}
+.sf-btn:hover {
+  color: var(--sf-ink);
+  border-color: rgba(227, 169, 74, 0.42);
+}
+.sf-btn--go {
+  color: #0a1418;
+  background: var(--sf-go);
+  border-color: var(--sf-go);
+}
+.sf-btn--go:hover {
+  color: #0a1418;
+  background: var(--sf-go-lit);
+}
+.sf-btn[disabled] {
+  opacity: 0.4;
+  cursor: default;
+}
+
+#sf-exit,
+#sf-restart,
+#sf-pause {
+  position: absolute;
+  top: var(--sf-pad-t);
+}
+#sf-exit {
+  right: var(--sf-pad-r);
+  width: var(--sf-btn-w);
+}
+#sf-restart {
+  right: calc(var(--sf-pad-r) + var(--sf-btn-w) + var(--sf-btn-gap));
+  width: var(--sf-btn-w);
+}
+#sf-pause {
+  right: calc(var(--sf-pad-r) + 2 * (var(--sf-btn-w) + var(--sf-btn-gap)));
+  width: 44px;
+  padding: 0;
+  font-size: 0.9rem;
+  letter-spacing: 0;
+}
+
+/* --------------------------------------------------------------------------
+   The powerup rings, down the left edge
+
+   A depleting circle is the only timer form that survives peripheral vision:
+   "most of a circle" is legible without fixating and a bar is not. The arc
+   starts at twelve o'clock (the -90° rotation) and unwinds clockwise, which is
+   how every clock anyone has ever read behaves.
+   -------------------------------------------------------------------------- */
+
+#sf-rings {
+  position: absolute;
+  left: var(--sf-pad-l);
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+#sf-rings[hidden] {
+  display: none;
+}
+
+.sf-ring {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  opacity: 0;
+  transform: scale(0.9);
+  transition:
+    opacity 180ms ease,
+    transform 220ms cubic-bezier(0.16, 0.84, 0.28, 1);
+}
+.sf-ring[data-on='true'] {
+  opacity: 1;
+  transform: scale(1);
+}
+.sf-ring svg {
+  display: block;
+  width: 44px;
+  height: 44px;
+  transform: rotate(-90deg);
+}
+.sf-ring-bg {
+  fill: rgba(10, 20, 24, 0.62);
+  stroke: var(--sf-rule);
+  stroke-width: 3;
+}
+.sf-ring-arc {
+  fill: none;
+  stroke: var(--sf-go);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+/* sage under a quarter, and three blinks with it: the colour is for the eye
+   that is looking and the blink is for the one that is not */
+.sf-ring[data-low='true'] .sf-ring-arc {
+  stroke: var(--sf-ink-2);
+  animation: sf-blink 620ms steps(2, jump-none) 3;
+}
+@keyframes sf-blink {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.25;
+  }
+}
+.sf-ring-label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--sf-font);
+  font-size: 0.5rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sf-ink);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+}
+
+/* --------------------------------------------------------------------------
+   The guard behind you, and the service coming at you
+
+   Heat is a brightness at the bottom edge, not a bar. He is behind you, the
+   bottom of the screen is behind you, and his lantern getting closer is a
+   thing you should feel before you can name it. Naming it would take a
+   readout, and a readout is a thing to look at.
+   -------------------------------------------------------------------------- */
+
+#sf-heat {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 34%;
+  opacity: 0;
+  background: linear-gradient(to top, rgba(227, 169, 74, 0.3), rgba(227, 169, 74, 0));
+  /* NOT `mix-blend-mode: screen`, which is what this wanted to be. #sf carries
+     an opacity transition, opacity below 1 makes a stacking context, and a
+     blend inside one composites against the chrome rather than against the
+     WebGL canvas underneath — so it blends with nothing and costs a layer. */
+}
+
+/* the chevron over the lane the night service is about to use. It is the one
+   warning in the game that arrives before the thing it warns about, so it is
+   allowed to move. */
+#sf-lanes {
+  position: absolute;
+  left: 50%;
+  bottom: 26%;
+  width: min(60vw, 420px);
+  height: 30px;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+#sf-lanes[data-on='true'] {
+  opacity: 1;
+}
+#sf-lanes::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 0;
+  height: 0;
+  margin-left: -13px;
+  border-left: 13px solid transparent;
+  border-right: 13px solid transparent;
+  border-top: 15px solid var(--sf-go);
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.9));
+  transition: left 120ms ease;
+  animation: sf-pulse 460ms ease-in-out infinite alternate;
+}
+#sf-lanes[data-lane='l']::after {
+  left: 16.6667%;
+}
+#sf-lanes[data-lane='c']::after {
+  left: 50%;
+}
+#sf-lanes[data-lane='r']::after {
+  left: 83.3333%;
+}
+@keyframes sf-pulse {
+  from {
+    opacity: 0.45;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   The opening card, and the toast
+
+   High on the screen rather than in the middle of it: the middle of the screen
+   is where the first obstacle is, and a card there is a card read through the
+   thing it is meant to prepare you for.
+   -------------------------------------------------------------------------- */
+
+#sf-card {
+  position: absolute;
+  left: 50%;
+  top: 13%;
+  width: min(28rem, calc(100% - 40px));
+  transform: translate(-50%, 8px);
+  text-align: center;
+  opacity: 0;
+  transition:
+    opacity 320ms ease,
+    transform 420ms cubic-bezier(0.16, 0.84, 0.28, 1);
+}
+#sf-card[hidden] {
+  display: none;
+}
+#sf-card[data-on='true'] {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+#sf-card-no {
+  display: block;
+  font-family: var(--sf-font);
+  font-size: 0.64rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--sf-go);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.8);
+}
+#sf-card-name {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--sf-display);
+  font-size: clamp(1.9rem, 1.2rem + 3vw, 3rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #fff;
+  text-shadow: 0 2px 22px rgba(0, 0, 0, 0.85);
+}
+#sf-card-hint {
+  margin: 10px auto 0;
+  max-width: 26rem;
+  font-size: 0.94rem;
+  line-height: 1.5;
+  color: var(--sf-ink);
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.9);
+}
+
+#sf-toast {
+  position: absolute;
+  left: 50%;
+  top: 24%;
+  margin: 0;
+  transform: translate(-50%, 6px);
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--sf-veil);
+  border: 1px solid var(--sf-rule);
+  font-family: var(--sf-font);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  color: var(--sf-ink);
+  white-space: nowrap;
+  opacity: 0;
+  transition:
+    opacity 200ms ease,
+    transform 260ms ease;
+}
+#sf-toast[data-on='true'] {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* --------------------------------------------------------------------------
+   The foot: one line of instructions, for one device
+   -------------------------------------------------------------------------- */
+
+#sf-foot {
+  position: absolute;
+  left: 50%;
+  bottom: var(--sf-pad-b);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: min(62rem, calc(100vw - 32px));
+  pointer-events: none;
+}
+#sf-state,
+#sf-keys {
+  margin: 0;
+  text-align: center;
+  font-family: var(--sf-font);
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  color: var(--sf-ink-2);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+  line-height: 1.9;
+  opacity: 0.72;
+}
+#sf-keys kbd {
+  display: inline-block;
+  min-width: 20px;
+  padding: 2px 5px;
+  margin: 0 1px;
+  border: 1px solid var(--sf-rule);
+  border-radius: 4px;
+  background: rgba(10, 20, 24, 0.72);
+  font: inherit;
+  color: var(--sf-ink);
+}
+
+/* the handcar. Bottom centre, above the foot and clear of both thumb clusters
+   — it is the one button that is pressed mid-run on every device. */
+#sf-deploy {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--sf-pad-b) + 52px);
+  transform: translateX(-50%);
+  min-width: 44px;
+}
+#sf-deploy[data-on='true'] {
+  color: #0a1418;
+  background: var(--sf-go);
+  border-color: var(--sf-go);
+}
+
+/* --------------------------------------------------------------------------
+   Run over
+   -------------------------------------------------------------------------- */
+
+#sf-panel[hidden] {
+  display: none;
+}
+#sf-panel {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, calc(-50% + 10px));
+  width: min(30rem, calc(100% - 36px));
+  padding: 24px 26px 20px;
+  border: 1px solid var(--sf-rule);
+  border-radius: 14px;
+  background: rgba(11, 21, 25, 0.94);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.6);
+  pointer-events: auto;
+  opacity: 0;
+  transition:
+    opacity 220ms ease,
+    transform 320ms cubic-bezier(0.16, 0.84, 0.28, 1);
+}
+#sf-panel[data-on='true'] {
+  opacity: 1;
+  transform: translate(-50%, -50%);
+}
+#sf-panel h2 {
+  margin: 0 0 4px;
+  font-family: var(--sf-display);
+  font-size: 1.7rem;
+  font-weight: 600;
+  color: #fff;
+}
+#sf-panel-body p {
+  margin: 0;
+}
+/* the sentence that says which way you got it wrong. It is the first thing on
+   the panel because it is the only question anybody has after a death. */
+.sf-cause {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--sf-ink-2);
+}
+.sf-big {
+  margin: 10px 0 2px !important;
+  font-family: var(--sf-font);
+  font-size: 2.4rem;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--sf-ink);
+}
+.sf-sub {
+  font-family: var(--sf-font);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  line-height: 1.9;
+  color: var(--sf-ink-2);
+}
+
+/* mission progress, and it appears HERE and nowhere else — a progress bar you
+   cannot act on is a thing pulling your eye off the only three lanes that
+   matter. */
+.sf-mission {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 8px !important;
+  padding-bottom: 6px;
+  font-family: var(--sf-font);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  color: var(--sf-ink-2);
+}
+.sf-mission b {
+  margin-left: auto;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--sf-ink);
+}
+.sf-mission i {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--sf-rule);
+}
+.sf-mission i::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(var(--sf-at, 0) * 100%);
+  background: var(--sf-go);
+}
+.sf-mission[data-done='true'] {
+  color: var(--sf-go-lit);
+}
+
+#sf-panel-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+/* The revive's price is time. The button drains a ring of amber around its own
+   edge over the window you have to decide in, so the countdown is on the thing
+   you would be pressing rather than somewhere else on the screen. */
+#sf-revive {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+#sf-revive::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: conic-gradient(
+    var(--sf-go) calc(var(--sf-rev, 1) * 360deg),
+    rgba(227, 169, 74, 0) 0
+  );
+  opacity: 0.28;
+}
+
+/* --------------------------------------------------------------------------
+   Thumbs
+
+   The swipe is the real control. These are the accessible path and the
+   fallback for anyone who does not think to try a gesture — which on a first
+   run is most people. 72 px circles, well over the 44 px floor, in the two
+   bottom corners where the thumbs already are.
+   -------------------------------------------------------------------------- */
+
+#sf-touch {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+#sf-touch[hidden] {
+  display: none;
+}
+#sf-left,
+#sf-right,
+#sf-jump,
+#sf-roll {
+  position: absolute;
+  width: 72px;
+  height: 72px;
+  min-height: 44px;
+  pointer-events: auto;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--sf-rule);
+  border-radius: 50%;
+  background: var(--sf-veil);
+  color: var(--sf-ink);
+  font-family: var(--sf-font);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  /* `none`, not `manipulation`: these sit under a canvas the player is also
+     swiping across, and a double-tap-to-zoom delay on a jump button is a
+     quarter of a second of the game happening without you. */
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#sf-left {
+  left: calc(var(--sf-pad-l) + 8px);
+  bottom: calc(var(--sf-pad-b) + 84px);
+}
+#sf-right {
+  left: calc(var(--sf-pad-l) + 88px);
+  bottom: calc(var(--sf-pad-b) + 20px);
+}
+#sf-jump {
+  right: calc(var(--sf-pad-r) + 8px);
+  bottom: calc(var(--sf-pad-b) + 84px);
+}
+#sf-roll {
+  right: calc(var(--sf-pad-r) + 88px);
+  bottom: calc(var(--sf-pad-b) + 20px);
+}
+/* These four are momentary — they queue an intent on pointerdown and there is
+   no held state to mirror — so `:active` is honest for them and is all they
+   get. The one button here that HAS a state, the handcar, is lit from
+   `data-on` and the same flag the simulation reads, never from `:active`: a
+   thumb that slides off a button it is still holding takes `:active` with it,
+   and the two come apart exactly when the player is looking for reassurance. */
+#sf-left:active,
+#sf-right:active,
+#sf-jump:active,
+#sf-roll:active,
+#sf-touch [data-on='true'] {
+  color: #0a1418;
+  background: var(--sf-go);
+  border-color: var(--sf-go);
+}
+
+/* --------------------------------------------------------------------------
+   The trip in and out
+   -------------------------------------------------------------------------- */
+
+#sf-fade {
+  position: absolute;
+  inset: 0;
+  background: #0a1418;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* The focus ring never goes away. The whole path — field, sign, run, death,
+   retry, leave — has to be walkable with no pointing device at all, and an
+   invisible focus ring is the same as no keyboard support. */
+#sf :focus-visible {
+  outline: 2px solid var(--sf-go);
+  outline-offset: 3px;
+  border-radius: 999px;
+}
+
+/* --------------------------------------------------------------------------
+   Small screens
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 900px) {
+  #sf-keys {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  #sf {
+    --sf-btn-w: 4.3rem;
+  }
+  #sf-score {
+    font-size: 26px;
+  }
+  #sf-mult {
+    top: calc(var(--sf-pad-t) + 32px);
+    font-size: 16px;
+  }
+  #sf-near {
+    top: calc(var(--sf-pad-t) + 54px);
+    font-size: 0.62rem;
+  }
+  #sf-motes {
+    font-size: 19px;
+  }
+  /* the number to beat is the first thing to go: it is the only readout on the
+     screen that is about a run other than this one */
+  #sf-best {
+    display: none;
+  }
+  .sf-btn {
+    padding: 0 10px;
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+  }
+  #sf-rings {
+    gap: 8px;
+  }
+}
+
+/* Short and wide — a phone on its side, which is how a runner is actually
+   held. The rings go along the top edge instead of down a side that is only
+   360 px tall and already has a thumb on it. */
+@media (max-height: 460px) {
+  #sf-rings {
+    top: calc(var(--sf-pad-t) + 84px);
+    transform: none;
+  }
+  #sf-lanes {
+    bottom: 30%;
+  }
+  #sf-card {
+    top: 8%;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Reduced motion
+
+   Everything that moves for its own sake stops. NOT ONE TIMING CONSTANT
+   CHANGES — not a buffer, not a window, not a speed. A reduced-motion player
+   who gets a different game has been given a worse one.
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  #sf,
+  #sf-card,
+  #sf-toast,
+  #sf-near,
+  #sf-mult,
+  #sf-best,
+  #sf-lanes,
+  #sf-panel,
+  .sf-ring,
+  .sf-btn {
+    transition-duration: 1ms !important;
+  }
+  #sf-lanes::after,
+  .sf-ring[data-low='true'] .sf-ring-arc {
+    animation: none !important;
+  }
+  /* the low ring still has to read as low without the blink, so it keeps the
+     colour change and gains the weight the blink was carrying */
+  .sf-ring[data-low='true'] .sf-ring-arc {
+    stroke-width: 4;
+  }
+  #sf-near,
+  #sf-near[data-on='true'] {
+    transform: none !important;
+  }
+  .sf-ring,
+  .sf-ring[data-on='true'] {
+    transform: none !important;
+  }
+  #sf-card,
+  #sf-card[data-on='true'],
+  #sf-toast,
+  #sf-toast[data-on='true'] {
+    transform: translate(-50%, 0) !important;
+  }
+  #sf-panel,
+  #sf-panel[data-on='true'] {
+    transform: translate(-50%, -50%) !important;
+  }
+}

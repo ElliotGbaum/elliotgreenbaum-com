@@ -1,9 +1,8 @@
 /**
- * Integration walkthrough: spawn → Places → travel → film → résumé panel.
+ * Integration walkthrough: spawn → travel → film.
  *
  * Drives the real page rather than poking internals, so it exercises the same
- * path a visitor takes: the dwell trigger, the camera push-in, the DOM
- * takeover and the panel. Captures each stage to shots/flow/.
+ * path a visitor takes. Captures each stage to shots/flow/.
  *
  *   node tools/flow.mjs [url] [outdir] [--view desktop|phone]
  */
@@ -67,8 +66,7 @@ await shot('spawn')
 /* ---- is the world actually running? ---- */
 const state = await page.evaluate(() => ({
   hasWebglClass: document.documentElement.classList.contains('has-webgl'),
-  plainHidden: getComputedStyle(document.querySelector('.plain')).display === 'none',
-  resumeBtn: !!document.getElementById('resume-btn'),
+  cardHidden: getComputedStyle(document.querySelector('.card')).display === 'none',
   placesBtn: !!document.getElementById('places-btn'),
 }))
 console.log('· state:', JSON.stringify(state))
@@ -125,25 +123,6 @@ if (filmUp) {
     console.log('· skipped to end')
     await shot('after-film')
   }
-}
-
-/* ---- résumé panel ---- */
-if (await has('#resume-btn')) {
-  console.log('· résumé panel')
-  await page.click('#resume-btn')
-  await page.waitForTimeout(800)
-  await shot('resume-panel')
-
-  const readable = await page.evaluate(() => {
-    const b = document.getElementById('panel-body')
-    if (!b) return null
-    return { chars: b.innerText.trim().length, h1: b.querySelector('h1')?.textContent ?? null }
-  })
-  console.log('  panel:', JSON.stringify(readable))
-
-  await page.keyboard.press('Escape')
-  await page.waitForTimeout(600)
-  console.log(`  closed by Escape: ${!(await visible('#panel'))}`)
 }
 
 await browser.close()

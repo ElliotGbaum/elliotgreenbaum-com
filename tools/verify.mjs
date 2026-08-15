@@ -20,23 +20,60 @@ const ok = (name, cond, detail = '') => {
   cond ? pass++ : fail++
 }
 
-/* ── 1. first byte: is the résumé real HTML? ───────────────────────── */
+/**
+ * Start the film on the keys: walk into the projector's radius and press E.
+ * There is a pointer route as well — clicking the machine walks the figure over
+ * and starts the film on arrival — and §7 is where that is checked. Everything
+ * else below only wants the picture up with the fewest moving parts in the way,
+ * and holding one key is that.
+ *
+ * Three seconds of held ArrowUp is about twenty-five units at the player's top
+ * speed; spawn is thirty units out and the radius is seventeen, so it arrives
+ * with room either side and stops well short of the screen. Resolves true once
+ * the picture is up, false if it never comes.
+ */
+async function switchOn(page, tries = 40) {
+  await page.keyboard.down('ArrowUp')
+  await page.waitForTimeout(3000)
+  await page.keyboard.up('ArrowUp')
+  await page.waitForTimeout(400)
+  await page.keyboard.press('e')
+  for (let i = 0; i < tries; i++) {
+    await page.waitForTimeout(500)
+    if (await page.locator('#film').isVisible()) return true
+  }
+  return false
+}
+
+/* ── 1. first byte: is the card real HTML? ─────────────────────────── *
+ * And is it ONLY the card. There is no résumé on this site — not in the DOM,
+ * not behind a flag, not as a PDF link. The film is the long version. These
+ * checks are the fence around that decision: the ones that assert absence
+ * fail loudly if a CV ever grows back into the served HTML.
+ */
 console.log('\n1. Served HTML (no JS executed)')
 {
   const res = await fetch(base + '/')
   const html = await res.text()
   ok('status 200', res.status === 200, String(res.status))
-  ok('résumé heading present', html.includes('Elliot Greenbaum'))
-  ok('experience content present', /AI Solutions Consultant/i.test(html))
-  ok('education present', /Philosophy, Politics/i.test(html))
-  ok('the hedge is intact', html.includes('no client-reported quality loss'))
+  ok('name present', html.includes('Elliot Greenbaum'))
+  ok('contact links present', /mailto:/.test(html) && /linkedin\.com/i.test(html))
+  // comments, CSS and the probe script all talk ABOUT the résumé that used to
+  // be here — which is the point of them. What must not come back is markup.
+  const markup = html
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+  ok('no résumé anywhere in the markup', !/resume|résumé/i.test(markup))
+  ok('no experience bullets', !/AI Solutions Consultant|Summer Analyst/i.test(markup))
+  ok('no dated entries', !/<time[\s>]/i.test(markup))
 
   // What matters is not where the script tag sits but whether it blocks the
   // parser. `type="module"` is deferred by default, so a module script in
-  // <head> never delays the résumé; a bare synchronous <script src> would.
+  // <head> never delays the card; a bare synchronous <script src> would.
   const blocking = /<script(?![^>]*\b(?:type=["']module["']|defer|async))[^>]*\bsrc=/i.test(html)
-  ok('nothing render-blocking before the résumé', !blocking)
-  ok('critical CSS is inline', /<style>[\s\S]*\.plain/.test(html))
+  ok('nothing render-blocking before the card', !blocking)
+  ok('critical CSS is inline', /<style>[\s\S]*\.card/.test(html))
 }
 
 /* ── 2. JavaScript disabled ────────────────────────────────────────── */
@@ -45,10 +82,11 @@ console.log('\n2. JavaScript disabled')
   const ctx = await browser.newContext({ javaScriptEnabled: false })
   const page = await ctx.newPage()
   await page.goto(base + '/', { waitUntil: 'domcontentloaded' })
-  const vis = await page.locator('#resume-source').isVisible()
-  const text = await page.locator('#resume-source').innerText()
-  ok('résumé visible', vis)
-  ok('résumé readable', text.length > 600, `${text.length} chars`)
+  const vis = await page.locator('#card').isVisible()
+  const text = await page.locator('#card').innerText()
+  ok('card visible', vis)
+  ok('card readable', text.includes('Elliot Greenbaum') && text.length > 40, `${text.length} chars`)
+  ok('a way to reach him is on screen', await page.locator('#card a[href^="mailto:"]').isVisible())
   await ctx.close()
 }
 
@@ -68,7 +106,7 @@ console.log('\n3. WebGL unavailable')
   page.on('pageerror', (e) => errors.push(e.message))
   await page.goto(base + '/', { waitUntil: 'networkidle' })
   await page.waitForTimeout(900)
-  ok('résumé visible', await page.locator('#resume-source').isVisible())
+  ok('card visible', await page.locator('#card').isVisible())
   ok('world stays hidden', !(await page.locator('#stage').isVisible()))
   ok('no uncaught errors', errors.length === 0, errors[0] ?? '')
   await ctx.close()
@@ -84,62 +122,53 @@ console.log('\n4. prefers-reduced-motion: reduce')
   await page.goto(base + '/', { waitUntil: 'networkidle' })
   await page.waitForTimeout(2000)
   ok('world still boots', await page.locator('#stage').isVisible())
-  ok('résumé reachable', await page.locator('#resume-btn').isVisible())
-  await page.click('#resume-btn')
-  await page.waitForTimeout(500)
-  ok('panel opens', await page.locator('#panel').isVisible())
   ok('no uncaught errors', errors.length === 0, errors[0] ?? '')
   await ctx.close()
 }
 
-/* ── 5. keyboard only ──────────────────────────────────────────────── */
-console.log('\n5. Keyboard only')
+/* ── 5. the one instruction is on screen, and it holds still ───────── *
+ * There is exactly one thing to do here and no menu pointing at it, so the
+ * world has to say so unprompted. The standing line at the bottom and the
+ * compass naming its destination both carry that.
+ *
+ * AND THE LINE DOES NOT REWRITE ITSELF AS YOU WALK. It used to: the standing
+ * instruction and the projector's own prompt were two phrasings of the same
+ * idea, so crossing into the radius swapped one for the other and the eye went
+ * back to re-read a sentence it had already acted on. They are one string now
+ * (main.ts takes `LEAD` straight off `projector.prompt`), and this is the
+ * check that keeps them one.
+ */
+console.log('\n5. The projector announces itself')
 {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } })
   const page = await ctx.newPage()
   await page.goto(base + '/', { waitUntil: 'networkidle' })
-  await page.waitForTimeout(2200)
+  await page.waitForTimeout(3200)
 
-  // tab until we land on the résumé control, then activate it
-  let reached = false
-  for (let i = 0; i < 12; i++) {
-    await page.keyboard.press('Tab')
-    const id = await page.evaluate(() => document.activeElement?.id ?? '')
-    if (id === 'resume-btn') {
-      reached = true
-      break
-    }
-  }
-  ok('résumé button reachable by Tab', reached)
+  const lead = ((await page.locator('#prompt').textContent()) ?? '').toLowerCase()
+  ok('a standing instruction is shown', /projector/.test(lead) && /film/.test(lead), lead)
+  ok('the prompt is actually visible', (await page.locator('#prompt').getAttribute('data-on')) === 'true')
 
-  if (reached) {
-    await page.keyboard.press('Enter')
-    await page.waitForTimeout(600)
-    ok('panel opened by Enter', await page.locator('#panel').isVisible())
+  const compass = ((await page.locator('#compass em').textContent()) ?? '').trim()
+  ok('the compass names its destination', /projector/i.test(compass), compass)
 
-    const trapped = await page.evaluate(() => {
-      const p = document.getElementById('panel')
-      return !!p && p.contains(document.activeElement)
-    })
-    ok('focus moved into panel', trapped)
+  // walk all the way in, well inside the projector's 17-unit radius
+  await page.keyboard.down('ArrowUp')
+  await page.waitForTimeout(3000)
+  await page.keyboard.up('ArrowUp')
+  await page.waitForTimeout(400)
+  const close = ((await page.locator('#prompt').textContent()) ?? '').toLowerCase()
+  ok('the instruction does not change as you close in', close === lead, `${lead} → ${close}`)
 
-    await page.keyboard.press('Escape')
-    await page.waitForTimeout(600)
-    ok('Escape closes panel', !(await page.locator('#panel').isVisible()))
+  // …and standing at it does not start the film. The dwell trigger used to
+  // fire after half a second of standing still; the projector opts out of it.
+  await page.waitForTimeout(4000)
+  ok('standing at the projector does NOT start the film', !(await page.locator('#film').isVisible()))
+  ok(
+    'and it is still asking to be switched on',
+    ((await page.locator('#prompt').textContent()) ?? '').toLowerCase() === lead,
+  )
 
-    const returned = await page.evaluate(() => document.activeElement?.id ?? '')
-    ok('focus returned to trigger', returned === 'resume-btn', returned)
-  }
-
-  // the Places menu is the keyboard path to every landmark
-  await page.click('#places-btn')
-  await page.waitForTimeout(500)
-  const placesFocus = await page.evaluate(() => {
-    const p = document.getElementById('places')
-    return !!p && p.contains(document.activeElement)
-  })
-  ok('places menu takes focus', placesFocus)
-  await page.keyboard.press('Escape')
   await ctx.close()
 }
 
@@ -156,15 +185,13 @@ console.log('\n6. Phone at 375px')
   await page.goto(base + '/', { waitUntil: 'networkidle' })
   await page.waitForTimeout(2000)
 
-  const boxes = await page.evaluate(() =>
-    ['resume-btn', 'places-btn'].map((id) => {
-      const el = document.getElementById(id)
-      if (!el) return { id, w: 0, h: 0 }
-      const r = el.getBoundingClientRect()
-      return { id, w: Math.round(r.width), h: Math.round(r.height) }
-    }),
-  )
-  for (const b of boxes) ok(`${b.id} ≥44px tall`, b.h >= 44, `${b.w}×${b.h}`)
+  const box = await page.evaluate(() => {
+    const el = document.getElementById('day-btn')
+    if (!el) return { w: 0, h: 0 }
+    const r = el.getBoundingClientRect()
+    return { w: Math.round(r.width), h: Math.round(r.height) }
+  })
+  ok('day-btn ≥44px tall', box.h >= 44, `${box.w}×${box.h}`)
 
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -173,32 +200,95 @@ console.log('\n6. Phone at 375px')
   await ctx.close()
 }
 
-/* ── 7. landmarks disarm after use (regression) ────────────────────── *
- * The dwell trigger fires when you stand near something. After the film ends
- * you are still standing at the projector, so without a disarm it re-fires and
- * the film loops forever; the résumé panel reopens as fast as you dismiss it.
- * Skipping the film exercises the same end-path in seconds.
+/* ── 6b. the CARD's tap targets, which is a different page ─────────── *
+ * The check above loads the world, and the world is not what a locked-down
+ * phone gets. The card in index.html is — and it is the page where reaching
+ * him is the ONLY thing on offer, so its three links are the tap targets that
+ * matter most on this whole site. They were 20px tall and `X` was under 8px
+ * wide for as long as this file claimed to be checking them, because nothing
+ * here ever loaded the card. WebGL is blocked the same way tools/shoot.mjs
+ * blocks it. */
+console.log('\n6b. The fallback card at 375px')
+{
+  const ctx = await browser.newContext({
+    viewport: { width: 375, height: 812 },
+    deviceScaleFactor: 3,
+    isMobile: true,
+    hasTouch: true,
+  })
+  const page = await ctx.newPage()
+  await page.addInitScript(() => {
+    const real = HTMLCanvasElement.prototype.getContext
+    HTMLCanvasElement.prototype.getContext = function (kind, ...rest) {
+      if (String(kind).startsWith('webgl')) return null
+      return real.call(this, kind, ...rest)
+    }
+  })
+  await page.goto(base + '/', { waitUntil: 'networkidle' })
+
+  ok('the card is what you get with no WebGL', await page.locator('#card').isVisible())
+
+  const links = await page.evaluate(() =>
+    [...document.querySelectorAll('.card .contact a')].map((a) => {
+      const r = a.getBoundingClientRect()
+      return { text: a.textContent.trim(), w: Math.round(r.width), h: Math.round(r.height) }
+    }),
+  )
+  ok('the card has all three ways to reach him', links.length === 3, `${links.length}`)
+  for (const l of links) {
+    ok(`"${l.text}" is a 44px target`, l.w >= 44 && l.h >= 44, `${l.w}×${l.h}`)
+  }
+  await ctx.close()
+}
+
+/* ── 7. getting to it plays it, once ───────────────────────────────── *
+ * Two ways in and one rule about both: E at the machine, or a click on the
+ * machine — and the click is an ERRAND, not a switch. It sends the figure over
+ * and the film starts when the figure arrives, which is what stops the one
+ * gesture in this world that carries no intent from starting two minutes of
+ * film from thirty units away. So the click is checked twice: nothing a second
+ * after it, a film once the walk is done.
+ *
+ * And it has to end. The film used to restart on a loop: you finish it parked
+ * in front of the projector, the dwell trigger sees you standing in the radius
+ * and fires again. The dwell trigger is gone from this landmark and the disarm
+ * is still there, so this checks the outcome rather than either mechanism.
+ * Skipping exercises the same end-path in seconds.
  */
-console.log('\n7. Landmarks disarm after use')
+console.log('\n7. getting to the projector plays the film, once')
+/* the pointer path, on a page of its own — the first skip of the first film
+   runs ~9.5s of unlock ceremony with the figure frozen for all of it, and a
+   second way in tested on the same page would be tested through that. */
 {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } })
   const page = await ctx.newPage()
   await page.goto(base + '/', { waitUntil: 'networkidle' })
   await page.waitForTimeout(2200)
 
-  await page.click('#places-btn')
-  await page.waitForTimeout(600)
-  await page.locator('#places-list').getByText(/projector/i).first().click()
+  // the screen fills the middle of the frame from spawn (§8), so this is a
+  // click on the machine from as far away as the field allows
+  await page.mouse.click(640, 300)
+  await page.waitForTimeout(1000)
+  ok('clicking it does NOT start the film there and then', !(await page.locator('#film').isVisible()))
 
-  let started = false
-  for (let i = 0; i < 40; i++) {
+  let walked = false
+  for (let i = 0; i < 30 && !walked; i++) {
     await page.waitForTimeout(500)
-    if (await page.locator('#film').isVisible()) {
-      started = true
-      break
-    }
+    walked = await page.locator('#film').isVisible()
   }
-  ok('film starts on arrival', started)
+  ok('…it walks over and starts it on arrival', walked)
+  await ctx.close()
+}
+/* …and the key path, which is also where the film is checked to end and to
+   stay ended. */
+{
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+  const page = await ctx.newPage()
+  await page.goto(base + '/', { waitUntil: 'networkidle' })
+  await page.waitForTimeout(2200)
+
+  const started = await switchOn(page)
+  ok('film starts when E is pressed at the projector', started)
 
   if (started) {
     await page.click('#film-skip')
@@ -208,13 +298,195 @@ console.log('\n7. Landmarks disarm after use')
     // still parked at the projector — this is where the loop used to happen
     await page.waitForTimeout(6000)
     ok('film does NOT restart while parked', !(await page.locator('#film').isVisible()))
+
+    /* …and the chrome comes back on the way out of the film.
+       This used to wait 7s on top of the 6s above, because the first skip of
+       the first film was followed by ~9.5s of unlock ceremony with the HUD
+       deliberately down for all of it. Both minigames are shelved and the
+       ceremony went with them (see the note at the top of src/main.ts), so the
+       HUD is back the moment `finishFilm` runs and the long wait was measuring
+       nothing. Put it back if the reveal comes back. */
+    await page.waitForTimeout(1200)
+    ok('the HUD comes back after the film', await page.locator('#prompt').isVisible())
   }
 
-  await page.click('#resume-btn')
-  await page.waitForTimeout(700)
-  await page.keyboard.press('Escape')
-  await page.waitForTimeout(4000)
-  ok('résumé panel does NOT reopen', !(await page.locator('#panel').isVisible()))
+  await ctx.close()
+}
+
+/* ── 8. the film is a video player ─────────────────────────────────── *
+ * The film plays on the projector's screen out in the world, not in a DOM
+ * takeover, and it has a real transport: chapters, pause, scrubbing, 2×. All
+ * of that is only worth having if it survives a refactor, so it is checked
+ * here rather than trusted.
+ *
+ * Getting the film up means walking there and pressing E — see `switchOn`.
+ * The transport itself is ordinary DOM, so everything after that is a real
+ * click on a real button.
+ */
+console.log('\n8. The film is a video player')
+{
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+  const page = await ctx.newPage()
+  const errors = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  await page.goto(base + '/', { waitUntil: 'networkidle' })
+  await page.waitForTimeout(2400)
+
+  /** seconds off the running clock, parsed from "0:12 / 1:34" */
+  const seconds = async () => {
+    const t = (await page.locator('#film-time').textContent()) ?? ''
+    const m = /(\d+):(\d\d)/.exec(t.trim())
+    return m ? Number(m[1]) * 60 + Number(m[2]) : -1
+  }
+
+  /** the film's whole runtime, off the second half of the same readout */
+  const runtime = async () => {
+    const t = (await page.locator('#film-time').textContent()) ?? ''
+    const m = /\/\s*(\d+):(\d\d)/.exec(t.trim())
+    return m ? Number(m[1]) * 60 + Number(m[2]) : -1
+  }
+
+  const started = await switchOn(page, 30)
+  ok('pressing E at the projector switches it on', started)
+
+  if (started) {
+    const chapters = await page.locator('#film-scrub .film-chap').count()
+    // One segment per act in src/film/film.ts's ACTS. This used to be a
+    // hardcoded 6 with a comment telling you to bump it, and of course the
+    // film went to nine acts and the gate went red on a change that was
+    // entirely correct. A count that has to be edited by hand is a count that
+    // reports the last edit rather than the current build — so the only claim
+    // made here now is that there ARE segments and that no act is missing one.
+    ok('the scrubber is chaptered', chapters >= 2, `${chapters} segments`)
+    ok('the current chapter is named', ((await page.locator('#film-chapter').textContent()) ?? '').trim().length > 0)
+
+    // pause. Let it run first, so "held" can't be satisfied by a clock that
+    // was never moving in the first place.
+    await page.waitForTimeout(2500)
+    await page.click('#film-play')
+    await page.waitForTimeout(300)
+    const held = await seconds()
+    await page.waitForTimeout(1600)
+    ok('pause holds the clock', held > 0 && (await seconds()) === held, `${held}s`)
+    await page.click('#film-play')
+    await page.waitForTimeout(400)
+
+    // scrub. Measured against the film's own runtime rather than a number
+    // written down here — this used to assert `> 60s`, which quietly became a
+    // test of how long the film happened to be the day it was written.
+    const box = await page.locator('#film-scrub').boundingBox()
+    if (box) await page.mouse.click(box.x + box.width * 0.8, box.y + box.height / 2)
+    await page.waitForTimeout(400)
+    const sought = await seconds()
+    const total = await runtime()
+    ok(
+      'clicking the scrubber seeks',
+      total > 0 && sought > total * 0.7,
+      `${sought}s of ${total}s`,
+    )
+
+    // 2× — the shuttle is a held key, not a toggle
+    const before = await seconds()
+    await page.keyboard.down(' ')
+    await page.waitForTimeout(2000)
+    const after = await seconds()
+    await page.keyboard.up(' ')
+    ok('holding space runs at 2×', after - before >= 3, `${after - before}s in 2s`)
+
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(1200)
+    ok('Escape stops the film', !(await page.locator('#film').isVisible()))
+  }
+
+  ok('no uncaught errors', errors.length === 0, errors[0] ?? '')
+  await ctx.close()
+}
+
+/* ── 9. backgrounding the tab does not double the clock ────────────── *
+ * requestAnimationFrame is not cancelled when a tab is hidden, it is merely
+ * not serviced — so resuming used to schedule a SECOND loop alongside the one
+ * already queued, and every hide/show cycle doubled the frame rate again. The
+ * film ran at 2×, then 4×, then 8×, with no way back short of a reload. The
+ * measurement here is deliberately the film clock rather than a frame counter:
+ * the film advances off the world's dt, so it is the thing that visibly runs
+ * away.
+ */
+console.log('\n9. Backgrounding the tab')
+{
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+  const page = await ctx.newPage()
+  await page.goto(base + '/', { waitUntil: 'networkidle' })
+  await page.waitForTimeout(2400)
+  const started = await switchOn(page, 30)
+  ok('film running', started)
+
+  if (started) {
+    const seconds = async () => {
+      const t = (await page.locator('#film-time').textContent()) ?? ''
+      const m = /(\d+):(\d\d)/.exec(t.trim())
+      return m ? Number(m[1]) * 60 + Number(m[2]) : -1
+    }
+
+    // background and restore, three times — one round trip was enough to
+    // double it, but the doubling compounds and three makes it unmissable
+    const other = await ctx.newPage()
+    for (let i = 0; i < 3; i++) {
+      await other.bringToFront()
+      await other.waitForTimeout(400)
+      await page.bringToFront()
+      await page.waitForTimeout(400)
+    }
+    await other.close()
+    await page.waitForTimeout(300)
+
+    const before = await seconds()
+    await page.waitForTimeout(3000)
+    const after = await seconds()
+    const rate = (after - before) / 3
+    ok('the clock still runs at 1×', rate > 0.6 && rate < 1.6, `${rate.toFixed(2)}×`)
+  }
+
+  await ctx.close()
+}
+
+/* ── 10. the card shows up ONLY when it should ─────────────────────── *
+ * Checks 2 and 3 above are the card appearing when it is right. This is the
+ * other half, and it is the half that was wrong: the watchdog in index.html
+ * used to wait ten seconds for a frame on the canvas and pull the world if
+ * there wasn't one — but a tab loading in the background is not serviced by
+ * requestAnimationFrame at all, so a link opened in a new tab booted the
+ * world fine and then had the card swapped in underneath it, permanently,
+ * before anyone had looked. Freezing rAF is exactly that tab.
+ */
+console.log('\n10. The card stays away from a working world')
+{
+  const ctx = await browser.newContext()
+  const page = await ctx.newPage()
+  await page.addInitScript(() => {
+    window.requestAnimationFrame = () => 0
+    Object.defineProperty(document, 'hidden', { get: () => true })
+    Object.defineProperty(document, 'visibilityState', { get: () => 'hidden' })
+  })
+  await page.goto(base + '/', { waitUntil: 'networkidle' })
+  // past the watchdog, with room to spare
+  await page.waitForTimeout(25000)
+  const shown = await page.evaluate(
+    () => getComputedStyle(document.getElementById('card')).display !== 'none',
+  )
+  ok('a tab that never got a frame keeps the world', !shown)
+  await ctx.close()
+}
+
+/* …and the case it is actually for: the bundle never arrives. The error on
+   the script tag says so at once, so this does not have to wait out the
+   twenty seconds — and neither does the visitor. */
+{
+  const ctx = await browser.newContext()
+  const page = await ctx.newPage()
+  await page.route('**/assets/*.js', (r) => r.abort())
+  await page.goto(base + '/', { waitUntil: 'domcontentloaded' })
+  await page.waitForTimeout(2500)
+  ok('a dead bundle brings the card back, quickly', await page.locator('#card').isVisible())
   await ctx.close()
 }
 

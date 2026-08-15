@@ -50,15 +50,22 @@ export interface TypeScale {
 }
 
 /**
- * Content frame. Deliberately asymmetric: extra room at the bottom so the
- * picture never collides with the subtitle or the controls.
+ * Content frame.
+ *
+ * The bottom used to be given 22% of the picture, because a DOM subtitle sat
+ * under the screen and the two would read as one column of text if the picture
+ * ran too close to its own edge. There is no subtitle any more — the picture
+ * carries every word the film says — so that reserve was 22% of the screen
+ * held back for nothing, and the film was playing in the top two thirds of a
+ * screen the size of a house. It is still asymmetric, because a picture with
+ * equal margins reads as a slide, but only just.
  */
 export function frameOf(w: number, h: number): Frame {
-  const padX = Math.max(w * 0.07, 16)
-  const padTop = Math.max(h * 0.12, 22)
-  const padBottom = Math.max(h * 0.22, 74)
+  const padX = Math.max(w * 0.06, 14)
+  const padTop = Math.max(h * 0.095, 18)
+  const padBottom = Math.max(h * 0.135, 44)
   const fh = Math.max(80, h - padTop - padBottom)
-  const fw = Math.max(80, Math.min(w - padX * 2, fh * 1.9))
+  const fw = Math.max(80, Math.min(w - padX * 2, fh * 2.0))
   const x = (w - fw) / 2
   const y = padTop
   return { x, y, w: fw, h: fh, cx: x + fw / 2, cy: y + fh / 2, s: Math.min(fw, fh * 1.6) }
@@ -138,6 +145,45 @@ export function withAlpha(css: string, a: number): string {
   const b = n & 255
   return `rgba(${r},${g},${b},${clamp(a).toFixed(4)})`
 }
+
+/* ---------- pace ----------
+ *
+ * One film, one pace. Every act used to set its own, and the result was that
+ * the most important line in an act — the hedge in 02, "the hard part moved"
+ * in 04 — landed four tenths of a second before the beat holding it started
+ * to dissolve. It was legible in a still and unreadable at speed.
+ *
+ * Three numbers hold the whole film to one rhythm, and every act obeys them:
+ *
+ *   RAMP       a line of type takes this long to arrive. Decorative marks —
+ *              a beam sweeping, a bar finding its level, a pulse running a
+ *              wire — set their own; type does not.
+ *
+ *   DWELL      the floor. Nothing readable is allowed to reach full alpha
+ *              and then begin leaving, or have the act cut under it, in less
+ *              than this. THIS IS THE RULE THAT KEEPS GETTING BROKEN: it is
+ *              broken by adding one more thing to a beat and letting the
+ *              beat's out-point stay where it was. Move the out-point, or
+ *              lengthen the act. An act's DURATION is cheap — the scrubber
+ *              and the timecode are both derived, so nothing else has to
+ *              change — and a line nobody can read is not.
+ *
+ *   CROSSFADE  a beat hands the frame to the next one over this long, and
+ *              the incoming beat's in-point IS the outgoing beat's out-point,
+ *              so the two overlap instead of cutting through black.
+ *
+ * The other half of the same discipline: no HOLES. More than about a second
+ * where nothing on screen is arriving, leaving or moving reads as the thing
+ * having crashed. A held picture is not a hole — that is what DWELL buys —
+ * but a held picture with nothing left to say is.
+ */
+
+/** how long a line of type takes to arrive */
+export const RAMP = 0.7
+/** the least time anything readable holds at full before it starts to go */
+export const DWELL = 1.25
+/** how long a beat takes to hand the frame to the next one */
+export const CROSSFADE = 0.55
 
 /** fade in, then optionally out — the spine of every act's timing */
 export function envelope(t: number, inA: number, inB: number, outA?: number, outB?: number): number {
@@ -247,6 +293,43 @@ export function wrapText(ctx: CanvasRenderingContext2D, text: string, maxW: numb
   return out
 }
 
+/**
+ * Wrap, then BALANCE — same line count, evened out.
+ *
+ * Greedy wrapping fills every line to the brim and pours the remainder into the
+ * last one, which is how "From there, I took a role at Cassidy as an AI
+ * Solutions Consultant." came out as a full line and then the orphan word
+ * "Consultant." sitting on its own in the middle of the frame. Centred type
+ * makes that worse than it looks left-aligned: the short line is not a ragged
+ * edge, it is a lonely object with air on both sides of it.
+ *
+ * So: wrap at `maxW`, note how many lines that took, then squeeze the width
+ * down until one more line would be needed and wrap again at the last width
+ * that still fits in the same count. Same words, same number of lines, no
+ * orphan. Single-line text is returned untouched — there is nothing to balance.
+ *
+ * Call it for anything CENTRED. Left-aligned copy has a rag and does not need it.
+ */
+export function balanceText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxW: number,
+): string[] {
+  const full = wrapText(ctx, text, maxW)
+  if (full.length < 2) return full
+
+  let lo = maxW * 0.45
+  let hi = maxW
+  // eight halvings put the answer inside a fifth of a percent of the column,
+  // which is finer than a word boundary — no point iterating past it
+  for (let i = 0; i < 8; i++) {
+    const mid = (lo + hi) / 2
+    if (wrapText(ctx, text, mid).length > full.length) lo = mid
+    else hi = mid
+  }
+  return wrapText(ctx, text, hi)
+}
+
 /** draw wrapped lines; returns the baseline just past the last one */
 export function drawLines(
   ctx: CanvasRenderingContext2D,
@@ -354,6 +437,173 @@ export function bezier(p0: Pt, p1: Pt, p2: Pt, p3: Pt, n = 40): Pt[] {
   return out
 }
 
+/* ---------- dimension ----------
+ *
+ * The picture is flat, and the acts are vector drawings, and both of those are
+ * on purpose — but the film is cut into out of a world with real depth in it,
+ * and a rectangle of perfectly flat line art after that reads as a slide.
+ *
+ * So a handful of marks get a second face. Everything here assumes ONE light,
+ * up and to the left, which is where the projector's lamp is relative to the
+ * screen: an extruded mark shows its top and its right side, and nothing ever
+ * shows a face that light could not reach. Depths are small — a few percent of
+ * F.s — because this is a hint of a third dimension, not an isometric diagram.
+ */
+
+/** how far a face is offset per unit of depth. Shallow: this is a hint. */
+const FACE_X = 1
+const FACE_Y = -0.62
+
+/** the far corner of a mark extruded by `d` — where its lit faces live */
+export function faceOffset(d: number): Pt {
+  return { x: d * FACE_X, y: d * FACE_Y }
+}
+
+/**
+ * The two lit faces of an extruded rectangle: the top, and the right side.
+ * The caller draws the front face itself, because the front is the one that
+ * usually wants a gradient or a stroke of its own.
+ */
+export function block(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  d: number,
+  css: string,
+  a: number,
+): void {
+  if (a <= 0.004 || d <= 0 || w <= 0 || h <= 0) return
+  const o = faceOffset(d)
+
+  ctx.beginPath()
+  ctx.moveTo(x, y)
+  ctx.lineTo(x + o.x, y + o.y)
+  ctx.lineTo(x + w + o.x, y + o.y)
+  ctx.lineTo(x + w, y)
+  ctx.closePath()
+  ctx.fillStyle = withAlpha(css, a * 0.8)
+  ctx.fill()
+
+  ctx.beginPath()
+  ctx.moveTo(x + w, y)
+  ctx.lineTo(x + w + o.x, y + o.y)
+  ctx.lineTo(x + w + o.x, y + h + o.y)
+  ctx.lineTo(x + w, y + h)
+  ctx.closePath()
+  ctx.fillStyle = withAlpha(css, a * 0.4)
+  ctx.fill()
+}
+
+/** the same idea for anything already pathed: fill a polygon */
+export function polygon(ctx: CanvasRenderingContext2D, pts: Pt[]): void {
+  if (pts.length < 3) return
+  ctx.beginPath()
+  let first = true
+  for (const p of pts) {
+    if (first) {
+      ctx.moveTo(p.x, p.y)
+      first = false
+    } else ctx.lineTo(p.x, p.y)
+  }
+  ctx.closePath()
+}
+
+/**
+ * A card lying slightly off the picture plane: the shadow it casts, drawn
+ * before whatever sits on it. Cheap, and it is the single strongest cue that
+ * two things are at different distances.
+ */
+export function lift(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  d: number,
+  a: number,
+): void {
+  if (a <= 0.004 || d <= 0) return
+  const o = faceOffset(-d)
+  ctx.save()
+  ctx.shadowColor = withAlpha('#000000', 0.5 * a)
+  ctx.shadowBlur = d * 3
+  ctx.shadowOffsetX = o.x
+  ctx.shadowOffsetY = o.y
+  ctx.fillStyle = withAlpha('#000000', 0.22 * a)
+  ctx.fillRect(x, y, w, h)
+  ctx.restore()
+}
+
+/** run `paint` with a soft halo around everything it draws */
+export function halo(
+  ctx: CanvasRenderingContext2D,
+  css: string,
+  blur: number,
+  a: number,
+  paint: () => void,
+): void {
+  ctx.save()
+  ctx.shadowColor = withAlpha(css, clamp(a))
+  ctx.shadowBlur = blur
+  paint()
+  ctx.restore()
+}
+
+/**
+ * A floor receding to a vanishing point, under whatever the act is showing.
+ *
+ * This is the one mark in the kit that is purely about depth — it says "there
+ * is a ground here and it goes away from you" in about eight lines of stroke,
+ * and everything drawn above it inherits the read. Kept at a whisper: any
+ * louder and it competes with the type, which is the one thing on the screen
+ * that has to survive being thrown thirty units.
+ */
+export function floorGrid(
+  ctx: CanvasRenderingContext2D,
+  F: Frame,
+  horizonY: number,
+  nearY: number,
+  a: number,
+  drift = 0,
+): void {
+  if (a <= 0.004 || nearY <= horizonY) return
+  const depth = nearY - horizonY
+  const hw = hair(F)
+  const vx = F.cx
+
+  ctx.save()
+  ctx.lineWidth = hw
+  ctx.strokeStyle = withAlpha(PALETTE.buffCss, 0.055 * a)
+
+  // rails, converging on the vanishing point
+  const RAILS = 9
+  for (let i = 0; i <= RAILS; i++) {
+    const u = (i / RAILS) * 2 - 1
+    ctx.beginPath()
+    ctx.moveTo(vx + u * F.w * 0.06, horizonY)
+    ctx.lineTo(vx + u * F.w * 1.15, nearY)
+    ctx.stroke()
+  }
+
+  // sleepers, spaced so they crowd toward the horizon. `drift` moves the whole
+  // set toward the viewer without ever changing how many there are.
+  const STEPS = 7
+  for (let i = 0; i < STEPS; i++) {
+    const u = ((i + drift) % STEPS) / STEPS
+    const k = u * u * u
+    const y = horizonY + depth * k
+    const spread = 0.06 + (1.15 - 0.06) * k
+    ctx.strokeStyle = withAlpha(PALETTE.buffCss, 0.075 * a * (0.25 + 0.75 * k))
+    ctx.beginPath()
+    ctx.moveTo(vx - F.w * spread, y)
+    ctx.lineTo(vx + F.w * spread, y)
+    ctx.stroke()
+  }
+  ctx.restore()
+}
+
 /* ---------- marks ---------- */
 
 /** a soft point of light — the film's only "glow", no bloom pass anywhere */
@@ -374,6 +624,34 @@ export function softDot(
   ctx.beginPath()
   ctx.arc(x, y, r, 0, Math.PI * 2)
   ctx.fill()
+}
+
+/**
+ * A travelling point with a short tail behind it.
+ *
+ * The film's only motion blur, and it is not really blur: it is four samples
+ * of the same path, dimmer the further back they are. A bare dot moving along
+ * a line at 30fps reads as a dot that keeps being redrawn somewhere else; give
+ * it a wake and the eye reads speed instead.
+ */
+export function comet(
+  ctx: CanvasRenderingContext2D,
+  pts: Pt[],
+  prog: number,
+  r: number,
+  css: string,
+  a: number,
+  tail = 0.1,
+): Pt | null {
+  const head = pointAt(pts, prog)
+  if (!head || a <= 0.004) return head
+  for (let i = 4; i >= 1; i--) {
+    const p = pointAt(pts, Math.max(0, prog - (tail * i) / 4))
+    if (!p) continue
+    softDot(ctx, p.x, p.y, r * (1 - i * 0.15), css, a * 0.32 * (1 - i / 5))
+  }
+  softDot(ctx, head.x, head.y, r, css, a)
+  return head
 }
 
 export function disc(ctx: CanvasRenderingContext2D, x: number, y: number, r: number): void {
@@ -406,8 +684,15 @@ export function triangle(
 }
 
 /**
- * The standing head of acts 1–4: a small amber act number and the line.
- * Returns the heading's baseline so acts can hang layout off it.
+ * The standing head of the middle acts: a small amber act number and the line.
+ * Returns the baseline of the LAST line of the heading, so acts can hang their
+ * layout off it.
+ *
+ * The heading wraps. Most of them are three words and never will, but one of
+ * them is a whole sentence — and a sentence squeezed onto one line by fitText
+ * arrives at about 14px, which is smaller than the act number above it. Two
+ * lines at heading size is the right answer; anything that would need three
+ * gets shrunk until it doesn't.
  */
 export function header(
   ctx: CanvasRenderingContext2D,
@@ -418,15 +703,75 @@ export function header(
   a: number,
 ): number {
   const iy = F.y + S.micro * 1.15
-  const hy = iy + S.head * 1.3
-  if (a <= 0.004) return hy
+  const maxW = F.w * 0.94
+
+  let size = S.head
+  setFont(ctx, size, 'display', 400)
+  let lines = wrapText(ctx, heading, maxW)
+  for (let guard = 0; lines.length > 2 && guard < 8; guard++) {
+    size *= 0.88
+    setFont(ctx, size, 'display', 400)
+    lines = wrapText(ctx, heading, maxW)
+  }
+  if (lines.length <= 1) size = fitText(ctx, heading, maxW, size, 'display', 400)
+
+  const lh = size * 1.16
+  const first = iy + size * 1.3
+  const last = first + (lines.length - 1) * lh
+  if (a <= 0.004) return last
+
   ctx.textBaseline = 'alphabetic'
   ctx.textAlign = 'left'
   setFont(ctx, S.micro, 'mono', 500)
   ctx.fillStyle = withAlpha(PALETTE.amberCss, 0.8 * a)
   drawTracked(ctx, index, F.x, iy, S.micro * 0.26, 'left')
-  fitText(ctx, heading, F.w * 0.94, S.head, 'display', 400)
+
+  setFont(ctx, size, 'display', 400)
   ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.94 * a)
-  ctx.fillText(heading, F.x, hy)
-  return hy
+  drawLines(ctx, lines, F.x, first, lh, 'left')
+  return last
+}
+
+/**
+ * The small tracked mono line that hangs under a heading — the date at UPenn,
+ * the two firms, the job title at Cassidy.
+ *
+ * ONE SIZE FOR ALL OF THEM, WHICH IS THE ENTIRE REASON THIS FUNCTION EXISTS.
+ * Four acts drew this line and all four rolled their own: two at `micro` with
+ * different tracking, one at `small * 0.9`, each hung off `hy` by its own
+ * multiple of its own size. On screen that is four subtitles at three sizes
+ * sitting at three different distances under four otherwise identical heads,
+ * and it reads as four different kinds of thing rather than as one recurring
+ * one. It is `small` now — a step up from where most of them were, because at
+ * `micro` the date under UPenn was the smallest type in the film and it is a
+ * fact somebody might actually want to read.
+ *
+ * THE BASELINE IS RETURNED WHETHER OR NOT ANYTHING IS DRAWN, and it does not
+ * depend on `a`. Everything an act stacks below this is measured off the value
+ * that comes back, so a baseline that moved while the line faded in would walk
+ * the whole act down the frame over two-thirds of a second. The geometry
+ * settles first; only the ink waits.
+ *
+ * The offset clears the heading's descenders with room to spare — "Cassidy"
+ * has a y in it, and at anything under about two of its own sizes the mono line
+ * is printed through the tail of it.
+ */
+export function subhead(
+  ctx: CanvasRenderingContext2D,
+  F: Frame,
+  S: TypeScale,
+  hy: number,
+  text: string,
+  a: number,
+  css: string = PALETTE.amberCss,
+): number {
+  const size = S.small
+  const y = hy + size * 2.2
+  if (!text || a <= 0.004) return y
+  const fit = fitTracked(ctx, text, F.w * 0.86, size, 0.22, 'mono', 400)
+  ctx.textBaseline = 'alphabetic'
+  ctx.textAlign = 'left'
+  ctx.fillStyle = withAlpha(css, 0.84 * a)
+  drawTracked(ctx, text, F.x, y, fit.track, 'left')
+  return y
 }

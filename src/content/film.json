@@ -1,61 +1,168 @@
 {
-  "_readme": "Every word the film says. Edit the strings, reload, done — no code. Each key is one act. 'caption' is what a screen reader announces when the act begins, and it is also the subtitle printed under the picture: keep it to one or two short sentences that cover what is on screen. Everything else is drawn on the canvas. Act lengths live in src/film/acts/actN.ts; see the comment block at the top of src/film/timeline.ts.",
+  "_readme": "Every word the film says. Edit the strings, reload, done — no code. Each key is one act, in running order: act0 title, act1 curious/chess, act2 music, act3 UPenn, act4 real estate, act5 banking, act6 the AI wave, act7 teaching himself, act8 NewsGlide, act9 E&B, act10 Cassidy, act11 the card. 'chapter' is the two-or-three-word section name printed on the scrubber, the way chapter markers work on a video player — it has to read at 11px and make sense out of context. 'caption' is what a screen reader announces when the act begins; it is NOT printed on screen (the picture carries all of its own words, by design), so it can be a plain-spoken summary. Everything else is drawn on the canvas. Act lengths live in src/film/acts/actN.ts; see the comment block at the top of src/film/timeline.ts. HOUSE RULE, AMENDED: this copy is ELLIOT'S OWN WORDS, kept verbatim where he wrote them out. It used to be compressed into a punchier house voice; he asked for the opposite, so if a line here reads long, that is the point and it is not to be tightened. Numbers, client types and bullet detail stay off the screen — but note there is no résumé lane in index.html any more, that file is a name-and-contact card and nothing else, so there is no second place for a specific to go. Anything that does not earn a line in an act does not ship at all.",
+
+  "_sub": "FOUR ACTS CARRY A MONO SUBTITLE UNDER THE HEADING — the date at UPenn, the two firms, the job at Cassidy. They are all drawn by `subhead` in src/film/timeline.ts at ONE size, because four subtitles at four sizes is what the film had and it read as four different kinds of thing. Change the size there and all four move together.",
 
   "act0": {
-    "caption": "Elliot Greenbaum — a short film.",
-    "title": "Elliot Greenbaum",
-    "sub": "a short film"
+    "chapter": "Hi, I’m Elliot",
+    "caption": "Hi, I’m Elliot.",
+    "_title": "Typed one character at a time, so keep it short: the act is 6.4 seconds and the typing rate is fixed (see CPS in src/film/acts/act0.ts). Roughly twenty characters is the ceiling before the last letter lands too late to be held.",
+    "_sub": "The small mono line under the rule. Empty on purpose — the title card says the name and nothing else. Put a string back here and it draws again; act0 skips the whole block when it is blank.",
+    "title": "Hi, I’m Elliot",
+    "sub": ""
   },
 
   "act1": {
-    "caption": "I love to think. Tournament chess from a young age. Philosophy, Politics & Economics at Penn, December 2025.",
+    "chapter": "About Me",
+    "caption": "My friends and family would describe me as curious and analytical. Starting at age 6, I competed in state and local chess tournaments, sometimes winning. I’m a huge fan of board games, puzzles, and all things strategy.",
     "index": "01",
-    "heading": "I love to think.",
-    "chess": "Tournament chess from a young age.",
-    "fields": ["Philosophy", "Politics", "Economics"],
-    "school": "Penn · Dec ’25"
+    "heading": "My friends and family would describe me as curious and analytical",
+    "_chess": "The caption under the drawing. It WRAPS — the act measures it and gives the picture what is left, so length here costs picture height rather than legibility.",
+    "chess": "Starting at age 6, I competed in state and local chess tournaments, sometimes winning",
+    "close": "I’m a huge fan of board games, puzzles, and all things strategy."
   },
 
   "act2": {
-    "caption": "I also love to build. E&B Agentic Systems, co-founded with a friend. Three SMB clients, owned end to end.",
+    "chapter": "Music",
+    "caption": "I’ve always loved music. Playing guitar, and playing sax.",
     "index": "02",
-    "heading": "I also love to build.",
-    "company": "E&B Agentic Systems · co-founded with a friend",
-    "nodes": ["intake", "agent", "tools", "handoff"],
-    "stages": ["discovery", "scoping", "implementation"],
-    "line": "Three SMB clients, owned end to end."
+    "heading": "I’ve always loved music",
+    "_notes": "One caption under each drawing. They used to be the whole story of each picture — a specific talent show, a specific town party — and they are three words now, because he asked for three words. The act measures whatever is here and sizes the pictures against it, so putting the long versions back costs nothing but picture height.",
+    "guitarNote": "This is me",
+    "saxNote": "This is also me"
   },
 
   "act3": {
-    "caption": "Cassidy, AI Solutions Consultant. Improved workflows and agents — cut costs with no client-reported quality loss.",
+    "chapter": "UPenn",
+    "caption": "I studied Philosophy, Politics and Economics at UPenn. Graduated December 2025.",
     "index": "03",
-    "heading": "Cassidy",
-    "role": "AI Solutions Consultant",
-    "tag": "Cassidy",
-    "graphLine": "Improved workflows and agents.",
-    "metrics": ["cost", "hallucinations", "accuracy"],
-    "hedgeLead": "Cut costs",
-    "hedge": "with no client-reported quality loss.",
-    "contactLine": "Primary technical point of contact.",
-    "duties": ["onboarding", "troubleshooting", "office hours"],
-    "presalesA": "Also pre-sales — demos that landed clients.",
-    "presalesB": "And telling the platform’s story."
+    "heading": "I studied Philosophy, Politics, and Economics at UPenn",
+    "_fields": "Three strands, in braiding order left to right. The act weaves exactly this many — add a fourth and it re-spaces itself, but three is the degree.",
+    "fields": ["Philosophy", "Politics", "Economics"],
+    "school": "Graduated Dec ’25"
   },
 
   "act4": {
-    "caption": "Why startups: they need a lot of different skills at once. Building, and talking to people.",
+    "chapter": "Real Estate",
+    "caption": "My first college internship was at a Real Estate Investment Firm, The Richman Group.",
     "index": "04",
-    "heading": "Why startups.",
-    "threads": ["building", "customers", "teams", "detail", "judgment"],
-    "lineA": "They need a lot of different skills at once.",
-    "lineB": "Building, and talking to people — customers outside, teams inside."
+    "heading": "My first college internship was at a Real Estate Investment Firm",
+    "firm": "The Richman Group",
+    "_learn": "Blank on purpose — he cut it. It read 'I learned a ton', and the same line closed act 5, so the two internships ended on the identical sentence. The act skips the foot line entirely when it is empty and the runtime was shortened to match, so putting a string back here draws it again but lands it near the cut; see LEARN_A and DURATION in src/film/acts/act4.ts.",
+    "learn": ""
   },
 
   "act5": {
-    "caption": "Elliot Greenbaum. [what you’re looking for]. [your email].",
-    "name": "Elliot Greenbaum",
-    "looking": "[what you’re looking for]",
-    "email": "[your email]",
-    "hint": "Résumé and links are one click away."
+    "chapter": "Banking",
+    "caption": "Another summer I had an internship in Investment Banking, at EAS Advisors.",
+    "index": "05",
+    "heading": "Another summer I had an internship in Investment Banking",
+    "firm": "EAS Advisors",
+    "_lines": "BOTH BLANK ON PURPOSE — he cut them. They read 'I learned a ton' and 'I also realized I wanted my next role to have more autonomy', and they were the two foot lines of this act: the act now plays as picture only, the model and then the deal, and says nothing at the foot at all. The tail that existed to hold the second line went with it. Either key draws again if a string goes back, but the runtime no longer has room for both; see LEARN_A, TURN_A and DURATION in src/film/acts/act5.ts.",
+    "learn": "",
+    "turn": ""
+  },
+
+  "act6": {
+    "chapter": "AI Takes Off",
+    "caption": "During my senior year, AI took off. The huge advances in coding sparked my curiosity.",
+    "index": "06",
+    "heading": "During my senior year, AI took off",
+    "_spark": "The one line in the act. The curve is the picture and this is what it meant; it lands at the foot, which is where every line in this film that comments on a picture lands.",
+    "spark": "The huge advances in coding sparked my curiosity."
+  },
+
+  "act7": {
+    "chapter": "Learning",
+    "caption": "I began teaching myself about it, learning and building with it.",
+    "index": "07",
+    "_heading": "The whole act. There is no line at the foot on purpose — the heading says it and the drawing under it shows it, and a caption repeating the heading four inches below it is the film reading itself out loud.",
+    "heading": "I began teaching myself about it, learning and building with it"
+  },
+
+  "act8": {
+    "chapter": "NewsGlide",
+    "caption": "While still in college, I built NewsGlide.org, a web app to help users navigate the news with AI. It reached 200+ weekly active users.",
+    "index": "08",
+    "_heading": "The product is the title of this act, the way E&B and Cassidy title theirs.",
+    "heading": "NewsGlide",
+    "_built": "Said at the foot while the card is up, and it is the ONLY place the address appears now — 'NewsGlide.org' inside this sentence is the clickable link, drawn in amber and underlined where it falls in the wrapped line. See 'linkWord' below and the foot section of src/film/acts/act8.ts. It is the sentence that used to be carried by the card's tagline alone — so the tagline below is blank on purpose, and the card skips it.",
+    "built": "While still in college, I built NewsGlide.org, a web app to help users navigate the news with AI",
+    "_linkWord": "The run of characters inside 'built' that becomes the link. It has to appear in that sentence EXACTLY once and exactly as written — the act finds it by index, and a word it cannot find simply draws as ordinary type with no link, which is a link that silently stopped working. Change the sentence, check this.",
+    "linkWord": "NewsGlide.org",
+    "_reach": "The one number in the film, and it lands a beat after the sentence above it rather than inside it — it is what the sentence turned out to be worth, so it gets its own line and its own moment. Blank it and the act simply skips the line.",
+    "reach": "It reached 200+ weekly active users.",
+    "_project": "The one piece of evidence in the film a viewer can go and check. The three features are NewsGlide's own, off its own front page; if the product changes, change them here. 'label' is BLANK on purpose: the address used to print on the card under the features AND inside the sentence at the foot, which is the same address twice on one screen. The card skips the whole row when it is blank — put a string back and it draws again, spacing intact. 'href' stays, because it is what the link in the sentence points at.",
+    "project": {
+      "name": "NewsGlide",
+      "tagline": "",
+      "features": ["understand bias", "spot sensationalism", "get the full picture"],
+      "label": "",
+      "href": "https://newsglide.org"
+    }
+  },
+
+  "act9": {
+    "chapter": "E&B",
+    "caption": "E&B. While working on NewsGlide, I also co-founded an AI consulting firm with a friend. Some of the work we did included building an end-to-end hiring portal, email inbox triage, and RFP response automation.",
+    "index": "09",
+    "_heading": "The company is the title of this act, the way act 10 names Cassidy.",
+    "heading": "E&B Agentic Solutions",
+    "_start": "Beat one, and the whole of it: the act holds this one sentence in the middle of an empty frame before the work arrives.",
+    "start": "While working on NewsGlide, I also co-founded an AI consulting firm with a friend.",
+    "lead": "Some of the work we did included:",
+    "_builds": "One card each. 'label' and 'href' turn a card into a real clickable link on the screen — see src/film/links.ts.",
+    "builds": [
+      { "name": "An end-to-end hiring portal.", "label": "", "href": "" },
+      { "name": "Email inbox triage.", "label": "", "href": "" },
+      { "name": "RFP response automation.", "label": "", "href": "" }
+    ]
+  },
+
+  "act10": {
+    "chapter": "Cassidy",
+    "caption": "From there, I took a role at Cassidy as an AI Solutions Consultant. I was mainly focused on the post-sales side, serving as a technical point of contact for clients to scope and build new workflows, answer questions, troubleshoot errors, onboard new clients, and more.",
+    "index": "10",
+    "heading": "Cassidy",
+    "_role": "Printed in mono directly under the standing head, which is the only place it appears — the same subtitle slot the date at UPenn and the two firms use.",
+    "role": "AI Solutions Consultant",
+    "_lines": "THE TWO OF THEM ARE ONE BEAT. The lead used to arrive alone, leave, and be replaced by the body on the same baseline, which meant the frame said one thing, blanked, and said another — and the swap was the only thing happening for four seconds. They are up together now, in the middle of the frame rather than down at its foot, and they go together, so the thread gets the whole picture to itself afterwards.",
+    "lead": "From there, I took a role at Cassidy as an AI Solutions Consultant.",
+    "body": "I was mainly focused on the post-sales side, serving as a technical POC for clients.",
+    "_duties": "The work itself, one duty per card on the thread. These are his own phrasing, and the longest runs about fifty characters. The act measures the widest one against the column and scales the whole stack to fit, so length is no longer a hard limit, but every character you add shrinks the type on EVERY card. Seven is what the band holds at a readable size; adding an eighth costs the other seven.",
+    "duties": [
+      "onboarded new clients",
+      "led discovery and requirements gathering sessions",
+      "built new, multi-step workflow automations",
+      "configured data integrations",
+      "designed custom agents",
+      "debugged production workflow errors",
+      "reworked live automations based on client feedback"
+    ]
+  },
+
+  "act11": {
+    "chapter": "Get in touch",
+    "caption": "I’m currently looking for roles in deployment, solutions consulting, implementation and product. elliotgreenbaum at gmail dot com, LinkedIn, and X. Would love to hear from you. Thanks for listening.",
+    "_name": "Blank on purpose. The name opened the film — act 0 types it, one character at a time, and it is the first thing anybody sees — so printing it again on the last card was the film introducing itself to a viewer who has been watching it for a minute and a half. The rule under it stays and is now the top edge of the card. Put a string back here and the name draws again above it, spacing intact.",
+    "name": "",
+    "_left": "Blank on purpose too. It used to read 'I left Cassidy in June 2026', which dated the card — a line that is true for a month and then quietly wrong, on the one frame a viewer might come back to. The act skips the whole row when it is empty, spacing and all.",
+    "left": "",
+    "looking": "I’m currently looking for roles in",
+    "_roles": "The list set into the middle of the sentence. It WRAPS onto as many rows as it needs at a readable size rather than being crushed into one — see `fitRoles` in src/film/acts/act11.ts — so a long role costs a row here, not type size on every role. The tail word rides on the last row.",
+    "roles": ["Deployment", "Solutions Consulting", "Implementation", "Product"],
+    "_rolesTail": "The tail of the sentence, on the last role’s own baseline. EMPTY — it read “space.” and the sentence is now “looking for roles in” + the list, which ends itself. The act skips the whole tail when it is blank; put a word back and it draws again beside the last role, sized off the roles rather than off `small`.",
+    "rolesTail": "",
+    "_ask": "Blank on purpose. 'If you know of any open roles or are hiring, please don’t hesitate to reach out' was the film asking for a favour before it had given an address; the invitation is one short line UNDER the addresses now — see 'hear'. The act skips this row when it is empty.",
+    "ask": "",
+    "email": "elliotgreenbaum@gmail.com",
+    "links": [
+      { "label": "linkedin.com/in/elliot-greenbaum", "href": "https://www.linkedin.com/in/elliot-greenbaum/" },
+      { "label": "x.com/elliotgreenbaum", "href": "https://x.com/elliotgreenbaum" }
+    ],
+    "_hear": "The invitation, and it sits directly under the three addresses because that is what it is inviting somebody to do.",
+    "hear": "Would love to hear from you!",
+    "_thanks": "The last line of the film. It carried a second clause naming things the field no longer has; git and the shelf note at the top of src/main.ts hold the why, because every note in this file SHIPS — it is imported whole and lands in the bundle.",
+    "thanks": "Thanks for listening!"
   }
 }
