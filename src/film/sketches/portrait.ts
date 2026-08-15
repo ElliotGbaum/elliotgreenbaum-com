@@ -32,6 +32,39 @@
  *   A SPADE and A HEART — the chin, four times.
  *   A COAT HANGER, a SASH, an AVOCADO — the 35% and 70% frames.
  *   A GREY ALIEN, and A YOUNG WOMAN — the whole head, and fairly, both times.
+ *   A LOAF OF BREAD, A MILK CARTON, A MINIFIG — the cranium, once the second
+ *     contour was gone and nobody was looking at the first one any more.
+ *
+ * ── AND THEN THE CRANIUM WAS A SLAB ──────────────────────────────────────
+ *
+ * Deleting the second contour was right and it is still right. What it did not
+ * do was make the remaining contour a head, and for one pass it was a ROUNDED
+ * RECTANGLE: the sides ran dead vertical for 0.06 of height, turned a corner
+ * inside 0.02, and the top was FLAT for 0.09 of width. A vertical side reads at
+ * its full width for its entire length, where a curved one reads full width at
+ * a single point — which is why the same 0.35 of head measured as a wall looks
+ * enormous and measured as a dome looks right.
+ *
+ * SO THE TEST IS ON THE RATE, NOT THE WIDTH. Walk the anchors from the widest
+ * point to the crown and take dx/dy at each: it must increase EVERY step. Any
+ * two consecutive steps at about the same rate are a straight run, and two
+ * straight runs with a turn between them are a corner. Nothing else in this
+ * file needs measuring to four decimals; this does.
+ *
+ * AND THE TEST HAS TO CROSS THE MIDLINE. Run only to the crown anchor it
+ * certifies the two shoulders of the dome and says NOTHING about the span
+ * between them — which is how the next pass shipped rounded corners with a flat
+ * top still between them and read as the same slab. Measure the SAG: from the
+ * apex out to each shoulder, against the head's width. Under about 3% is a
+ * plateau. It was 2.5%.
+ *
+ * AND THE FACE WAS WIDEST AT THE TEMPLE, 0.144 against the cheekbone's 0.140,
+ * which is the same bug at the other end — the jaw's taper ran straight on into
+ * the wall with nothing to stop it. But see CHEEK: the fix is NOT to put the
+ * widest point back at the cheekbone, because a face that narrows into the
+ * temple hands the hair a line running the other way, and a contour that
+ * reverses inside one anchor is a CUSP. Two passes shipped that: the first as a
+ * wall, the second as a notch bitten out of the side of the head.
  *
  * ── WHY IT KEPT BEING A HAT, AND WHAT FINALLY STOPPED IT ─────────────────
  *
@@ -122,22 +155,33 @@
  *
  * ── THE FACE ─────────────────────────────────────────────────────────────
  *
- * THE FACE IS 0.595 OF THE HEAD'S HEIGHT ACROSS, which is narrower than it has
+ * THE FACE IS 0.60 OF THE HEAD'S HEIGHT ACROSS, which is narrower than it has
  * ever been drawn here — it was 0.68, and a face two-thirds as wide as it is
- * tall is a dome whatever is inside it. Widest at the CHEEKBONE and tapering
- * both ways; a jaw that is widest at the jaw is a box.
+ * tall is a dome whatever is inside it. The JAW is narrower than the CHEEKBONE
+ * by 0.030, and a jaw that is widest at the jaw is a box — but the cheekbone
+ * is not a point on the silhouette, it is a RATE. See CHEEK.
  *
- * THE JAW HAS A GONIAL CORNER, at 0.386/0.472, and that is the difference
+ * THE JAW HAS A GONIAL CORNER, at 0.386/0.464, and that is the difference
  * between a head and a leaf. For five passes CHEEK was one monotone taper from
  * temple to chin — a silhouette with no mandible in it — and a pointed chin
  * under no jaw, with wide round eyes and no nose, is why it read androgynous
  * however many other numbers were right.
  *
- * THE CHIN is a flat 0.104 across and 0.031 deep, under a jaw that is CONVEX
- * from the gonial corner down to it. Run straight, the two sides make a V and
- * the face is gaunt. It has been 0.108 (a shovel),
- * 0.068 (a spade), and 0.088 with a 0.030 drop, which is still a V with a
- * rounded tip. DEPTH makes a point, not width.
+ * AND THE CORNER IS NOT MADE BY DOUBLING THE ANCHOR. It was doubled for five
+ * passes and there was no corner, because a Catmull–Rom break at [G,G] takes
+ * its two tangents from (G−A) and (B−G) — so if the jaw ARRIVES near-vertical,
+ * doubling changes nothing at all. The mandible has to arrive at 33° off
+ * vertical and the ramus leave at 15°, and it can only do that if the body of
+ * the jaw RUNS STRAIGHT into the corner instead of curving into it. Convexity
+ * belongs at the chin end. The break is 18°, and it is the doubled anchor plus
+ * three collinear ones that buy it.
+ *
+ * THE CHIN is 0.107 across and 0.0285 deep, and it is FLAT for 0.023 along the
+ * bottom — two anchors at the same y, which is what a jaw looks like from the
+ * front. Under a jaw that is CONVEX from about mid-body down to it. It has been
+ * 0.108 (a shovel), 0.068 (a spade), and 0.104 with a single low anchor between
+ * two rounded corners, which is a spade again however wide it is measured.
+ * DEPTH makes a point, not width — and so does a lone bottom anchor.
  *
  * THE EYES ARE NARROW — 0.055 across and 0.019 open, which is a ratio of three
  * and a half to one. Drawn rounder they were doll's eyes, and the reason was
@@ -160,13 +204,18 @@
  *
  * ── PROPORTION, as ratios so they survive being re-fitted ────────────────
  *
- *   Crown 0.106, fringe 0.212, brow 0.298, eye 0.334, nose base 0.438, mouth
- *   0.480, chin 0.576 — which puts the eye 49% of the way down the head and the
- *   front of the hair 23%, both as measured off the photograph.
- *   Head 0.348 across against 0.470 tall — a ratio of 0.74, which is the
- *   canonical one. It was 0.83, and that is a balloon.
+ *   Crown 0.100 (apex 0.0975), widest 0.215, fringe 0.2225, brow 0.298, eye
+ *   0.334, nose base 0.438, mouth 0.480, chin 0.5745 — which puts the eye 49%
+ *   of the way down the head and the front of the hair 26%, both as measured
+ *   off the photograph.
+ *   Head 0.343 across against 0.477 tall — a ratio of 0.72, near enough the
+ *   canonical 0.74. It was 0.83, and that is a balloon.
+ *   Cranium 1.5 to 1 above the widest point. At 2.45 to 1 the top is flat.
  *   Eye 0.055 wide, 0.062 between inner corners, five eyes to the face.
- *   Chin to yoke 0.102. Deltoid span 0.680.
+ *   Neck 0.199 across at the jaw against a 0.343 head — 58%, and under about
+ *   half that is a stalk. Chin to yoke 0.1035.
+ *   Deltoid span 0.731 — two head-widths, which is the narrowest a man reads
+ *   as. It was 1.95, and that is a bottle.
  *
  * ── ORDER ────────────────────────────────────────────────────────────────
  *
@@ -214,7 +263,7 @@ import { W, curve, dot, fit, hand, mirror, poly, xform } from './kit'
 /* ---- the landmarks every measurement above is quoted against ---- */
 const CROWN = 0.1
 const EYE = 0.334
-const CHIN = 0.576
+const CHIN = 0.5745
 /** where the neck stops and the shoulders start */
 const YOKE = 0.678
 /**
@@ -239,24 +288,41 @@ const AXIS = 0.5
  * whole construction.
  */
 const CHEEK = curve(W.edge, [
-  [0.448, 0.545],
-  [0.424, 0.532],
-  [0.4, 0.508],
-  [0.386, 0.472],
-  [0.386, 0.472],
-  [0.368, 0.407],
-  [0.36, 0.351],
-  [0.356, 0.306],
+  [0.4465, 0.546],
+  [0.4295, 0.534],
+  // the body of the mandible, and it runs STRAIGHT — three anchors at a steady
+  // 31° off vertical. Curved all the way to the corner it arrives near-vertical,
+  // the ramus leaves near-vertical too, and there is no corner however many
+  // times the anchor is doubled. Convexity belongs at the chin end only.
+  [0.4145, 0.5085],
+  [0.4, 0.4855],
+  [0.386, 0.464],
+  [0.386, 0.464],
+  // THE RAMUS RUNS MONOTONICALLY OUTWARD, at a DECREASING rate — 0.28, 0.22,
+  // 0.12 — and hands the hair a line that is still widening. The cheekbone had
+  // its own anchor 0.0045 proud of the temple for fifteen passes, so the cheek
+  // arrived at the join narrowing while the hair left it widening: a REVERSAL
+  // inside one anchor, which is a cusp, and a cusp on a silhouette is a notch
+  // bitten out of the side of the head. At this size the cheekbone cannot be a
+  // silhouette event at all. It is carried by the RATE — fast off the gonial,
+  // slow at the temple — and the jaw is narrower than it by 0.030, which is
+  // the entire content of "widest at the cheekbone" and all a viewer reads.
+  [0.3715, 0.412],
+  [0.3595, 0.357],
+  [0.3535, 0.306],
 ])
 
 /** The chin, sharing both of CHEEK's lower endpoints so its corners are real.
- *  0.112 across and 0.032 deep — depth is what makes a point. */
+ *  0.107 across, 0.0285 deep, and FLAT for 0.023 along the bottom. Two anchors
+ *  at the same y is what a jaw looks like from the front; a single low anchor
+ *  between two rounded corners is a spade whatever its depth. */
 const CHIN_S = curve(W.edge, [
-  [0.448, 0.545],
-  [0.474, 0.567],
-  [0.5, CHIN],
-  [0.526, 0.567],
-  [0.552, 0.545],
+  [0.4465, 0.546],
+  [0.4665, 0.5665],
+  [0.4885, CHIN],
+  [0.5115, CHIN],
+  [0.5335, 0.5665],
+  [0.5535, 0.546],
 ])
 
 /**
@@ -339,14 +405,18 @@ const IRIS = dot(1.8, 0.444, EYE - 0.003, 0.0105)
  * chin — started inside it, both neck strokes fork over the jaw and draw a chin
  * strap; started below it, the head rests on a post.
  *
- * And it CONVERGES UPWARD, 0.095 of half-width at the jaw against 0.104 at the
+ * And it CONVERGES UPWARD, 0.0945 of half-width at the jaw against 0.114 at the
  * yoke. Two parallel verticals under a head are a column, a post or a bolster;
- * a neck is a truncated cone and has to be drawn as one.
+ * a neck is a truncated cone and has to be drawn as one. It was 0.095 against
+ * 0.104 — a ninth of a taper, which at this size is a tube with a rounding
+ * error in it. The flare has to be big enough to see: a fifth, and most of it
+ * spent in the bottom third, where the sterno-mastoid actually spreads.
  */
 const NECK = curve(W.edge, [
-  [0.405, 0.494],
-  [0.404, 0.582],
-  [0.396, YOKE],
+  [0.4005, 0.4855],
+  [0.3965, 0.555],
+  [0.389, 0.622],
+  [0.379, YOKE],
 ])
 
 /**
@@ -362,30 +432,40 @@ const NECK = curve(W.edge, [
  * leaving one shoulder down and the other not.
  */
 const TRAP_IN = curve(W.edge, [
-  [0.386, 0.676],
-  [0.34, 0.698],
-  [0.3, 0.716],
+  [0.379, 0.6775],
+  [0.343, 0.6905],
+  [0.3015, 0.708],
 ])
 
+/**
+ * And it STEEPENS: 0.36 of fall per unit of run on the inner half against 0.58
+ * on the outer. Drawn at one constant slope the trapezius and the arm are a
+ * single straight diagonal from the ear to the elbow, which is a bottle — the
+ * shoulder has no corner in it because there is no change of rate to make one.
+ */
 const TRAP_OUT = curve(1.6, [
-  [0.3, 0.716],
-  [0.244, 0.736],
-  [0.196, 0.748],
-  [0.16, 0.756],
+  [0.3015, 0.708],
+  [0.252, 0.73],
+  [0.205, 0.756],
+  [0.172, 0.7845],
 ])
 
 /** The arm, hanging OUTBOARD of the shoulder tip and running off the bottom of
- *  the frame. Inboard and stopping short, it was a hanger with a hook. */
+ *  the frame. Inboard and stopping short, it was a hanger with a hook.
+ *
+ *  It leaves the trapezius at 1.53 against the 0.58 it arrived at, and THAT
+ *  break is the deltoid. Span 0.731 across, against 0.680 — two head-widths
+ *  even, which is the narrowest a man reads as. */
 const ARM_UP = curve(1.6, [
-  [0.16, 0.756],
-  [0.122, 0.818],
-  [0.116, 0.862],
+  [0.172, 0.7845],
+  [0.142, 0.8305],
+  [0.1345, 0.8725],
 ])
 
 const ARM_DOWN = curve(1.6, [
-  [0.116, 0.862],
-  [0.118, 0.922],
-  [0.122, 0.985],
+  [0.1345, 0.8725],
+  [0.1355, 0.9285],
+  [0.1395, 0.985],
 ])
 
 /* ==================================================================== *
@@ -421,25 +501,47 @@ const ARM_DOWN = curve(1.6, [
  * locks below, which cross the line and come out the other side. A bald head has
  * no marks crossing its outline.
  *
- * The left half. The widest point is at 0.212 — ABOVE the ear, where a parietal
- * eminence is — and the side runs near-straight from there down to the temple.
- * Widest near the top and one continuous arc all the way round is a ball, and a
- * ball is the dome nine reviewers complained about.
+ * The left half. The widest point is at 0.215 — ABOVE the ear, where a parietal
+ * eminence is, which is near BROW level and not near the crown. It went to
+ * 0.172 for a pass, chasing a rounder dome, and a head whose widest point sits
+ * a fifth of the way down from the top is a MUSHROOM: pinched at the temples,
+ * bulging high, capped flat. Nothing else moved and the whole drawing changed
+ * nouns.
+ *
+ * From the widest point to the crown, dx/dy goes 0.16, 0.52, 1.36, 2.51, 6.25.
+ * That sequence is the whole shape and it is the only thing in this file worth
+ * checking with a calculator: it must increase at EVERY step. Two steps at the
+ * same rate are a straight run, and two straight runs with a turn between them
+ * are a corner.
+ *
+ * AND IT MUST BE WALKED ALL THE WAY ACROSS, not just up to the crown anchor.
+ * The pass that fixed the corners left 0.108, 0.1055, 0.0995, 0.1005, 0.1045
+ * running across the top — 0.0085 of sag over 57% of the head's width, which is
+ * a PLATEAU, and a plateau between two rounded corners is the same slab it was
+ * before with the edges filed off. The rule the corners satisfy says nothing
+ * about the middle. Sag from the apex is now 0.017 at the near shoulder of the
+ * dome and 0.026 at the far one, which is what an ellipse 1.5 to 1 gives, and
+ * 1.5 to 1 is a cranium. It was 2.45 to 1.
  */
 const HAIR_L = curve(W.edge, [
-  [0.356, 0.306],
-  [0.346, 0.258],
-  [0.334, 0.208],
-  [0.336, 0.172],
+  [0.3535, 0.306],
+  // and it picks the line up STILL WIDENING — 0.23 against the 0.12 the cheek
+  // arrived at. Same sign, mild acceleration, no cusp. The swell that says
+  // "hair" is not a step out at the join; it is the 0.022 the contour gains
+  // between here and the widest point, spent smoothly over 0.13 of height.
+  [0.3455, 0.2735],
+  [0.3385, 0.2415],
+  [0.335, 0.215],
+  [0.3405, 0.181],
   // ONE wave, and a real one. Two little 0.007 scallops here read as the
   // scalloping on a bathing cap: too small to be clumps of hair and too big to
   // be the hand. Hair breaks its own silhouette in ones, not in ripples. Ten
-  // thousandths is the whole window — at 0.016 it was a horn.
-  [0.352, 0.144],
-  [0.346, 0.128],
-  [0.372, 0.111],
-  [0.412, 0.108],
-  [0.462, CROWN + 0.006],
+  // thousandths is the whole window — at 0.016 it was a horn. This anchor sits
+  // 0.0065 PROUD of the arc its neighbours describe.
+  [0.3555, 0.152],
+  [0.393, 0.1245],
+  [0.437, 0.107],
+  [0.462, CROWN + 0.003],
 ])
 
 /**
@@ -451,15 +553,17 @@ const HAIR_L = curve(W.edge, [
  * away the only characterful mark in the file.
  */
 const HAIR_R = curve(W.edge, [
-  [0.644, 0.306],
-  [0.662, 0.258],
-  [0.682, 0.208],
-  [0.679, 0.17],
-  [0.656, 0.14],
-  [0.624, 0.118],
-  [0.578, 0.11],
-  [0.52, CROWN + 0.0055],
-  [0.462, CROWN + 0.006],
+  [0.6465, 0.306],
+  [0.6595, 0.2725],
+  [0.6715, 0.2405],
+  [0.678, 0.213],
+  [0.6745, 0.179],
+  [0.6635, 0.152],
+  [0.6425, 0.1275],
+  [0.6055, 0.1085],
+  [0.5555, 0.0995],
+  [0.508, 0.0975],
+  [0.462, CROWN + 0.003],
 ])
 
 /**
@@ -483,9 +587,9 @@ const HAIR_R = curve(W.edge, [
  * converging; and they are 0.13 apart, which is too far to pair.
  */
 const TUFT_A = curve(W.fine, [
-  [0.394, 0.168],
-  [0.409, 0.135],
-  [0.428, 0.102],
+  [0.3925, 0.174],
+  [0.4085, 0.1405],
+  [0.4305, 0.1025],
 ])
 
 /**
@@ -507,11 +611,11 @@ const TUFT_A = curve(W.fine, [
  * near one another are a pair, and a pair is a strap.
  */
 const FRINGE = curve(W.line, [
-  [0.352, 0.198],
-  [0.398, 0.214],
-  [0.452, 0.212],
-  [0.5, 0.194],
-  [0.528, 0.16],
+  [0.3355, 0.2125],
+  [0.386, 0.2255],
+  [0.4485, 0.2225],
+  [0.4975, 0.203],
+  [0.522, 0.169],
 ])
 
 /* ==================================================================== *
@@ -541,8 +645,8 @@ const HEAD: SketchStroke[] = [
     [0.523, 0.396],
     [0.529, 0.422],
     [0.52, 0.438],
-    [0.5, 0.443],
-    [0.485, 0.434],
+    [0.5005, 0.443],
+    [0.488, 0.4365],
   ]),
 
   // The brows land TOGETHER, whatever else is true about them. They are the most
@@ -592,21 +696,35 @@ const BODY: SketchStroke[] = [
   hand(TRAP_IN, 0.003, 6.8),
   // The near collar leaf, with a real point, turning in towards the placket.
   poly(W.line, [
-    [0.404, YOKE],
-    [0.372, 0.708],
-    [0.352, 0.736],
-    [0.336, 0.764],
-    [0.412, 0.824],
-    [0.462, 0.878],
+    [0.379, YOKE],
+    [0.3525, 0.7095],
+    [0.334, 0.7445],
+    [0.324, 0.7735],
+    [0.404, 0.8285],
+    [0.46, 0.879],
   ]),
   // The far leaf, which LANDS ON THE SHOULDER and stops. Carried down to the
   // frame like the near one, it was the second of two converging verticals
-  // running down an empty chest, which is a bathrobe. Landed, it is a yoke seam.
+  // running down an empty chest, which is a bathrobe.
+  //
+  // LANDING MEANS LANDING ON THE LINE. It used to stop at 0.702/0.717 with the
+  // trapezius passing 0.006 below it, and a terminal that near a contour without
+  // touching it is not a seam — it is a spike standing on a shoulder, which is
+  // what it read as: a dog-ear, a paper flag, a pen clip. The last anchor is now
+  // a point ON the mirrored trapezius, so the two marks meet instead of one
+  // hovering over the other.
+  //
+  // AND IT LANDS SHORT. Carried all the way to the trapezius' outer end it met
+  // it there, correctly, and the region it closed against the shoulder was 0.085
+  // long and 0.055 deep — a wedge two to one, which is a sliver, and a sliver
+  // lying along a shoulder is a flag, a pennant, an epaulette. A collar leaf is
+  // about as deep as it is wide. Landing 0.024 further in costs nothing and the
+  // wedge comes out square.
   poly(W.line, [
-    [0.598, YOKE],
-    [0.642, 0.716],
-    [0.686, 0.772],
-    [0.702, 0.717],
+    [0.621, YOKE],
+    [0.6435, 0.7135],
+    [0.6635, 0.7495],
+    [0.6805, 0.7005],
   ]),
 
   hand(mirror(TRAP_OUT), 0.0035, 1.9),
@@ -622,11 +740,11 @@ const BODY: SketchStroke[] = [
   // same line, with one button on it. A placket in an open shirt is one edge;
   // the far panel is behind the chest and has none.
   curve(W.line, [
-    [0.462, 0.878],
-    [0.448, 0.926],
-    [0.438, 0.985],
+    [0.46, 0.879],
+    [0.446, 0.926],
+    [0.436, 0.985],
   ]),
-  dot(W.fine, 0.464, 0.921, 0.011),
+  dot(W.fine, 0.462, 0.921, 0.011),
   hand(mirror(ARM_UP), 0.004, 2.2),
   hand(ARM_UP, 0.004, 5.6),
   hand(mirror(ARM_DOWN), 0.004, 7.4),
