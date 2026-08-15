@@ -90,7 +90,25 @@
      instead. */
   #world{display:none}
   html.has-webgl #world{display:block}
-  html.has-webgl body{background:var(--bg);overflow:hidden;overscroll-behavior:none}
+  html.has-webgl body{
+    background:var(--bg);overflow:hidden;overscroll-behavior:none;
+    /* THE HELD FINGER IS OURS, NOT SAFARI'S.
+       Walking is a held gesture — the button goes down on grass and the figure
+       keeps walking for as long as it is down (onPointerDown in src/main.ts) —
+       and half a second of a finger held still on a page is the exact input iOS
+       reads as "select this". With nothing here to select it took the document,
+       so crossing the field on a phone washed the whole screen blue and offered
+       to copy it. touch-action on the canvas does not cover this: that governs
+       scrolling and zooming, and selection is a separate machine.
+       The three lines are three different behaviours, all of them wrong here:
+       callout is the copy/paste bubble, user-select is the blue wash itself,
+       tap-highlight is the grey flash a tap leaves behind.
+       Scoped to html.has-webgl on purpose — the card lane is three contact
+       links and copying the email address is the whole point of it. */
+    -webkit-touch-callout:none;
+    -webkit-user-select:none;user-select:none;
+    -webkit-tap-highlight-color:transparent;
+  }
   html.has-webgl .card{display:none}
 
   /* ---------- the load screen ----------
