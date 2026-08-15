@@ -74,7 +74,16 @@ import { publishLink } from '../links'
 import copy from '../../content/film.json'
 
 const C = copy.act8
-const DURATION = 12.4
+/**
+ * 10.8, down from 12.4. The last thing to arrive is the number, at REACH_A plus
+ * a RAMP — about 5.9 in — so the old length left six and a half seconds of a
+ * frame that had finished saying everything on it. The address still wants a
+ * hold, because it is the one thing here a viewer might press or write down, so
+ * this is trimmed rather than cut: nearly five seconds of the finished card and
+ * both lines standing. Nothing else in the act moved — the sentence, the number
+ * and the card all arrive exactly when they did.
+ */
+const DURATION = 10.8
 
 /* ---- the card, and everything on it ---- */
 const CARD_A = 0.6

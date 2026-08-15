@@ -92,7 +92,14 @@ import { publishLink } from '../links'
 import copy from '../../content/film.json'
 
 const C = copy.act11
-const DURATION = 12.4
+/**
+ * 13.0, up from 12.4. "Thanks for listening" lands at THANKS_A plus a RAMP,
+ * about 8.9 in, and this is the frame the film ends on and the one anybody who
+ * wants the address has to read off — so the last four seconds are the card
+ * standing finished, and it is the one hold in the film that is allowed to be
+ * generous. Six tenths more of it.
+ */
+const DURATION = 13.0
 
 /**
  * The role list, set as large as the column allows and WRAPPED rather than

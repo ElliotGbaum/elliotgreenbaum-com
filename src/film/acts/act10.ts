@@ -71,12 +71,14 @@ import copy from '../../content/film.json'
 
 const C = copy.act10
 /**
- * 15.4, up from 11.8, and every second of it went into the two things this act
- * was rushing. The sentences got a beat between them and a longer hold; the
- * thread deals its cards half again as slowly and then sits with the finished
- * column instead of cutting off the end of it.
+ * 16.0, and it went 11.8 → 15.4 → 16.0. Nearly all of that went into the two
+ * things this act was rushing: the sentences got a beat between them and a
+ * longer hold, and the thread deals its cards half again as slowly instead of
+ * cutting off the end of the column. The last six tenths are the hold on the
+ * finished column — the seventh card settles at 11.3, and four seconds of
+ * looking at a completed list was just short of enough.
  */
-const DURATION = 15.4
+const DURATION = 16.0
 
 /* ---- beats. TWO OF THEM, AND THEY DO NOT OVERLAP AT ALL.
 

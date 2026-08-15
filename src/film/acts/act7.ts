@@ -39,12 +39,14 @@ import copy from '../../content/film.json'
 
 const C = copy.act7
 /**
- * 7.9. It went 7.6 → 8.2 to give the finished drawing a longer look, and 8.2
- * turned out to be three tenths past the point where the hold stops reading as
- * a held picture and starts reading as a stall. The pen lifts at 5.0, so this
- * is 2.9 seconds of finished drawing — which is the number that was wanted.
+ * 7.2, down from 7.9. The pen lifts at 5.0, so the tail here is nothing but a
+ * finished drawing being looked at, and 2.9 seconds of it was past the point
+ * where the hold stops reading as a held picture and starts reading as a stall
+ * — the act had said everything it says and the film was waiting on it. 2.2
+ * seconds is a look; the beats themselves are untouched, which is the only way
+ * to shorten this act without making the pen hurry.
  */
-const DURATION = 7.9
+const DURATION = 7.2
 
 const SCENE = prepare(DESK)
 

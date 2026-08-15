@@ -64,11 +64,19 @@ import copy from '../../content/film.json'
 
 const C = copy.act0
 /**
- * 5.1, down from 5.4. The last thing to arrive is the small line under the
- * rule, settled at 3.9 — everything after that is a held frame, and the trim
- * comes out of the hold. Nothing here arrives any earlier than it did.
+ * 4.8, and it went 5.4 → 5.1 → 4.8. Every trim has come out of the same place:
+ * the hold at the end, never the typing, which is why the greeting still lands
+ * one character at a time at exactly the rate it always did.
+ *
+ * WHAT THE HOLD IS MEASURED AGAINST HAS MOVED, though, and the old note here
+ * was out of date about it. It said the last arrival was the small line under
+ * the rule at 3.9 — but `sub` is blank in film.json now and the act skips the
+ * whole block, so the last thing that happens on this frame is the RULE
+ * finishing its travel at 3.45. That leaves 1.35 seconds of a finished title
+ * card, which is a beat rather than a pause. Restore `sub` and this wants to go
+ * back up, because 3.9 plus a hold is a longer act than 3.45 plus one.
  */
-const DURATION = 5.1
+const DURATION = 4.8
 
 const FACE = prepare(PORTRAIT)
 

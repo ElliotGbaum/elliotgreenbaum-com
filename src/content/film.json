@@ -14,11 +14,11 @@
 
   "act1": {
     "chapter": "About Me",
-    "caption": "My friends and family would describe me as curious and analytical. Starting at age 6, I competed in state and local chess tournaments, sometimes winning. I’m a huge fan of board games, puzzles, and all things strategy.",
+    "caption": "My friends and family would describe me as curious and analytical. Starting at age 7, I competed in state and local chess tournaments, sometimes winning. I’m a huge fan of board games, puzzles, and all things strategy.",
     "index": "01",
     "heading": "My friends and family would describe me as curious and analytical",
     "_chess": "The caption under the drawing. It WRAPS — the act measures it and gives the picture what is left, so length here costs picture height rather than legibility.",
-    "chess": "Starting at age 6, I competed in state and local chess tournaments, sometimes winning",
+    "chess": "Starting at age 7, I competed in state and local chess tournaments, sometimes winning",
     "close": "I’m a huge fan of board games, puzzles, and all things strategy."
   },
 
