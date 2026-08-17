@@ -7,7 +7,7 @@
  * Sequencing and playback live in src/film/film.ts.
  */
 
-import { PALETTE, clamp, ease, rand, range } from '../core/contract'
+import { PALETTE, PHONE, clamp, ease, rand, range } from '../core/contract'
 
 /* ==================================================================== *
  * The drawing kit
@@ -71,13 +71,40 @@ export function frameOf(w: number, h: number): Frame {
   return { x, y, w: fw, h: fh, cx: x + fw / 2, cy: y + fh / 2, s: Math.min(fw, fh * 1.6) }
 }
 
+/**
+ * A PHONE READS THE FILM AT A LARGER SIZE, and this multiplier is the only
+ * place that knows it. Every act takes its type from `scale()` and its
+ * geometry from the frame, so this moves the words and nothing else: the
+ * compositions stay where they were composed.
+ *
+ * WHY IT HAS TO BE HERE AND NOT ONLY IN THE CAMERA. Re-framing the shot is
+ * the honest first answer and is also done — see `watchVantage` in
+ * src/world/landmarks/projector.ts — but there is a ceiling on it: a phone
+ * held upright already lands the screen across about ninety per cent of the
+ * glass, so the whole of what re-framing can buy there is the last tenth. A
+ * tenth of eight points is nine points. The rest has to come out of the type.
+ *
+ * A FIFTH, AND IT IS A JUDGEMENT. Everything downstream fits itself to the
+ * frame — `fitText` shrinks a line that would overrun, act 9 and act 10 scale
+ * their whole stack to the band they are given — so the acts absorb a step
+ * like this rather than break on it, and the same machinery is what limits
+ * how far it is worth going: every further step is eventually handed straight
+ * back as one more line in a paragraph, or one more notch off a stack. All
+ * twelve acts were looked at one at a time at 390 points at this step and
+ * every one of them lands as composed. The floors below are untouched: they are
+ * the floor for a tiny canvas — the contact sheet in src/filmstrip.ts draws
+ * at 384 wide — and not for a phone.
+ */
+const PHONE_TYPE = 1.22
+
 export function scale(F: Frame): TypeScale {
+  const k = PHONE ? PHONE_TYPE : 1
   return {
-    title: Math.max(26, F.s * 0.115),
-    head: Math.max(19, F.s * 0.062),
-    body: Math.max(13, F.s * 0.04),
-    small: Math.max(11, F.s * 0.028),
-    micro: Math.max(9.5, F.s * 0.02),
+    title: Math.max(26, F.s * 0.115 * k),
+    head: Math.max(19, F.s * 0.062 * k),
+    body: Math.max(13, F.s * 0.04 * k),
+    small: Math.max(11, F.s * 0.028 * k),
+    micro: Math.max(9.5, F.s * 0.02 * k),
   }
 }
 

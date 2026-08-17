@@ -41,6 +41,15 @@
   --ui-font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
   --ui-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+
+  /* The margin every fixed corner of the world keeps off the edge of the
+     screen, notches and home bars included. Declared here rather than on #hud
+     because the full-screen button is pinned to the same top corner and is
+     deliberately NOT in the HUD — see #fs-btn below. */
+  --pad-t: max(14px, env(safe-area-inset-top, 0px));
+  --pad-b: max(14px, env(safe-area-inset-bottom, 0px));
+  --pad-l: max(14px, env(safe-area-inset-left, 0px));
+  --pad-r: max(14px, env(safe-area-inset-right, 0px));
 }
 
 /* src/style.css owns the stage itself (#world / #stage layout). Everything
@@ -75,11 +84,6 @@
   z-index: 40;
   pointer-events: none;
   transition: opacity 220ms ease;
-
-  --pad-t: max(14px, env(safe-area-inset-top, 0px));
-  --pad-b: max(14px, env(safe-area-inset-bottom, 0px));
-  --pad-l: max(14px, env(safe-area-inset-left, 0px));
-  --pad-r: max(14px, env(safe-area-inset-right, 0px));
 }
 #hud.is-off {
   opacity: 0;
@@ -423,6 +427,95 @@ html.is-day #day-btn::before {
    screen says so any more, and #prompt is where anything that has to be said
    gets said, in words. */
 
+/* ---- full screen ----
+   A phone on its side, with the browser's bar across the top of the picture.
+   This is the only way to ask for that space back, so it is the only place in
+   the world where a button appears for a reason that is about the BROWSER
+   rather than about the field.
+
+   It is not in #hud, and that is deliberate twice over: the HUD fades out for
+   the length of the film, which is exactly when the extra inch is worth
+   having, and this button is the one piece of chrome that is allowed to sit
+   over the picture. Hence the z-index above the film bar's 60.
+
+   WHEN IT IS ON SCREEN is decided in src/ui/fullscreen.ts and not here, for
+   two reasons a stylesheet cannot answer: whether the browser has a Fullscreen
+   API at all, and the one exception to the rule — while the page IS full
+   screen the button stays, whatever the phone is doing, or turning a
+   full-screen phone upright would take away the way back out. The `hidden`
+   attribute is what that decision writes. */
+
+#fs-btn {
+  position: fixed;
+  top: var(--pad-t);
+  right: var(--pad-r);
+  z-index: 70;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--ui-rule);
+  border-radius: 999px;
+  /* the same flat veil every other pill out here carries, and for the same
+     reason: it has to read over a canvas that repaints every frame */
+  background: rgba(10, 20, 24, 0.82);
+  color: var(--ui-ink-2);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+#fs-btn[hidden] {
+  display: none;
+}
+#fs-btn:hover {
+  color: var(--ui-ink);
+  border-color: var(--ui-rule-lit);
+}
+#fs-btn:active {
+  transform: translateY(1px);
+}
+
+/* Two corners of a frame, drawn in borders — the icon every video player
+   uses, and nothing to load. Facing inward it offers the picture the whole
+   screen; facing outward it offers the screen back. */
+.fs-icon {
+  position: relative;
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+.fs-icon::before,
+.fs-icon::after {
+  content: '';
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border: 0 solid currentColor;
+}
+.fs-icon::before {
+  top: 0;
+  left: 0;
+  border-width: 1.5px 0 0 1.5px;
+}
+.fs-icon::after {
+  right: 0;
+  bottom: 0;
+  border-width: 0 1.5px 1.5px 0;
+}
+#fs-btn[data-on='true'] .fs-icon::before {
+  border-width: 0 1.5px 1.5px 0;
+}
+#fs-btn[data-on='true'] .fs-icon::after {
+  border-width: 1.5px 0 0 1.5px;
+}
+
 /* ---- HUD, desktop ---- */
 @media (min-width: 721px) {
   .hud-corner {
@@ -431,6 +524,13 @@ html.is-day #day-btn::before {
   }
   #prompt {
     bottom: calc(var(--pad-b) + 36px);
+  }
+  /* the top-right corner is shared once the full-screen button is in it — see
+     the same rule under the landscape-phone query at the bottom of this file,
+     which is where it actually bites. This one is for the wide landscape phone
+     that clears 430px of height and so misses that query. */
+  html.has-fs-btn .hud-corner {
+    right: calc(var(--pad-r) + 52px);
   }
 }
 
@@ -488,7 +588,8 @@ html.is-day .interact__verb {
   outline: 2px solid var(--ui-amber-lit);
   outline-offset: 3px;
 }
-#world .hud-btn:focus-visible {
+#world .hud-btn:focus-visible,
+#world #fs-btn:focus-visible {
   border-radius: 999px;
 }
 
@@ -500,13 +601,15 @@ html.is-day .interact__verb {
   #compass,
   #prompt,
   .hud-btn,
+  #fs-btn,
   .interact__pin,
   #interact kbd {
     transition-duration: 1ms !important;
     transition-delay: 0ms !important;
     animation: none !important;
   }
-  .hud-btn:active {
+  .hud-btn:active,
+  #fs-btn:active {
     transform: none !important;
   }
   #prompt,
@@ -563,5 +666,12 @@ html.is-day .interact__verb {
   }
   #prompt {
     bottom: calc(var(--pad-b) + 14px);
+  }
+  /* …and the corner the time switch has just moved into is the corner the
+     full-screen button is already standing in. `has-fs-btn` is written by
+     src/ui/fullscreen.ts and is on only while the button is actually there,
+     so the switch moves over for it and moves back when it goes. */
+  html.has-fs-btn .hud-corner {
+    right: calc(var(--pad-r) + 52px);
   }
 }

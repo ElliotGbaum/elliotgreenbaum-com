@@ -273,3 +273,41 @@ export const REDUCED_MOTION = RM_QUERY?.matches === true
  * step with the `prefers-reduced-motion` rules in the stylesheets.
  */
 export const reducedMotion = (): boolean => REDUCED_MOTION || RM_QUERY?.matches === true
+
+/* ------------------------------------------------------------------ *
+ * A PHONE
+ *
+ * A touch screen, and a small one. Two things read this, and both of them
+ * are about the same fact — the film is a picture of text being thrown onto
+ * a screen thirty units away, and on a phone that picture is four hundred
+ * points wide however it is framed:
+ *
+ *   src/world/landmarks/projector.ts  frames the watching shot on what has
+ *      to be in it rather than on a composed lens, so the picture is as big
+ *      as the frame will let it be.
+ *   src/film/timeline.ts  steps the whole type scale up, because framing
+ *      alone cannot buy enough — the picture is already nearly as wide as
+ *      the phone.
+ *
+ * IT IS THE DEVICE, NOT THE WINDOW, and that is the point of asking `screen`
+ * rather than `innerWidth`. A window you can drag narrow is still a desktop
+ * and must not have the film redrawn under it; a phone is a phone in both
+ * orientations, so turning it never changes the answer. Decided once, at
+ * boot, exactly like REDUCED_MOTION above.
+ *
+ * The cut is at 520 points, which is above every phone and below every
+ * tablet: an iPad in portrait is 768 and gets the film as composed.
+ * ------------------------------------------------------------------ */
+const COARSE_QUERY =
+  typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia('(hover: none) and (pointer: coarse)')
+    : null
+
+export const PHONE = ((): boolean => {
+  if (COARSE_QUERY?.matches !== true) return false
+  const s = typeof window !== 'undefined' ? window.screen : null
+  const short = s
+    ? Math.min(s.width, s.height)
+    : Math.min(window.innerWidth, window.innerHeight)
+  return short > 0 && short <= 520
+})()

@@ -290,6 +290,18 @@
          note where its styles used to be in src/ui/ui.css. -->
   </div>
 
+  <!-- FULL SCREEN.
+       The one control that only exists on a phone lying on its side, where
+       the browser's own bar is eating the top of the picture and there is no
+       other way to ask for it back. It is NOT in the HUD: the HUD fades out
+       for the length of the film, and the film is when this is wanted most.
+       src/ui/fullscreen.ts decides whether it is on screen at all — a browser
+       with no Fullscreen API never shows it, because a button that does
+       nothing is worse than no button. -->
+  <button id="fs-btn" type="button" hidden data-on="false" aria-label="Full screen">
+    <span class="fs-icon" aria-hidden="true"></span>
+  </button>
+
   <!-- The film's controls.
        The picture itself is NOT here — it is a texture on the projector
        screen out in the world, and you watch it from where you are standing.

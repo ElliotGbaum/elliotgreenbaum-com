@@ -32,7 +32,14 @@
  */
 
 import * as THREE from 'three'
-import { PALETTE, clamp, easeOut, type Landmark, type LandmarkContext } from '../../core/contract'
+import {
+  PALETTE,
+  PHONE,
+  clamp,
+  easeOut,
+  type Landmark,
+  type LandmarkContext,
+} from '../../core/contract'
 
 const SCREEN_Z = -30
 const SCREEN_W = 30
@@ -379,6 +386,10 @@ export function createProjector(picture: HTMLCanvasElement): Projector {
      Two rigs, blended by how portrait the viewport is, then widened if it
      has to be to keep the screen inside the frame.
 
+     THIS IS THE SHOT ON ANYTHING WITH A WINDOW. A phone takes the measured
+     one below it instead — same field, same figure, no composed lens — and
+     `watchVantage` is the one-line switch between them.
+
      Landscape is a long lens from a long way back. That is the entire trick:
      a 22° lens at fifty units compresses the figure, the projector and the
      screen into one plane, so all three read at once — which is what "you are
@@ -400,7 +411,7 @@ export function createProjector(picture: HTMLCanvasElement): Projector {
     fov: 47,
   }
 
-  function watchVantage(aspect: number): Vantage {
+  function deskVantage(aspect: number): Vantage {
     const k = clamp((1.0 - aspect) / 0.55)
     const position = LAND.position.clone().lerp(PORT.position, k)
     const lookAt = LAND.lookAt.clone().lerp(PORT.lookAt, k)
@@ -417,6 +428,79 @@ export function createProjector(picture: HTMLCanvasElement): Projector {
       lookAt,
       fov: Math.max(LAND.fov + (PORT.fov - LAND.fov) * k, needW, needH),
     }
+  }
+
+  /* ---------------- and the same shot on a phone ----------------
+   * THE LENS IS NOT COMPOSED, IT IS MEASURED. The two rigs above start from a
+   * focal length somebody chose and open up only if the screen would not fit;
+   * this one starts from what has to be in the frame — the top of the screen
+   * and the ground the figure is standing on — and takes the tightest frame
+   * that holds both, plus a tenth for air.
+   *
+   * The difference is what the composed lens was spending on nothing. At 22°
+   * a landscape phone put the top of the screen 7.2° above the axis and the
+   * figure's feet 9.6° below it, in a frame whose half is 11° — four degrees
+   * of spare sky at one end, one and a half of spare ground at the other, and
+   * an axis aimed at neither. Aim at the middle of the pair and the same two
+   * things fit in 18.8°, which is a sixth off the frame and a sixth onto every
+   * word on the screen.
+   *
+   * NOTHING IS CROPPED TO PAY FOR IT. The figure keeps its feet, the machine
+   * keeps its stand, the screen keeps its frame — the same three things are in
+   * shot, with the dead sky over them and the dead ground under them gone.
+   *
+   * In portrait it is the WIDTH that binds, and it binds almost immediately:
+   * the screen is ninety per cent of a phone held upright whatever you do, so
+   * the margin below is the whole of what is available and the film's own type
+   * carries the rest (see PHONE_TYPE in src/film/timeline.ts).
+   */
+  const PHONE_POS = new THREE.Vector3(2.0, 3.0, 50)
+  /** the top of the screen's frame — the highest thing that has to be in shot */
+  const KEEP_TOP = new THREE.Vector3(0, SCREEN_Y + SCREEN_H / 2 + 0.9, SCREEN_Z)
+  /** …and the lowest: the ground the figure stands on to watch */
+  const KEEP_FOOT = new THREE.Vector3(-6, 0, PROJ_Z + 1)
+  /** how much of the frame is air rather than either of those */
+  const PHONE_AIR = 1.1
+  /**
+   * …and how much over the screen's own width the frame keeps.
+   *
+   * It is 1.06 because the screen's FRAME is 1.053 times the picture — the bar
+   * across the top runs SCREEN_W + 1.6 — and at anything tighter a phone held
+   * upright, where this is the constraint that binds, ran the picture out to
+   * both edges of the glass and cut the posts off it. Four per cent of the
+   * type buys the object back: it is a screen standing in a field, and a
+   * screen with its edges outside the frame is just a wall with a film on it.
+   */
+  const PHONE_FILL = 1.06
+
+  function phoneVantage(aspect: number): Vantage {
+    const p = PHONE_POS
+    /** how high a world point sits from the shot, as an angle off the level */
+    const pitch = (v: THREE.Vector3) =>
+      Math.atan2(v.y - p.y, Math.hypot(v.x - p.x, v.z - p.z))
+    const hi = pitch(KEEP_TOP)
+    const lo = pitch(KEEP_FOOT)
+
+    /* Aimed at the middle of the pair, which is the whole trick: a frame is
+       symmetric about its axis, so it is only ever as small as twice the
+       further of the two things it has to hold. */
+    const run = Math.hypot(p.x, p.z - SCREEN_Z)
+    const lookAt = new THREE.Vector3(0, p.y + Math.tan((hi + lo) / 2) * run, SCREEN_Z)
+
+    const deg = (r: number) => (r * 180) / Math.PI
+    const forContent = deg(hi - lo) * PHONE_AIR
+
+    // …and the width, as the vertical angle a frame this shape would need to
+    // show the screen edge to edge: tan(h/2) = aspect · tan(v/2)
+    const dist = p.distanceTo(screenCentre)
+    const halfW = Math.atan(((SCREEN_W / 2) * PHONE_FILL) / dist)
+    const forWidth = deg(2 * Math.atan(Math.tan(halfW) / Math.max(0.2, aspect)))
+
+    return { position: p.clone(), lookAt, fov: Math.max(forContent, forWidth) }
+  }
+
+  function watchVantage(aspect: number): Vantage {
+    return PHONE ? phoneVantage(aspect) : deskVantage(aspect)
   }
 
   /**

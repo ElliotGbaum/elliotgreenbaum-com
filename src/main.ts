@@ -52,6 +52,7 @@ import { createRig } from './world/camera'
 import { createProjector } from './world/landmarks/projector'
 import { createHud } from './ui/hud'
 import { createInteractPrompt } from './ui/interact'
+import { createFullscreen } from './ui/fullscreen'
 import { CANVAS_H, CANVAS_W, CHAPTERS, createFilm } from './film/film'
 import { createFilmControls } from './film/controls'
 import { LINKS } from './film/links'
@@ -231,6 +232,16 @@ function boot() {
   /** how close to a landmark's `reach` point the badge appears, world units */
   const REACH = 9
 
+  /* …and the one piece of chrome that is not about the world at all: the
+     full-screen button, which exists only on a phone held sideways and only
+     where the browser has an API for it. It decides that for itself — see
+     src/ui/fullscreen.ts — and it is deliberately outside #hud, because the
+     HUD goes away for the length of the film and that is when the top inch of
+     the picture is worth most. Everything downstream is free: going full
+     screen changes the canvas box, the box is what the resize below measures,
+     and the shot re-frames itself on the way. */
+  const fullscreen = createFullscreen()
+
   let suppressUntil = 0 // brief cooldown so leaving the film doesn't re-trigger it
   const now = () => performance.now() / 1000
 
@@ -283,7 +294,10 @@ function boot() {
    * lines below.
    */
   const SCREEN_CENTRE = new THREE.Vector3(0, 11, -30)
-  const aspect = () => window.innerWidth / Math.max(1, window.innerHeight)
+  const aspect = () => {
+    const v = viewSize()
+    return v.w / v.h
+  }
 
   let filmActive = false
   let watching = false
@@ -665,11 +679,58 @@ function boot() {
   }
   window.addEventListener('pointerdown', onPointerDown, { capture: true })
 
-  /* ---------------- resize ---------------- */
+  /* ---------------- resize ----------------
+   *
+   * MEASURED OFF THE CANVAS, NOT OFF THE WINDOW, and that is the whole fix for
+   * a phone that comes back from landscape with the world stretched sideways.
+   *
+   * The canvas is sized by CSS — `inset: 0` inside a fixed #world — and its
+   * buffer is set with `updateStyle: false`, so the browser stretches whatever
+   * buffer we allocate to fill whatever box CSS gave it. The two are the same
+   * picture only while they are the same shape. Give the box a buffer a third
+   * taller than it is and the world is drawn a third too wide: the screen goes
+   * squat, the beam splays, the figure gets fat.
+   *
+   * WHICH IS WHAT `window.innerHeight` HANDS YOU ON A PHONE. iOS reports the
+   * window as the viewport the page would have if the browser's bars were not
+   * there, and it lays a fixed element out inside the part you can actually
+   * see — so the two disagree by the height of the address bar and the toolbar,
+   * which on an iPhone is about a third of the screen. Turning the phone is
+   * only what makes it visible: the pair agree at whatever the page loaded at,
+   * and after a turn and a turn back they no longer do, which is exactly the
+   * bug — go to landscape, come back, and the field is stretched sideways.
+   *
+   * The element's own box cannot disagree with itself.
+   */
+  /**
+   * The viewport, in CSS pixels — and it is the canvas's box, not the window's.
+   *
+   * Rounded, because a fractional box (a 390.5px viewport on a 3× phone) would
+   * otherwise report a new size on every call and reallocate the film's texture
+   * for a third of a pixel. The window is the fallback and only the fallback:
+   * a canvas that has not been laid out yet measures zero, and the first resize
+   * runs before the first frame.
+   */
+  function viewSize(): { w: number; h: number } {
+    const box = canvas.getBoundingClientRect()
+    return {
+      w: Math.max(1, Math.round(box.width) || window.innerWidth),
+      h: Math.max(1, Math.round(box.height) || window.innerHeight),
+    }
+  }
+
+  let lastW = 0
+  let lastH = 0
+  let lastRatio = 0
+
   function resize() {
-    const w = window.innerWidth
-    const h = window.innerHeight
+    const { w, h } = viewSize()
     const ratio = pixelRatio()
+    if (w === lastW && h === lastH && ratio === lastRatio) return
+    lastW = w
+    lastH = h
+    lastRatio = ratio
+
     renderer.setPixelRatio(ratio)
     renderer.setSize(w, h, false)
     rig.resize(w, h)
@@ -692,6 +753,18 @@ function boot() {
       rig.snapTo(vantage.position, vantage.lookAt, vantage.fov)
     }
   }
+
+  /* WHAT ACTUALLY ASKS FOR THE RESIZE: the canvas telling us its box changed.
+     A ResizeObserver fires after layout and only when there is something to
+     answer, which makes it right where the resize event is wrong — a rotation
+     that settles late is still caught, because settling IS the box changing.
+     The window event stays as well: a display whose scaling changes, or a
+     browser zoom, moves the pixel ratio without moving the box. Both land in
+     the same guarded function, so an event that reports nothing new costs a
+     rectangle measurement. */
+  const boxWatch =
+    typeof ResizeObserver === 'function' ? new ResizeObserver(() => resize()) : null
+  boxWatch?.observe(canvas)
   window.addEventListener('resize', resize)
   resize()
 
@@ -945,6 +1018,7 @@ function boot() {
       running = false
       if (raf) cancelAnimationFrame(raf)
       raf = 0
+      boxWatch?.disconnect()
       window.removeEventListener('resize', resize)
       window.removeEventListener('focus', resume)
       window.removeEventListener('pageshow', resume)
@@ -955,6 +1029,7 @@ function boot() {
       window.removeEventListener('pointercancel', endDrag)
       window.removeEventListener('blur', endDrag)
       badge.dispose()
+      fullscreen.dispose()
       controls.dispose()
       player.dispose()
       stage.dispose()
