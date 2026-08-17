@@ -8,3 +8,5 @@ shots/
 
 # reference photos the sketches were traced from — not published
 refs/
+.vercel
+.env*
