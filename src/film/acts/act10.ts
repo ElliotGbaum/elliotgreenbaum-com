@@ -119,35 +119,40 @@ const CARD_STEP = 0.65
 /** and each one takes this long to slide in and settle */
 const CARD_RAMP = 0.6
 
-/* ---- the air, and why a phone gets less of it ----
+/* ---- the phone: fewer cards, and the air kept ----
  *
  * THE CARDS ARE THE ONE THING IN THE FILM THE TYPE SCALE CANNOT REACH. Every
  * other line of the picture is set from `scale()`; these are set by the BAND —
- * seven of them measured as one stack and scaled until they fit — so the step
+ * the whole stack measured as one object and scaled until it fits — so the step
  * up that a phone gives the rest of the film (PHONE_TYPE in
  * src/film/timeline.ts) did nothing here. Worse than nothing: the head above
- * them took the step, the band is whatever the head leaves, and the duties
- * came out SMALLER on a phone than on a laptop. 21.7 of the picture's 1280,
- * which is under seven points on the glass, in the act that carries the job.
+ * them took the step, the band is whatever the head leaves, and the duties came
+ * out SMALLER on a phone than on a laptop. Seven points on the glass, in the act
+ * that carries the job.
  *
- * The words cannot come down and the band cannot go up, so what is left is the
- * AIR — every distance in the stack that is not a word. The padding inside a
- * card, the gap between two, the clearance under the head and over the foot.
- * A phone gets less of all four and every pixel goes into the type.
+ * THE FIRST ANSWER WAS TO TAKE IT OUT OF THE AIR, and it was the wrong one. It
+ * works arithmetically — the padding inside a card, the gap between two, the
+ * clearance under the head are the only distances in the stack that are not
+ * words, and squeezing all of them did put 43% onto the type. What it put on
+ * screen was seven bars stacked shoulder to shoulder, each one hugging its own
+ * line, the widest running the full width of the frame: a solid slab, not a
+ * thread. The type was legible and the picture was ugly, which is not a trade
+ * this film makes anywhere else.
  *
- * The stack is the same height it always was; it is the same seven cards; the
- * words in them are 43% bigger. A card is 1.36 times its own line instead of
- * 1.72 — which is still a pill, and still deeper than the cap on its own ends.
+ * SO THE PHONE READS SIX SHORTER DUTIES INSTEAD (`dutiesPhone` in
+ * src/content/film.json). A card removed is a seventh of the stack, and it is
+ * spent on the two things at once: the type stays where the squeeze put it and
+ * the air comes back — a card is one and a half times its own line, there is a
+ * real gap under the head, and with the two longest duties shortened or gone the
+ * widest card sits at 85% of the column instead of flush against both edges.
  *
- * AND THAT IS THE CEILING, both of it. Tightened this far the band and the
- * COLUMN bind at the same moment: the longest duty runs forty-eight characters
- * and has to sit on one line inside the frame, which is a wall at about 32 of
- * the picture's 1280 — nine or ten points held upright, half again on its
- * side. Nothing in this file goes past that. The next lever is fewer words in
- * a duty, and that is not a question this file gets to answer.
+ * Which is the honest shape of this act: the stack is a fixed height, and what
+ * goes in it is a choice between how many things it says and how large. The
+ * desktop has room to say all seven. A phone does not, and it is better to say
+ * six things you can read than seven you cannot.
  */
 const AIR = PHONE
-  ? { padX: 0.75, padY: 0.18, gap: 0.2, over: 0.28, under: 0.12 }
+  ? { padX: 0.95, padY: 0.25, gap: 0.3, over: 0.45, under: 0.25 }
   : { padX: 0.95, padY: 0.36, gap: 0.38, over: 0.5, under: 0.4 }
 
 function draw(c: ActRenderContext): void {
@@ -208,7 +213,7 @@ function draw(c: ActRenderContext): void {
      Every card is measured, then the stack is scaled as one if it will not
      fit — the same discipline the cards in act 9 use, and for the same
      reason: the type has a floor and the band does not. */
-  const duties = C.duties
+  const duties = PHONE ? C.dutiesPhone : C.duties
   /* THE FULL WIDTH OF THE FRAME, and it is here to keep `kCol` out of the way
      rather than to buy anything on its own. Of the two constraints below it is
      `kBand` that binds — seven cards do not fit the band, and they were never
