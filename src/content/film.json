@@ -139,14 +139,15 @@
       "debugged production workflow errors",
       "reworked live automations based on client feedback"
     ],
-    "_dutiesPhone": "THE SAME LIST, SHORTER, AND IT IS THE ONLY PLACE IN THE FILM WHERE A PHONE READS DIFFERENT WORDS. Nothing else here is cut for a small screen, and the reason this is has to be honest: the cards are the one thing whose size is set by the band rather than by the type scale, so on a phone the length of this list IS the size of the type on it. Seven duties, one of them fifty characters, came out at seven points on the glass. Six shorter ones come out half again as large with room around them. If a duty is added here, add it above as well; if one is cut above, cut it here. The two lists say the same thing at two lengths — nothing in the short one is a claim the long one does not make.",
+    "_dutiesPhone": "THE SAME LIST, TRIMMED, AND IT IS THE ONLY PLACE IN THE FILM WHERE A PHONE READS DIFFERENT WORDS. What it costs is worth knowing before editing it, because the two edits below do completely different things. HOW MANY there are is the size of the type: the cards are the one thing set by the band rather than by the type scale, so every card is a seventh of the height the other six could have had. HOW LONG the longest one is, is a separate ceiling, and only the longest one counts — the widest card is measured against the frame and the whole stack scales to it. So dropping 'sessions' off the discovery line buys nothing at all while 'reworked live automations based on client feedback' is still here to be the longest; it is a shorter card and that is all it is. Nothing here is a claim the seven above do not make.",
     "dutiesPhone": [
       "onboarded new clients",
       "led discovery and requirements gathering",
       "built new, multi-step workflow automations",
       "configured data integrations",
       "designed custom agents",
-      "debugged production workflow errors"
+      "debugged production workflow errors",
+      "reworked live automations based on client feedback"
     ]
   },
 

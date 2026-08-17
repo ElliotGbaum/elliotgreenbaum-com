@@ -130,29 +130,30 @@ const CARD_RAMP = 0.6
  * out SMALLER on a phone than on a laptop. Seven points on the glass, in the act
  * that carries the job.
  *
- * THE FIRST ANSWER WAS TO TAKE IT OUT OF THE AIR, and it was the wrong one. It
- * works arithmetically — the padding inside a card, the gap between two, the
- * clearance under the head are the only distances in the stack that are not
- * words, and squeezing all of them did put 43% onto the type. What it put on
- * screen was seven bars stacked shoulder to shoulder, each one hugging its own
- * line, the widest running the full width of the frame: a solid slab, not a
- * thread. The type was legible and the picture was ugly, which is not a trade
- * this film makes anywhere else.
+ * SO THE PHONE SPENDS THE AIR, which is the only thing in the stack that is not
+ * a word: the padding inside a card, the gap between two, the clearance under
+ * the head and over the foot. It went too far once — at 1.36 of its own line a
+ * card hugs its type, and seven of those with hairlines between them and the
+ * widest running flush to both edges of the frame is a solid slab rather than a
+ * thread. Legible and ugly is not a trade this film makes anywhere else.
  *
- * SO THE PHONE READS SIX SHORTER DUTIES INSTEAD (`dutiesPhone` in
- * src/content/film.json). A card removed is a seventh of the stack, and it is
- * spent on the two things at once: the type stays where the squeeze put it and
- * the air comes back — a card is one and a half times its own line, there is a
- * real gap under the head, and with the two longest duties shortened or gone the
- * widest card sits at 85% of the column instead of flush against both edges.
+ * These four are the settled answer between the two: about a quarter more type
+ * than the film's own scale would have given these cards, and a card still half
+ * again as tall as the line inside it, with the widest sitting a little short of
+ * the frame. The pill's own end caps are the floor under `padX` — the corner
+ * radius is 0.42 of the card's height, so anything much under 0.7 prints the
+ * first glyph inside the curve.
  *
- * Which is the honest shape of this act: the stack is a fixed height, and what
- * goes in it is a choice between how many things it says and how large. The
- * desktop has room to say all seven. A phone does not, and it is better to say
- * six things you can read than seven you cannot.
+ * WHAT ACTUALLY SETS THE SIZE IS HOW MANY CARDS THERE ARE. Each one is a
+ * seventh of the height the other six could have had, and there is no arranging
+ * of the air that gets that back: six duties came out at 30.5 of the picture's
+ * 1280 and seven at 28.1. `dutiesPhone` in src/content/film.json is where that
+ * choice is made, and the note over it separates the two edits that look the
+ * same and are not — one fewer duty is type on every card, while shortening a
+ * duty that is not the longest one is worth exactly nothing.
  */
 const AIR = PHONE
-  ? { padX: 0.95, padY: 0.25, gap: 0.3, over: 0.45, under: 0.25 }
+  ? { padX: 0.95, padY: 0.22, gap: 0.28, over: 0.32, under: 0.15 }
   : { padX: 0.95, padY: 0.36, gap: 0.38, over: 0.5, under: 0.4 }
 
 function draw(c: ActRenderContext): void {
