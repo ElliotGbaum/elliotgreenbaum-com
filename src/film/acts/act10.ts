@@ -47,7 +47,7 @@
  * arriving IS the movement, and a finished list is allowed to be looked at.
  */
 
-import { PALETTE, ease, easeOut, range } from '../../core/contract'
+import { PALETTE, PHONE, ease, easeOut, range } from '../../core/contract'
 import type { Act, ActRenderContext } from '../../core/contract'
 import {
   CROSSFADE,
@@ -118,6 +118,37 @@ const CARD_A = 6.8
 const CARD_STEP = 0.65
 /** and each one takes this long to slide in and settle */
 const CARD_RAMP = 0.6
+
+/* ---- the air, and why a phone gets less of it ----
+ *
+ * THE CARDS ARE THE ONE THING IN THE FILM THE TYPE SCALE CANNOT REACH. Every
+ * other line of the picture is set from `scale()`; these are set by the BAND —
+ * seven of them measured as one stack and scaled until they fit — so the step
+ * up that a phone gives the rest of the film (PHONE_TYPE in
+ * src/film/timeline.ts) did nothing here. Worse than nothing: the head above
+ * them took the step, the band is whatever the head leaves, and the duties
+ * came out SMALLER on a phone than on a laptop. 21.7 of the picture's 1280,
+ * which is under seven points on the glass, in the act that carries the job.
+ *
+ * The words cannot come down and the band cannot go up, so what is left is the
+ * AIR — every distance in the stack that is not a word. The padding inside a
+ * card, the gap between two, the clearance under the head and over the foot.
+ * A phone gets less of all four and every pixel goes into the type.
+ *
+ * The stack is the same height it always was; it is the same seven cards; the
+ * words in them are 43% bigger. A card is 1.36 times its own line instead of
+ * 1.72 — which is still a pill, and still deeper than the cap on its own ends.
+ *
+ * AND THAT IS THE CEILING, both of it. Tightened this far the band and the
+ * COLUMN bind at the same moment: the longest duty runs forty-eight characters
+ * and has to sit on one line inside the frame, which is a wall at about 32 of
+ * the picture's 1280 — nine or ten points held upright, half again on its
+ * side. Nothing in this file goes past that. The next lever is fewer words in
+ * a duty, and that is not a question this file gets to answer.
+ */
+const AIR = PHONE
+  ? { padX: 0.75, padY: 0.18, gap: 0.2, over: 0.28, under: 0.12 }
+  : { padX: 0.95, padY: 0.36, gap: 0.38, over: 0.5, under: 0.4 }
 
 function draw(c: ActRenderContext): void {
   const { ctx, w, h, t } = c
@@ -193,18 +224,18 @@ function draw(c: ActRenderContext): void {
      headline above them. */
   const colW = F.w
   const leftEdge = F.cx - colW / 2
-  const bandTop = headBot + S.body * 0.5
+  const bandTop = headBot + S.body * AIR.over
   /* THE BAND RUNS TO THE FOOT. It used to stop short of two lines of type that
      are no longer on screen when a single card is, which cost the whole stack
      about a fifth of its size for nothing. */
-  const bandBot = footY - S.body * 0.4
+  const bandBot = footY - S.body * AIR.under
   const band = Math.max(24, bandBot - bandTop)
 
   const measure = (k: number) => {
     // a step up from `small`: the cards are the only thing in the frame by the
     // time they arrive, and they are the list of what the job actually was
     const size = S.body * 0.92 * k
-    const padX = size * 0.95
+    const padX = size * AIR.padX
     /* THE STACK'S VERTICAL RHYTHM IS WHAT SETS THE TYPE SIZE, because the band
        is what this list runs out of. Seven cards at the old figures cost
        seventeen times the type size (each card twice its own size, plus half a
@@ -222,9 +253,9 @@ function draw(c: ActRenderContext): void {
        cards are set at no matter how tight the rhythm gets — that would take
        five of them, and how many there are is not a question this file gets to
        answer. */
-    const padY = size * 0.36
+    const padY = size * AIR.padY
     const cardH = size + padY * 2
-    const gap = size * 0.38
+    const gap = size * AIR.gap
     return { size, padX, padY, cardH, gap, total: duties.length * cardH + (duties.length - 1) * gap }
   }
 
