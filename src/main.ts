@@ -47,6 +47,7 @@ import {
   type LandmarkContext,
 } from './core/contract'
 import { createField, FIELD_RADIUS } from './world/field'
+import { createScenery } from './world/scenery'
 import { createPlayer } from './world/player'
 import { createRig } from './world/camera'
 import { createProjector } from './world/landmarks/projector'
@@ -202,6 +203,14 @@ function boot() {
      putting a landmark back is one push and no other edit. */
   const projector = createProjector(film.canvas)
   const landmarks: Landmark[] = [projector]
+
+  // what is simply there: a horizon, a sky, fireflies, and by day a meadow —
+  // bare under the machine, with a trodden line from where you start to it
+  const scenery = createScenery(scene, {
+    clearing: new THREE.Vector3(0, 0, 4),
+    pathFromZ: 46,
+    pathToZ: 12,
+  })
 
   /* The standing instruction, shown until the film has been watched once — and
      it is LITERALLY the projector's own prompt, not a second sentence that
@@ -862,6 +871,8 @@ function boot() {
     for (const l of landmarks) l.setDaylight?.(field.daylight)
 
     player.update(dt, elapsed)
+    scenery.setDaylight(field.daylight)
+    scenery.update(dt, elapsed, player.position)
     vel.subVectors(player.position, last).divideScalar(Math.max(dt, 0.0001))
     last.copy(player.position)
 
@@ -1075,6 +1086,7 @@ function boot() {
       controls.dispose()
       player.dispose()
       stage.dispose()
+      scenery.dispose()
       field.dispose()
       renderer.dispose()
     })

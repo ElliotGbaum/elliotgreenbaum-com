@@ -124,8 +124,11 @@ const DAY: Look = {
   fogDensity: 0.0042,
   // dry grass. Reads far lighter than it looks written down, because it is a
   // tint over SPECKLE_BASE rather than a colour: the ground's actual albedo
-  // lands around 0.15, which is what real dry grass reflects.
-  ground: 0xcbdcb1,
+  // lands around 0.15, which is what real dry grass reflects. Its hue is the
+  // scenery's DAY.grass, pulled paler: by day the blades stand on this, and
+  // where they thin out with distance the ground has to be the same colour
+  // as the field of them, or their far edge draws a line across the shot.
+  ground: 0xc4d69a,
   hemiSky: 0xbcd8ea,
   hemiGround: 0x5b6150,
   hemiIntensity: 1.95,
@@ -203,6 +206,44 @@ function groundTexture(repeat: number): THREE.CanvasTexture {
   return tex
 }
 
+/**
+ * Large-scale tone variation across the ground, baked into vertex colours.
+ *
+ * The speckle texture gives the ground grain; this gives it *patches* — a
+ * darker hollow here, a paler worn stretch there — at a scale of tens of
+ * units, which is what stops the plane reading as a plane. It is a multiplier
+ * around 1, authored in linear light like everything else on the ground, so
+ * it changes the ground's shape and not its colour, and it costs nothing per
+ * frame: the geometry is a grid instead of two triangles, and that is all.
+ */
+const MOTTLE_SEGS = 140
+function mottle(geo: THREE.BufferGeometry): void {
+  const pos = geo.getAttribute('position')
+  const col = new Float32Array(pos.count * 3)
+  const smooth = (t: number) => t * t * (3 - 2 * t)
+  const value = (x: number, y: number, seed: number) => {
+    const ix = Math.floor(x)
+    const iy = Math.floor(y)
+    const fx = smooth(x - ix)
+    const fy = smooth(y - iy)
+    const h = (a: number, b: number) => rand(a * 131 + b * 17 + seed)
+    const a = h(ix, iy) + (h(ix + 1, iy) - h(ix, iy)) * fx
+    const b = h(ix, iy + 1) + (h(ix + 1, iy + 1) - h(ix, iy + 1)) * fx
+    return a + (b - a) * fy
+  }
+  for (let i = 0; i < pos.count; i++) {
+    // the plane is authored flat in x/y and rotated onto the ground later
+    const x = pos.getX(i)
+    const y = pos.getY(i)
+    const n = value(x / 38, y / 38, 5) * 0.6 + value(x / 13, y / 13, 9) * 0.4
+    const k = 0.72 + n * 0.56
+    col[i * 3] = k
+    col[i * 3 + 1] = k
+    col[i * 3 + 2] = k
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3))
+}
+
 /** a shallow dome of faint stars — sits outside the fog so it stays visible
  *  and gives the eye something to reference while moving */
 function stars(): THREE.Points {
@@ -266,9 +307,11 @@ export function createField(scene: THREE.Scene): Field {
   const background = scene.background as THREE.Color
 
   const tex = groundTexture(Math.round(GROUND_SIZE / SPECKLE_TILE))
-  const geo = new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE, 1, 1)
+  const geo = new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE, MOTTLE_SEGS, MOTTLE_SEGS)
+  mottle(geo)
   const mat = new THREE.MeshStandardMaterial({
     map: tex,
+    vertexColors: true,
     color: NIGHT.ground,
     roughness: 0.96,
     metalness: 0,
