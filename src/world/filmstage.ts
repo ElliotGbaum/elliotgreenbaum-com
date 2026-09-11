@@ -18,6 +18,14 @@
  * is empty dark field. The cues read as light spilling out of the picture into
  * the world in front of it, which is what they are.
  *
+ * AND IT IS MILD. The first cut flew the three fields of the degree thirteen
+ * units off the screen and bobbed them in the air on the way, with a bloom on
+ * each the size of the figure — and the note that came back was "bubbles,
+ * makes me dizzy". Anything out here is in the corner of the eye of somebody
+ * trying to read; it is allowed to glow and to breathe, and it is not allowed
+ * to travel or to swell. Every cue below keeps its motion under a unit and its
+ * bloom at a fraction of what the first cut had.
+ *
  * Everything is additive, depth-write off, unlit and unfogged, because all of
  * it is light rather than matter. There are exactly two real lights in here
  * (the travelling head of the blueprint pass, and the pre-sales lamp) and both
@@ -158,10 +166,12 @@ export function createFilmStage(): FilmStage {
   /* ================================================================ *
    * Cue one — the three fields, as volumes
    *
-   * They come out of the picture and toward you, overlap in mid-air the
-   * way they overlap on the screen, and go. The overlap is the whole
-   * idea of the act, so the spheres are additive: where two of them
-   * cross is brighter than either, for free.
+   * They come a little way out of the picture, overlap in mid-air the way
+   * they overlap on the screen, and go. The overlap is the whole idea of
+   * the act, so the spheres are additive: where two of them cross is
+   * brighter than either, for free. A little way: they used to fly
+   * thirteen units at the camera and bob on the way, which is the thing
+   * that read as dizzying. Now they drift three and hold.
    * ================================================================ */
   const curious = new THREE.Group()
   const FIELD_COLOURS = [PALETTE.buff, PALETTE.amber, PALETTE.mint]
@@ -173,7 +183,7 @@ export function createFilmStage(): FilmStage {
     const shell = new THREE.Mesh(shellGeo, shellMat)
     const core = new THREE.Mesh(shellGeo, coreMat)
     core.scale.setScalar(0.2)
-    const bloom = halo(colour, 0.5, 5.2)
+    const bloom = halo(colour, 0.5, 3.4)
     const node = new THREE.Group()
     node.add(bloom, shell, core)
     node.position.set(FIELD_X[i] ?? 0, BAND_Y, SCREEN_Z + 2)
@@ -222,7 +232,7 @@ export function createFilmStage(): FilmStage {
 
     const capMat = track(glowMaterial(up ? PALETTE.mint : PALETTE.amberLit, 0.9))
     const cap = new THREE.Mesh(capGeo, capMat)
-    const bloom = halo(up ? PALETTE.mint : PALETTE.glow, 0.5, 2.6)
+    const bloom = halo(up ? PALETTE.mint : PALETTE.glow, 0.5, 2.0)
     cap.add(bloom)
 
     flatten.add(mesh, range3, cap)
@@ -241,7 +251,7 @@ export function createFilmStage(): FilmStage {
   const wave = new THREE.Group()
   const lampMat = track(glowMaterial(PALETTE.glow, 0.95))
   const lamp = new THREE.Mesh(track(new THREE.SphereGeometry(0.34, 16, 12)), lampMat)
-  const lampHalo = halo(PALETTE.glow, 0.6, 4.2)
+  const lampHalo = halo(PALETTE.glow, 0.6, 3.2)
   lamp.add(lampHalo)
   lamp.position.set(-9, BAND_Y, SCREEN_Z + 12)
   wave.add(lamp)
@@ -302,7 +312,7 @@ export function createFilmStage(): FilmStage {
   const sparkMat = track(glowMaterial(PALETTE.glow, 0.95))
   const spark = new THREE.Mesh(sparkGeo, sparkMat)
   spark.position.set(0, BAND_Y, SCREEN_Z + 6)
-  const sparkHalo = halo(PALETTE.glow, 0.55, 3.4)
+  const sparkHalo = halo(PALETTE.glow, 0.55, 2.6)
   spark.add(sparkHalo)
   build.add(spark)
 
@@ -330,7 +340,7 @@ export function createFilmStage(): FilmStage {
     // both of which are silhouettes, and a bead behind a silhouette is a bead
     // nobody sees
     head.position.x = i === 0 ? -3 : 5.5
-    const bloom = halo(i === 0 ? PALETTE.glow : PALETTE.mint, 0.45, 2.6)
+    const bloom = halo(i === 0 ? PALETTE.glow : PALETTE.mint, 0.45, 2.0)
     head.add(bloom)
     plate.add(bar, head)
     plate.position.set(x, BAND_Y + (i === 0 ? 0.7 : -0.7), SCREEN_Z + 9)
@@ -359,7 +369,7 @@ export function createFilmStage(): FilmStage {
     const mat = track(glowMaterial(i === 0 ? PALETTE.amberLit : PALETTE.amber, 0.5))
     const bead = new THREE.Mesh(beadGeo, mat)
     bead.position.set(x, BAND_Y - 0.6, SCREEN_Z + 10)
-    const bloom = halo(i === 0 ? PALETTE.amberLit : PALETTE.amber, 0.45, 3.0)
+    const bloom = halo(i === 0 ? PALETTE.amberLit : PALETTE.amber, 0.45, 2.2)
     bead.add(bloom)
     cardCue.add(bead)
     // one bead per address, at the second the address arrives in the picture
@@ -384,23 +394,23 @@ export function createFilmStage(): FilmStage {
 
   /** cue one — tracking act3: OPEN_A 0.9, OPEN_B 2.7, act ends at 14 */
   function updateCurious(t: number): void {
-    const out = easeOut(range(t, 1.0, 4.5))
-    const fade = ease(range(t, 0.8, 1.8)) * (1 - ease(range(t, 12.6, 13.8)))
+    const out = easeOut(range(t, 1.0, 5.5))
+    const fade = ease(range(t, 1.0, 3.0)) * (1 - ease(range(t, 12.4, 13.8)))
     curious.visible = fade > 0.01
     if (!curious.visible) return
 
     let i = 0
     for (const f of fields) {
       const phase = i * 0.7
-      // it comes toward you, and it grows because it is closer — not because
-      // it is inflating. The scale barely moves.
-      const swell = 0.62 + 0.38 * out
-      f.node.position.z = SCREEN_Z + 3 + out * 13
-      f.node.position.y = BAND_Y + Math.sin(t * 0.6 + phase) * 0.28 * out
+      // a short drift forward and a breath of sway — under a unit of travel
+      // either way, so the eye registers a glow and not a moving object
+      const swell = 0.85 + 0.15 * out
+      f.node.position.z = SCREEN_Z + 3 + out * 3
+      f.node.position.y = BAND_Y + Math.sin(t * 0.45 + phase) * 0.08
       f.node.scale.setScalar(swell)
-      f.shellMat.opacity = 0.18 * fade
-      f.coreMat.opacity = 0.75 * fade
-      f.bloomMat.opacity = 0.44 * fade
+      f.shellMat.opacity = 0.1 * fade
+      f.coreMat.opacity = 0.42 * fade
+      f.bloomMat.opacity = 0.22 * fade
       i++
     }
   }
@@ -421,8 +431,8 @@ export function createFilmStage(): FilmStage {
       b.mat.opacity = (b.up ? 0.45 : 0.34) * fade
       b.rangeMat.opacity = 0.1 * fade
       b.cap.position.set(b.x, BAR_BASE + bh, BAR_Z)
-      b.capMat.opacity = 0.9 * fade
-      b.bloomMat.opacity = 0.5 * fade
+      b.capMat.opacity = 0.6 * fade
+      b.bloomMat.opacity = 0.28 * fade
     }
   }
 
@@ -445,7 +455,7 @@ export function createFilmStage(): FilmStage {
     // is playing, one throw closer to you
     const strike = easeOut(range(t, 0.6, 1.6))
     lampMat.opacity = 0.95 * fade * (0.55 + 0.45 * strike)
-    lampHalo.material.opacity = 0.6 * fade * strike
+    lampHalo.material.opacity = 0.4 * fade * strike
     lampLight.intensity = 130 * fade * strike
     panelMat.opacity = (0.05 + 0.22 * easeOut(range(t, 1.2, 2.2))) * fade
     panel.rotation.y = -0.5 + Math.sin(t * 0.5) * 0.05
@@ -499,7 +509,7 @@ export function createFilmStage(): FilmStage {
     }
     railMat.opacity = 0.18 * boardFade
     sparkMat.opacity = 0.95 * boardFade
-    sparkHalo.material.opacity = 0.5 * boardFade
+    sparkHalo.material.opacity = 0.35 * boardFade
 
     // the rails: one per card, rising and drawing out as its card lands
     let pi = 0
@@ -511,8 +521,8 @@ export function createFilmStage(): FilmStage {
       p.plate.position.y = p.y - 0.9 + 0.9 * k
       p.plate.scale.x = 0.15 + 0.85 * k
       p.mat.opacity = 0.35 * k * cardFade
-      p.headMat.opacity = 0.9 * k * cardFade
-      p.bloomMat.opacity = 0.45 * k * cardFade
+      p.headMat.opacity = 0.6 * k * cardFade
+      p.bloomMat.opacity = 0.26 * k * cardFade
     }
   }
 
@@ -526,10 +536,10 @@ export function createFilmStage(): FilmStage {
     for (const b of cardBeads) {
       const k = ease(range(t, b.at, b.at + 0.8))
       // a slow shift along the rail, so the row is never quite static
-      const breathe = 1 + Math.sin(t * 0.7 + b.at) * 0.12
+      const breathe = 1 + Math.sin(t * 0.7 + b.at) * 0.05
       b.bead.scale.setScalar((0.4 + 0.6 * k) * breathe)
-      b.mat.opacity = 0.65 * k * fade
-      b.bloomMat.opacity = 0.5 * k * fade
+      b.mat.opacity = 0.5 * k * fade
+      b.bloomMat.opacity = 0.3 * k * fade
     }
   }
 

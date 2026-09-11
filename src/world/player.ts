@@ -169,7 +169,7 @@ export interface Player {
 
 export function createPlayer(scene: THREE.Scene): Player {
   const group = new THREE.Group()
-  group.position.set(0, 0, 46)
+  group.position.set(0, 0, 43)
 
   /* ================= the figure =================
      Built facing +Z, so yaw is a plain atan2(dx, dz) with no offset to

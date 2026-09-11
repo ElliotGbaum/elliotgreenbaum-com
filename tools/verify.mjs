@@ -185,13 +185,10 @@ console.log('\n6. Phone at 375px')
   await page.goto(base + '/', { waitUntil: 'networkidle' })
   await page.waitForTimeout(2000)
 
-  const box = await page.evaluate(() => {
-    const el = document.getElementById('day-btn')
-    if (!el) return { w: 0, h: 0 }
-    const r = el.getBoundingClientRect()
-    return { w: Math.round(r.width), h: Math.round(r.height) }
-  })
-  ok('day-btn ≥44px tall', box.h >= 44, `${box.w}×${box.h}`)
+  // The day/night switch is a dev-server tool (src/ui/hud.ts). The visitor
+  // gets the time their own sky says it is, and nothing to argue with it.
+  const daySwitch = await page.evaluate(() => Boolean(document.getElementById('day-btn')))
+  ok('no day/night switch in the production build', !daySwitch)
 
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,

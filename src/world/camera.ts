@@ -9,7 +9,11 @@
  * the figure turns, the shot does not.
  *
  * The trade is that we owe them a good default angle, so this one sits high
- * enough to read the field and leads slightly in the direction of travel.
+ * enough to read the field. It does NOT lead into the direction of travel:
+ * that was tried too, and a camera that slides a third of a second ahead of
+ * you and re-aims every time you change heading is a small, deliberate-feeling
+ * shove on every keypress, which is worse than lag because nobody asked for
+ * it. The camera translates; its angle is set once and never changes.
  *
  * It also owns the lens, and the frame the lens is pointed through. A scripted
  * move can ask for a different focal length — the film is watched on a long
@@ -166,7 +170,7 @@ export function createRig(): Rig {
     writeView()
   }
 
-  function update(dt: number, focus: THREE.Vector3, velocity: THREE.Vector3) {
+  function update(dt: number, focus: THREE.Vector3, _velocity: THREE.Vector3) {
     if (scripted) {
       sT = Math.min(sDur, sT + dt)
       const k = ease(sDur <= 0 ? 1 : sT / sDur)
@@ -186,12 +190,11 @@ export function createRig(): Rig {
       return
     }
 
-    // lead the camera slightly into the direction of travel — small, but it's
-    // most of the difference between "following" and "chasing"
-    lead.copy(velocity).multiplyScalar(0.34)
-    lead.y = 0
-
-    desired.copy(focus).add(offset).add(lead)
+    // No lead: the rig sits at a fixed offset from the figure and closes on
+    // it exponentially. Sideways velocity used to pull the camera and its aim
+    // point ahead of the walk, which re-framed the shot on every change of
+    // direction — the "the world moves when I turn" complaint.
+    desired.copy(focus).add(offset)
 
     const k = 1 - Math.exp(-LAG * dt)
     // When returning from a scripted move, ease back in rather than snapping.
@@ -215,9 +218,16 @@ export function createRig(): Rig {
 
     camera.position.lerp(desired, blend)
 
-    lead.copy(focus).addScaledVector(velocity, 0.22)
+    // The aim point is derived from where the camera IS, not from where the
+    // figure is: camera minus offset is the figure's resting spot under this
+    // rig, so the angle is a constant and the follow lag shows up only as the
+    // figure drifting a little in the frame, never as the horizon turning.
+    // While a hand-back is easing, blend from wherever the scripted shot left
+    // the aim so the film's last frame does not jump cut into the field.
+    lead.copy(camera.position).sub(offset)
     lead.y += lookLift
-    lookTarget.lerp(lead, Math.min(1, k * 1.3))
+    if (releasing > 0) lookTarget.lerp(lead, Math.min(1, k * 1.3))
+    else lookTarget.copy(lead)
     camera.lookAt(lookTarget)
   }
 

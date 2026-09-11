@@ -2,11 +2,19 @@
 /**
  * The HUD — the only chrome that is on screen while you are moving.
  *
- * Three things and no more: a compass that points at the projector and says so,
- * a prompt line that tells you what to do about it, and a switch for the time
- * of day.
+ * Two things and no more: a compass that points at the projector and says so,
+ * and a prompt line that tells you what to do about it.
  *
- * It was four. The fourth was a picture of the four arrow keys, tapping
+ * It was three. The third was a switch for the time of day, bottom right, and
+ * it went when the field started reading the time off the visitor's own sky
+ * (src/core/sun.ts): a control whose only job is to contradict the clock is
+ * a setting, and this site has none. The switch is still built here — but
+ * only on the dev server (`import.meta.env.DEV`), because whoever is working
+ * on the field needs to see both looks without waiting for sunset. In the
+ * production bundle the branch is dead code and the button does not exist:
+ * not hidden, not disabled, absent. verify checks that it is.
+ *
+ * It was four before that. The fourth was a picture of the four arrow keys, tapping
  * themselves in the bottom-right corner as the site's only tutorial, and it
  * came out when clicking the ground became a way to walk: the keyboard is no
  * longer the only route across the field, and a permanent diagram of one in
@@ -41,9 +49,9 @@ export interface Hud {
    * to change with it.
    */
   setCompassLabel(text: string): void
-  /** repoint the time-of-day switch at whatever it will do next */
+  /** tell the chrome what time it is (and, on the dev server, repoint the switch) */
   setTimeOfDay(mode: TimeOfDay): void
-  /** the time-of-day switch was thrown; `mode` is the one being asked for */
+  /** dev server only: the time-of-day switch was thrown; `mode` is the one asked for */
   onDayNight(cb: (mode: TimeOfDay) => void): void
   show(): void
   hide(): void
@@ -69,11 +77,24 @@ function noopHud(): Hud {
   }
 }
 
+/** the dev-only time-of-day switch, in the corner the markup no longer has */
+function buildDaySwitch(hud: HTMLElement): HTMLButtonElement {
+  const corner = document.createElement('div')
+  corner.className = 'hud-corner'
+  const btn = document.createElement('button')
+  btn.id = 'day-btn'
+  btn.type = 'button'
+  btn.className = 'hud-btn'
+  corner.appendChild(btn)
+  hud.prepend(corner)
+  return btn
+}
+
 export function createHud(): Hud {
   const hud = document.getElementById('hud')
   if (!hud) return noopHud()
 
-  const dayBtn = document.getElementById('day-btn')
+  const dayBtn = import.meta.env.DEV ? buildDaySwitch(hud) : null
   const compass = document.getElementById('compass')
   const needle = compass?.querySelector<HTMLElement>('span') ?? null
   const compassName = compass?.querySelector<HTMLElement>('em') ?? null

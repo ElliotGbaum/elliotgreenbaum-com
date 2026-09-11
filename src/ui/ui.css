@@ -603,20 +603,27 @@ html.is-day #compass > em {
     0 1px 2px rgba(233, 228, 214, 0.7),
     0 0 10px rgba(233, 228, 214, 0.55);
 }
+/* Buff type on sunlit grass: a heavier shadow was tried first and it was
+   still a wash — the halo blurs into the same mid-green it is fighting. So
+   by day the prompt and the badge take the same flat veil every other pill
+   already carries, and read like the rest of the chrome. */
 html.is-day #prompt {
-  text-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.95),
-    0 0 20px rgba(0, 0, 0, 0.85),
-    0 0 44px rgba(0, 0, 0, 0.6);
+  /* shrink-wrapped so the veil is one line wide, not a fixed 32rem box that
+     folds the sentence in two; a shade smaller than at night to help it fit */
+  width: max-content;
+  max-width: calc(100% - 36px);
+  padding: 9px 18px;
+  border-radius: 999px;
+  background: rgba(10, 20, 24, 0.78);
+  font-size: clamp(1.04rem, 0.97rem + 0.5vw, 1.26rem);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
-/* the badge is small grey mono with no panel under it, which is exactly the
-   thing sunlit grass eats. It keeps its weight and gains contrast. */
 html.is-day .interact__pin {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(10, 20, 24, 0.82);
   color: var(--ui-sage);
-  text-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.95),
-    0 0 10px rgba(0, 0, 0, 0.9),
-    0 0 26px rgba(0, 0, 0, 0.7);
+  text-shadow: none;
 }
 html.is-day .interact__verb {
   color: var(--ui-buff);

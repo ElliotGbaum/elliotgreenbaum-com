@@ -153,7 +153,7 @@
   "digest": {
     "_readme": "THE TL;DR CARD, and it is NOT one of the twelve acts — it is not in ACTS, it has no chapter on the scrubber and it never plays on its own. It is what the film winds forward to when somebody presses TLDR VERSION over the corner of the screen: the whole film on one slide, for the visitor who wants the facts and does not have two minutes. Drawn by src/film/acts/digest.ts. Everything the card says about roles and addresses is read straight off act11 below rather than copied here, so there is still exactly one place the email address lives.",
     "chapter": "TL;DR",
-    "caption": "The short version, on one card. Lover of chess and strategy games — competed in tournaments from age 7 — and of music: guitar and sax. Academic: studied Philosophy, Politics and Economics at UPenn, graduated December 2025. Internships: The Richman Group, real estate investment; EAS Advisors, investment banking. AI curiosity and projects: NewsGlide.org, a web app with 200+ users; UpstreamIt.io, a job board with over a million postings; E&B Agentic Solutions, an AI consultancy — end-to-end hiring portal, RFP response automation. Cassidy: AI Solutions Consultant — led discovery and requirements gathering, built new multi-step workflow automations, designed custom agents, onboarded new clients. Next steps: currently looking for roles in deployment, solutions consulting, implementation and product. elliotgreenbaum at gmail dot com, LinkedIn, and X.",
+    "caption": "The short version, on one card. Lover of chess and strategy games — competed in tournaments from age 7 — and of music: guitar and sax. Academic: studied Philosophy, Politics and Economics at UPenn, graduated December 2025. Internships: The Richman Group, real estate investment; EAS Advisors, investment banking. AI curiosity and projects: NewsGlide.org, a web app with 200+ users; UpstreamIt.io, a job board with over a million postings; E&B Agentic Solutions, an AI consultancy — end-to-end hiring portal, RFP response automation. Cassidy: AI Solutions Consultant — led discovery and requirements gathering, designed agents and multi-step workflows, onboarded clients. Next steps: currently looking for roles in deployment, solutions consulting, implementation and product. elliotgreenbaum at gmail dot com, LinkedIn, and X.",
     "_title": "The one line of display type on the card, and the whole of its heading. 'About me' — the card answers the question the film answers, faster.",
     "title": "About me",
     "_columns": "TWO COLUMNS, IN READING ORDER: everything in column one is read before anything in column two, and the arrival cascade follows the same path. Sections are drawn in the order they appear here and the column they appear in is the column they are drawn in — there is no re-flowing, because a card that re-balanced itself would put 'Academic' somewhere different on a phone. If a section grows past the frame, the whole card is measured and scaled down to fit (see the fitting pass in digest.ts), so length here costs type size on EVERY row rather than running off the bottom. 'subs' is the indented run under a bullet and is empty on most of them, and it must be PRESENT and empty rather than absent, or the JSON is two different shapes and TypeScript refuses to read it as one.",
@@ -238,15 +238,14 @@
           "head": "Cassidy",
           "items": [
             {
-              "_subs": "The Cassidy slide's own duties, from act10.duties above, in this card's own order and two of them short: 'onboarded new clients' is moved to the end, and 'configured data integrations', 'reworked live automations based on client feedback' and 'debugged production workflow errors' are not here at all — both read as keeping something running rather than as standing it up, which is the half of the job the roles in Next Steps are asking about. They are repeated rather than referenced because this card is the one place they are read cold, with no act around them — and because act10 trims its own list on a phone and this one does not.",
+              "_subs": "The Cassidy slide's own duties, from act10.duties above, in this card's own order and shorter: 'built new, multi-step workflow automations' and 'designed custom agents' are folded into one line, 'onboarded new clients' is moved to the end and loses 'new', and 'configured data integrations', 'reworked live automations based on client feedback' and 'debugged production workflow errors' are not here at all — both read as keeping something running rather than as standing it up, which is the half of the job the roles in Next Steps are asking about. They are repeated rather than referenced because this card is the one place they are read cold, with no act around them — and because act10 trims its own list on a phone and this one does not.",
               "name": "AI Solutions Consultant",
               "linkWord": "",
               "href": "",
               "subs": [
                 "led discovery and requirements gathering",
-                "built new, multi-step workflow automations",
-                "designed custom agents",
-                "onboarded new clients"
+                "designed agents and multi-step workflows",
+                "onboarded clients"
               ]
             }
           ]

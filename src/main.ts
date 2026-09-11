@@ -46,6 +46,7 @@ import {
   type Landmark,
   type LandmarkContext,
 } from './core/contract'
+import { timeOfDayFor } from './core/sun'
 import { createField, FIELD_RADIUS } from './world/field'
 import { createScenery } from './world/scenery'
 import { createPlayer } from './world/player'
@@ -237,7 +238,7 @@ function boot() {
      loop off whatever landmark you are standing at. */
   const badge = createInteractPrompt()
   /** how close to a landmark's `reach` point the badge appears, world units */
-  const REACH = 9
+  const REACH = 10
 
   /* …and the one piece of chrome that is not about the world at all: the
      full-screen button, which exists only on a phone held sideways and only
@@ -278,14 +279,31 @@ function boot() {
   }
 
   /* ---------------- time of day ----------------
+     The visitor's own sky decides: the sun's height over wherever their
+     browser says they are (src/core/sun.ts), so a December afternoon in
+     London opens on night and the same hour in Sydney on day. It is set
+     before the first frame, with no crossfade, and re-read once a minute so
+     a visitor who stays through sunset watches the field go dark.
+
      The field owns the crossfade; everything that has to know what time it is
      reads `field.daylight` off it once a frame (see the loop). Nothing here
-     stores a second copy of the answer. */
-  hud.setTimeOfDay(field.mode)
+     stores a second copy of the answer. `hud.onDayNight` only ever fires on
+     the dev server, where the switch still exists; throwing it takes the
+     field off the clock until the sky itself changes its answer. */
+  let sky = timeOfDayFor()
+  field.setMode(sky, true)
+  hud.setTimeOfDay(sky)
   hud.onDayNight((mode) => {
     field.setMode(mode, REDUCED_MOTION)
     hud.setTimeOfDay(mode)
   })
+  setInterval(() => {
+    const next = timeOfDayFor()
+    if (next === sky) return
+    sky = next
+    field.setMode(sky, REDUCED_MOTION)
+    hud.setTimeOfDay(sky)
+  }, 60_000)
 
   /* ---------------- the film sequence ----------------
    * The reversal that everything else in this file is arranged around: the
@@ -670,11 +688,18 @@ function boot() {
     /* the film is up: the picture takes clicks and the field does not. Walking
        is not a thing you are doing right now, and the machine is mid-sentence. */
     if (filmActive) {
-      const link = linkAt(e)
-      if (!link) return
       e.preventDefault()
       e.stopPropagation()
-      openLink(link.href)
+      const link = linkAt(e)
+      if (link) {
+        openLink(link.href)
+        return
+      }
+      /* Anywhere else on the picture is the pause, the way a tap on a
+         short-video feed is: one tap holds, the next lets go. It is the same
+         press the transport's button and `k` make — see the key table at the
+         top of src/film/controls.ts. */
+      film.togglePaused()
       return
     }
 
@@ -909,12 +934,14 @@ function boot() {
       )
 
       // …and the shot breathes, so the picture is being watched from a place
-      // rather than from a tripod. Small on purpose: this is a long lens from
-      // fifty units back, and a big move here is a swing across the screen.
+      // rather than from a tripod. Barely, on purpose: this is a long lens
+      // from fifty units back, aimed at a fixed point, so any move here reads
+      // as the whole screen pivoting. The first cut of this was ten times the
+      // size and made Elliot dizzy; keep it at the edge of perception.
       if (watching && !REDUCED_MOTION) {
         shot.copy(vantage.position)
-        shot.x += Math.sin(elapsed * 0.16) * 0.85
-        shot.y += Math.sin(elapsed * 0.11 + 1.3) * 0.32
+        shot.x += Math.sin(elapsed * 0.12) * 0.08
+        shot.y += Math.sin(elapsed * 0.09 + 1.3) * 0.03
         rig.snapTo(shot, vantage.lookAt, vantage.fov)
       }
     } else if (stage.isEnabled()) {

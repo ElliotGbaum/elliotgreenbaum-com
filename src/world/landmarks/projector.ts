@@ -2,7 +2,7 @@
  * The projector — the destination, and the whole reason the concept works.
  *
  * A projector without light is furniture. It sits dark in the middle of the
- * field with a vertical beacon so it can be found from anywhere; walk over
+ * field — the HUD compass and the floor rings say where it is; walk over
  * with your lantern, switch it on, and it throws the film at the screen.
  *
  * THE FILM PLAYS HERE, ON THE SCREEN, and you watch it from out in the field
@@ -51,26 +51,6 @@ const PROJ_Z = 4
 
 /** a cylinder's own axis — what the reels spin about */
 const SPIN = new THREE.Vector3(0, 1, 0)
-
-/** vertical gradient used for both beams — bright at the source, gone at the end */
-function beamTexture(): THREE.CanvasTexture {
-  const cv = document.createElement('canvas')
-  cv.width = 4
-  cv.height = 128
-  const c = cv.getContext('2d')!
-  // Saturated on purpose. Additive blending over a dark sky drifts everything
-  // toward white, so a "warm" beam authored at realistic saturation renders as
-  // grey. Push the amber hard and keep the opacity low instead.
-  const g = c.createLinearGradient(0, 128, 0, 0)
-  g.addColorStop(0.0, 'rgba(255,178,74,0.62)')
-  g.addColorStop(0.35, 'rgba(255,157,52,0.24)')
-  g.addColorStop(1.0, 'rgba(226,132,40,0)')
-  c.fillStyle = g
-  c.fillRect(0, 0, 4, 128)
-  const t = new THREE.CanvasTexture(cv)
-  t.colorSpace = THREE.SRGBColorSpace
-  return t
-}
 
 /* ---------------- the invitation ----------------
  * A dark machine in a big empty field is furniture until somebody tells you
@@ -136,15 +116,9 @@ export interface Projector extends Landmark {
    * src/film/film.ts sizes its buffer from this.
    */
   pictureTexels(aspect: number, viewportDevicePxHigh: number): number
-  /** 0 → dormant beacon, 1 → beam fully on the screen */
+  /** 0 → dormant, 1 → beam fully on the screen */
   setFiring(on: boolean): void
-  /**
-   * 0 = night, 1 = daylight. The beacon is an additive amber column authored
-   * for a dark sky; against a bright one it is a smear that reads as a render
-   * bug. It also has nothing left to do by day — a thirty-unit screen and a
-   * machine on a stand are the most visible things in the field once you can
-   * see the field — so it goes, and the HUD compass carries the wayfinding.
-   */
+  /** 0 = night, 1 = daylight. */
   setDaylight(k: number): void
   /** the picture canvas changed; push it to the GPU */
   refreshScreen(): void
@@ -173,13 +147,30 @@ export function createProjector(picture: HTMLCanvasElement): Projector {
 
   const SCREEN_H = SCREEN_W / (picture.width / picture.height)
 
+  /* Two colours for everything solid, and `daylight` crosses between them in
+     update(). The night values are the ones that were always here: a dark
+     machine and a darker screen, chosen so they read as silhouettes against
+     a field that is darker still, with the lantern and the pilot lamp doing
+     the modelling. By day the same values are three black slabs in a sunlit
+     meadow. The housing went blackest of all, and for a reason worth
+     keeping: a metallic surface has no diffuse colour, only reflections, and
+     there is no environment map here, so the sun is the only thing it can
+     reflect. The day look is painted machinery — most of the metalness goes
+     with the dark — a charcoal frame and stand, and a canvas screen. */
+  const METAL_NIGHT = new THREE.Color(0x3d4a4a)
+  const METAL_DAY = new THREE.Color(0x9c978a)
+  const DARK_NIGHT = new THREE.Color(0x1a2426)
+  const DARK_DAY = new THREE.Color(0x4a4640)
+  const SCREEN_NIGHT = new THREE.Color(0x121b1d)
+  const SCREEN_DAY = new THREE.Color(0xe4dfd1)
+
   const metal = new THREE.MeshStandardMaterial({
-    color: 0x3d4a4a,
+    color: METAL_NIGHT,
     roughness: 0.55,
     metalness: 0.65,
   })
   const dark = new THREE.MeshStandardMaterial({
-    color: 0x1a2426,
+    color: DARK_NIGHT,
     roughness: 0.9,
     metalness: 0.1,
   })
@@ -225,7 +216,7 @@ export function createProjector(picture: HTMLCanvasElement): Projector {
   group.add(screen)
 
   // the dark screen surface, so it reads as an object when unlit
-  const backMat = new THREE.MeshStandardMaterial({ color: 0x121b1d, roughness: 1 })
+  const backMat = new THREE.MeshStandardMaterial({ color: SCREEN_NIGHT, roughness: 1 })
   const back = new THREE.Mesh(new THREE.PlaneGeometry(SCREEN_W, SCREEN_H), backMat)
   back.position.set(0, SCREEN_Y, SCREEN_Z)
   group.add(back)
@@ -311,27 +302,6 @@ export function createProjector(picture: HTMLCanvasElement): Projector {
   knob.position.set(1.32, 3.1, PROJ_Z + 0.6)
   group.add(knob)
 
-  /* ---------------- beams ---------------- */
-  const beamTex = beamTexture()
-
-  // dormant beacon — the north star. Visible from anywhere in the field.
-  const beaconMat = new THREE.MeshBasicMaterial({
-    map: beamTex,
-    transparent: true,
-    opacity: 0.5,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-    side: THREE.DoubleSide,
-    fog: false,
-    toneMapped: false,
-  })
-  const beacon = new THREE.Mesh(
-    new THREE.CylinderGeometry(3.0, 0.8, 70, 14, 1, true),
-    beaconMat,
-  )
-  beacon.position.set(0, 35 + 2.6, PROJ_Z)
-  group.add(beacon)
-
   /* NO THROW BEAM — deliberately, and it is not coming back.
    *
    * There used to be a cone of amber light from the lens to the screen. It
@@ -350,6 +320,21 @@ export function createProjector(picture: HTMLCanvasElement): Projector {
    * reels turn, the switch glows, and `bounce` below throws the screen's
    * light back across the field and onto whoever is standing in it.
    */
+
+  // The pilot lamp. There used to be a seventy-unit amber column above the
+  // machine so it could be found from anywhere; it was a smear on the sky and
+  // it went. Without it a dormant machine thirty units away at night was a
+  // black box on a black field — the compass named it
+  // and the rings circled it, but nothing said "lamp" until you were close
+  // enough for the lantern to catch it. This is a small warm light that lives
+  // on the housing while it waits: enough to model the box, warm the reels
+  // and lay a faint pool at its foot, in the lantern's own language, so it
+  // reads as a machine with a lamp in it from wherever you spawn. It hands
+  // off to the screen's bounce the moment the lamp strikes, and daylight
+  // retires it along with everything else that only makes sense in the dark.
+  const pilot = new THREE.PointLight(0xffc98a, 0, 18, 1.7)
+  pilot.position.set(0, 3.6, PROJ_Z - 0.4)
+  group.add(pilot)
 
   // light thrown back into the field from the screen
   const bounce = new THREE.PointLight(0xffe6bd, 0, 62, 2)
@@ -385,16 +370,13 @@ export function createProjector(picture: HTMLCanvasElement): Projector {
      Every solid part of it: the machine, its stand, the screen and the frame
      the screen hangs in. Pointing at any of them is pointing at the thing.
 
-     NOT the beacon and NOT the rings, which is the whole reason this is a
-     published list rather than `group` itself. The beacon is a seventy-unit
-     column of light in the sky — clicking a patch of empty air above the field
-     is not asking for a film — and the rings are painted flat on the ground,
-     where a click already means the one thing it should mean out here: walk
-     there. They are the invitation to walk over, so they must not swallow the
-     walk. */
+     NOT the rings, which is the whole reason this is a published list rather
+     than `group` itself. They are painted flat on the ground, where a click
+     already means the one thing it should mean out here: walk there. They are
+     the invitation to walk over, so they must not swallow the walk. */
   const hitTargets = group.children.filter(
     (o) =>
-      (o as THREE.Mesh).isMesh && o !== beacon && !rings.some((r) => r.mesh === (o as THREE.Mesh)),
+      (o as THREE.Mesh).isMesh && !rings.some((r) => r.mesh === (o as THREE.Mesh)),
   )
 
   /* ---------------- behaviour ---------------- */
@@ -650,14 +632,15 @@ export function createProjector(picture: HTMLCanvasElement): Projector {
     update(dt, elapsed, lit) {
       firing += (firingTarget - firing) * Math.min(1, dt * 2.6)
 
-      // the beacon breathes while dormant, and gets out of the way once the
-      // film is running — it has done its job by then. Daylight retires it
-      // for the same reason, a good deal earlier.
       const night = 1 - daylight
       const idle = 1 - firing
-      const pulse = 0.30 + Math.sin(elapsed * 0.85) * 0.07
-      beaconMat.opacity = idle * pulse * (0.62 + lit * 0.38) * night * night
-      beacon.visible = beaconMat.opacity > 0.01
+
+      // the day colours, see the materials above
+      metal.color.lerpColors(METAL_NIGHT, METAL_DAY, daylight)
+      metal.metalness = 0.65 - daylight * 0.5
+      metal.roughness = 0.55 + daylight * 0.1
+      dark.color.lerpColors(DARK_NIGHT, DARK_DAY, daylight)
+      backMat.color.lerpColors(SCREEN_NIGHT, SCREEN_DAY, daylight)
 
       // a projector lamp flicker: two frequencies so it never reads as a sine.
       // This is the *only* flicker in the film now — it used to be a CSS layer
@@ -679,7 +662,15 @@ export function createProjector(picture: HTMLCanvasElement): Projector {
       screenMat.color.setScalar(f * (1.3 + daylight * 0.35) * flick)
       screen.visible = screenMat.opacity > 0.004
       bounce.intensity = f * 190 * flick * (1 - daylight * 0.72)
-      lensMat.color.setRGB(0.16 + f * 0.84, 0.12 + f * 0.75, 0.06 + f * 0.55)
+      // the pilot lamp and the ember in the lens: on while dormant at night,
+      // gone once the picture is the light
+      const standing = night * (1 - f)
+      pilot.intensity = standing * 30 * (1 + Math.sin(elapsed * 0.85) * 0.08)
+      lensMat.color.setRGB(
+        0.16 + standing * 0.34 + f * 0.84,
+        0.12 + standing * 0.22 + f * 0.75,
+        0.06 + standing * 0.08 + f * 0.55,
+      )
       switchMat.emissive.setRGB(f * 0.5, f * 0.14, 0.02)
 
       // The reels turn while it's running — nothing else in the shot says
@@ -690,8 +681,14 @@ export function createProjector(picture: HTMLCanvasElement): Projector {
 
       // as you approach, the housing catches your light before the beam fires
       // — which is only a thing that happens when your light is the light
+      // — and a lower, steady warmth of its own at night, so the housing is a
+      // warm grey object rather than a hole in the field before you get there
       const warm = clamp(lit * 1.2) * (1 - f) * night
-      metal.emissive.setRGB(warm * 0.06, warm * 0.045, warm * 0.02)
+      metal.emissive.setRGB(
+        standing * 0.09 + warm * 0.06,
+        standing * 0.065 + warm * 0.045,
+        standing * 0.03 + warm * 0.02,
+      )
 
       /* the invitation. It has done its job the moment the lamp strikes, so
          `idle` takes it off screen for the length of the film. */

@@ -255,14 +255,14 @@
   <canvas id="stage"></canvas>
 
   <!-- HUD
-       One control, and it is not a menu: the time of day. Everything else
-       on screen is a way-finder — a compass that points at the projector and
-       a line of text telling you what to do when you get there. There is
-       nothing here to navigate, because there is one thing to do. -->
+       No controls, and no menu. Everything on screen is a way-finder — a
+       compass that points at the projector and a line of text telling you
+       what to do when you get there. There is nothing here to navigate,
+       because there is one thing to do. The time of day is not a setting
+       either: the field opens on whatever the visitor's own sky is doing
+       (src/core/sun.ts). The dev server alone grows a day/night switch in
+       this corner, for looking at both — see src/ui/hud.ts. -->
   <div id="hud">
-    <div class="hud-corner">
-      <button id="day-btn" type="button" class="hud-btn" aria-label="Switch to daytime">Daytime</button>
-    </div>
     <!-- the compass names its destination, so the needle is an instruction
          rather than a puzzle -->
     <div id="compass" aria-hidden="true"><span></span><em>Projector</em></div>

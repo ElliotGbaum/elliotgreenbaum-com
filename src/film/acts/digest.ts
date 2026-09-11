@@ -231,7 +231,13 @@ function sizesAt(S: TypeScale, k: number): Sizes {
     subLh: sub * 1.24,
     headLead: item * 1.34,
     headTrail: head * 0.7,
-    itemGap: item * 0.38,
+    /* THE PITCH BETWEEN BULLETS IS WIDER THAN THE LEADING INSIDE ONE, and
+       by more than it used to be. At 0.38 a run of one-line bullets sat at
+       the pitch of a wrapped paragraph, and the three project names — each
+       with a rule under its address — read as one clump next to a column
+       whose bullets happened to wrap. The gap is a multiple of the type
+       size, so the fitting pass buys most of it back. */
+    itemGap: item * 0.58,
     subGap: sub * 0.22,
     indent: item * 1.15,
     subIndent: item * 2.35,
@@ -552,7 +558,8 @@ function draw(c: ActRenderContext): void {
         ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.94 * a)
         ctx.fillText(p.row.linkWord, bx, ly)
         ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.55 * a)
-        ctx.fillRect(bx, ly + p.size * 0.26, lw, hw)
+        // close under the baseline, not down in the air the next row needs
+        ctx.fillRect(bx, ly + p.size * 0.18, lw, hw)
 
         publishLink({
           href: p.row.href,
