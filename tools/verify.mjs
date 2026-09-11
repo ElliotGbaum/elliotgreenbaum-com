@@ -371,6 +371,17 @@ console.log('\n8. The film is a video player')
     await page.click('#film-play')
     await page.waitForTimeout(400)
 
+    // tap-to-pause. A tap on the picture itself — not the button — holds
+    // the clock, and a second tap lets it go, the way a short-video feed does.
+    await page.mouse.click(640, 300)
+    await page.waitForTimeout(300)
+    const tapped = await seconds()
+    await page.waitForTimeout(1600)
+    ok('a tap on the picture pauses', tapped > 0 && (await seconds()) === tapped, `${tapped}s`)
+    await page.mouse.click(640, 300)
+    await page.waitForTimeout(1200)
+    ok('…and a second tap resumes', (await seconds()) > tapped)
+
     // scrub. Measured against the film's own runtime rather than a number
     // written down here — this used to assert `> 60s`, which quietly became a
     // test of how long the film happened to be the day it was written.
@@ -431,6 +442,16 @@ console.log('\n8. The film is a video player')
     const returned = await seconds()
     ok('scrubbing off the card returns to the film', returned > 0 && returned < landed, `${returned}s`)
     ok('and the button comes back with it', await page.locator('#film-tldr').isVisible())
+
+    /* ── the end of the reel ──────────────────────────────────────────
+       Running out of film is a hold too, not a stop: the last card carries
+       the addresses, and the film used to tear itself down the moment it
+       reached them. Scrub to just short of the end, let the clock run out,
+       and the film has to still be up with the clock parked at the runtime. */
+    if (back) await page.mouse.click(back.x + back.width * 0.985, back.y + back.height / 2)
+    await page.waitForTimeout(3500)
+    ok('running out of film holds on the last card', await page.locator('#film').isVisible())
+    ok('with the clock parked at the end', (await seconds()) === total, `${await seconds()}s of ${total}s`)
 
     await page.keyboard.press('Escape')
     await page.waitForTimeout(1200)

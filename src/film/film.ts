@@ -468,6 +468,15 @@ export interface FilmState {
   rushing: boolean
   /** the TL;DR card is up, and the film is holding on it */
   digest: boolean
+  /**
+   * The reel has run out and the film is holding on its last frame — still
+   * running, still on the screen, until somebody scrubs back into it or
+   * leaves. Exactly the hold the TL;DR card gets, for the same reason: the
+   * last card is the one with the addresses on it, and a film that tore
+   * itself down the moment it reached them was taking away the one frame a
+   * viewer might want to write down or press.
+   */
+  ended: boolean
 }
 
 export interface Film {
@@ -553,6 +562,7 @@ export function createFilm(): Film {
     chapter: 0,
     rushing: false,
     digest: false,
+    ended: false,
   }
 
   let acc = 0
@@ -722,6 +732,7 @@ export function createFilm(): Film {
     clearLinks()
     state.rushing = false
     state.digest = true
+    state.ended = false
     rushRoll = 0
     // the film IS over — the transport should say so, and the last chapter
     // should be the lit one on the scrubber
@@ -740,10 +751,11 @@ export function createFilm(): Film {
      no-op that left the card exactly where it was. */
   function seek(seconds: number): void {
     const t = clamp(seconds, 0, RUNTIME - 0.001)
-    const leaving = state.digest || state.rushing
+    const leaving = state.digest || state.rushing || state.ended
     if (t === state.time && !leaving) return
     state.rushing = false
     state.digest = false
+    state.ended = false
     rushRoll = 0
     state.time = t
     locate()
@@ -762,6 +774,7 @@ export function createFilm(): Film {
     state.chapter = 0
     state.rushing = false
     state.digest = false
+    state.ended = false
     digestT = 0
     rushRoll = 0
     acc = 0
@@ -832,16 +845,20 @@ export function createFilm(): Film {
       return true
     }
 
-    if (!state.paused) {
+    /* ---- the end of the reel ----
+       The clock parks on the last frame and the film HOLDS there — it does
+       not stop. `stop()` is what walks the camera back and hands the field to
+       the figure, and it is now only ever called by somebody leaving (Escape,
+       the close button, walking away); reaching the end is not leaving. The
+       repaint below keeps running so the grain still moves on the held
+       frame, and `seek` is the way back into the film, as it is off the card. */
+    if (!state.paused && !state.ended) {
       state.time += dt * state.rate
       if (state.time >= RUNTIME) {
-        // land on the last frame before tearing down, so the film ends on a
-        // picture rather than on whatever the previous repaint happened to be
         state.time = RUNTIME - 0.001
+        state.ended = true
         locate()
-        paint()
-        stop()
-        return true
+        dirty = true
       }
       const i = chapterAt(state.time)
       if (i !== state.chapter) {
@@ -884,6 +901,7 @@ export function createFilm(): Film {
       state.time = clamp(from, 0, RUNTIME - 0.001)
       state.rushing = false
       state.digest = false
+      state.ended = false
       digestT = 0
       rushRoll = 0
       locate()

@@ -100,15 +100,24 @@ type RowKind = 'head' | 'item' | 'sub'
 interface Row {
   readonly kind: RowKind
   readonly text: string
+  /** the run of `text` drawn as a link, and where it goes; blank on most rows */
+  readonly linkWord: string
+  readonly href: string
 }
 
 const COLUMNS: Row[][] = C.columns.map((sections) => {
   const rows: Row[] = []
   for (const sec of sections) {
-    rows.push({ kind: 'head', text: sec.head })
+    rows.push({ kind: 'head', text: sec.head, linkWord: '', href: '' })
     for (const item of sec.items) {
-      rows.push({ kind: 'item', text: item.name })
-      for (const sub of item.subs) rows.push({ kind: 'sub', text: sub })
+      const linked = item.linkWord && item.href && item.name.includes(item.linkWord)
+      rows.push({
+        kind: 'item',
+        text: item.name,
+        linkWord: linked ? item.linkWord : '',
+        href: linked ? item.href : '',
+      })
+      for (const sub of item.subs) rows.push({ kind: 'sub', text: sub, linkWord: '', href: '' })
     }
   }
   return rows
@@ -141,13 +150,16 @@ const COLUMNS: Row[][] = C.columns.map((sections) => {
 function digestFrame(w: number, h: number): Frame {
   const padX = Math.max(w * 0.045, 12)
   const padTop = Math.max(h * 0.065, 14)
-  /* THE BOTTOM IS NOT THE TOP. The projector stands between the viewer and
-     the screen, and its head rises about a tenth of the way up the picture
-     in the middle of the bottom edge — which is exactly where the addresses
-     sit, and the LinkedIn one was losing its first letters behind it. So the
-     card stops well short of the bottom: the fitting pass hands the
-     difference back as slightly smaller type, and every address stays whole. */
-  const padBottom = Math.max(h * 0.15, 24)
+  /* THE BOTTOM MATCHES THE TOP, ON PURPOSE. The projector stands between the
+     viewer and the screen, and its head rises into the middle of the bottom
+     edge, where the addresses sit — it clips the first letters of the
+     LinkedIn one. Reserving a bigger margin down here to clear it was tried
+     and taken out again: the fitting pass paid for every point of it with
+     smaller type on EVERY row, and a card that is harder to read everywhere
+     is a worse trade than an address that is a little covered and still
+     obviously LinkedIn, still clickable, and printed in full on the card at
+     the end of the film. */
+  const padBottom = padTop
   const fh = Math.max(80, h - padTop - padBottom)
   const fw = Math.max(80, Math.min(w - padX * 2, fh * 2.0))
   const x = (w - fw) / 2
@@ -259,7 +271,8 @@ function placeColumn(
     const size = isSub ? z.sub : z.item
     const lh = isSub ? z.subLh : z.itemLh
     const x = isSub ? z.subIndent : z.indent
-    setFont(ctx, size, 'display', 400)
+    // lining figures: see DISPLAY_LINING — "1M+" in old-style figures is "IM+"
+    setFont(ctx, size, 'lining', 400)
     /* BALANCED, even though this is left-aligned type and the note on
        `balanceText` says that is what a rag is for. A rag is what you get when
        a paragraph wraps; what happens here is one bullet in a narrow column
@@ -488,7 +501,7 @@ function draw(c: ActRenderContext): void {
       }
 
       const sub = p.row.kind === 'sub'
-      setFont(ctx, p.size, 'display', 400)
+      setFont(ctx, p.size, 'lining', 400)
 
       if (sub) {
         // a short rule where a bullet would be — the run under a bullet is a
@@ -502,7 +515,55 @@ function draw(c: ActRenderContext): void {
         ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.94 * a)
       }
 
-      drawLines(ctx, p.lines, cx + p.x, y, p.lh, 'left')
+      if (!p.row.linkWord) {
+        drawLines(ctx, p.lines, cx + p.x, y, p.lh, 'left')
+        continue
+      }
+
+      /* ---- a bullet with a project address in it ----
+         The address is the same buff as the rest of the row, with a rule
+         under it, and published as a hit box. It used to be lit amber with a
+         halo, the way the NewsGlide sentence in act 8 is — on this card that
+         put two glowing words in a column whose section labels are already
+         amber, and they fought. Here the underline alone says "pressable":
+         it is the one thing on the card with a line under it besides the
+         three addresses in the foot, which are links too. The bullet is
+         left-aligned, so the three pieces are laid down at measured offsets
+         from the column edge; the address is whole on whichever wrapped line
+         it fell on, because the wrap never breaks inside a word. */
+      ctx.textAlign = 'left'
+      p.lines.forEach((line, li) => {
+        const ly = y + li * p.lh
+        const lx = cx + p.x
+        const i = line.indexOf(p.row.linkWord)
+        if (i < 0) {
+          ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.94 * a)
+          ctx.fillText(line, lx, ly)
+          return
+        }
+        const before = line.slice(0, i)
+        const after = line.slice(i + p.row.linkWord.length)
+        const bx = lx + ctx.measureText(before).width
+        const lw = ctx.measureText(p.row.linkWord).width
+        ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.94 * a)
+        ctx.fillText(before, lx, ly)
+        ctx.fillText(after, bx + lw, ly)
+
+        ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.94 * a)
+        ctx.fillText(p.row.linkWord, bx, ly)
+        ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.55 * a)
+        ctx.fillRect(bx, ly + p.size * 0.26, lw, hw)
+
+        publishLink({
+          href: p.row.href,
+          label: p.row.linkWord,
+          x: bx - p.size * 0.2,
+          y: ly - p.size * 0.8,
+          w: lw + p.size * 0.4,
+          h: p.size * 1.25,
+          alpha: clamp(a),
+        })
+      })
     }
   })
 
