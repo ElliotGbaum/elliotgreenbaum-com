@@ -124,8 +124,11 @@ const DAY: Look = {
   fogDensity: 0.0042,
   // dry grass. Reads far lighter than it looks written down, because it is a
   // tint over SPECKLE_BASE rather than a colour: the ground's actual albedo
-  // lands around 0.15, which is what real dry grass reflects.
-  ground: 0xcbdcb1,
+  // lands around 0.15, which is what real dry grass reflects. Its hue is the
+  // scenery's DAY.grass, pulled paler: by day the blades stand on this, and
+  // where they thin out with distance the ground has to be the same colour
+  // as the field of them, or their far edge draws a line across the shot.
+  ground: 0xc4d69a,
   hemiSky: 0xbcd8ea,
   hemiGround: 0x5b6150,
   hemiIntensity: 1.95,

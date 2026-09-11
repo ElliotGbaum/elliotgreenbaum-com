@@ -296,12 +296,17 @@ function createTrees(): {
 /* ================================================================== *
  * Grass
  * ================================================================== */
-const GRASS_N = PHONE ? 16000 : 52000
+const GRASS_N = PHONE ? 26000 : 72000
 /** side of the square the blades are wrapped onto, centred on the figure */
-const GRASS_SPAN = PHONE ? 60 : 96
+const GRASS_SPAN = PHONE ? 116 : 136
 /** blades are scaled away between these two distances from the figure, so the
- *  square's edge is never seen — what you see is grass thinning into the dark */
-const GRASS_FADE = PHONE ? [16, 28] : [28, 46]
+ *  square's edge is never seen. The far end has to sit well past the middle of
+ *  the shot: a fade that finished at 46 read as a line across the field by
+ *  day, because daylight fog is far too thin at that range to soften it. Now
+ *  it finishes out where the ground is already flattening into haze, and the
+ *  ground under the blades is the same colour as the blades (see the field's
+ *  DAY.ground), so where the last of them go there is nothing to notice. */
+const GRASS_FADE = PHONE ? [32, 56] : [40, 68]
 
 function bladeGeometry(): THREE.BufferGeometry {
   const SEG = 3
@@ -342,11 +347,12 @@ function createGrass(clearing: THREE.Vector3, pathFromZ: number, pathToZ: number
   for (let i = 0; i < GRASS_N; i++) {
     offset[i * 4] = rand(i * 4 + 1) * GRASS_SPAN
     offset[i * 4 + 1] = rand(i * 4 + 2) * GRASS_SPAN
-    // height, in figure units: ankle to shin, a few taller. This is the
-    // first version and the one that was right — shorter cuts looked like
-    // stubble. It only ever shows by day, which is why wading through it
-    // in the dark stopped being a problem.
-    offset[i * 4 + 2] = 0.55 + Math.pow(rand(i * 4 + 3), 2) * 1.1
+    // height, in figure units: ankle-high, a few to the shin. The first cut
+    // (0.55 to 1.65) came to the figure's thigh and read as wading; the mown
+    // cut (0.2 to 0.55) read as stubble. This sits between, nearer the short
+    // end. It only ever shows by day, which is why wading through it in the
+    // dark stopped being a problem.
+    offset[i * 4 + 2] = 0.38 + Math.pow(rand(i * 4 + 3), 2) * 0.72
     offset[i * 4 + 3] = rand(i * 4 + 4) * Math.PI * 2
     lean[i] = (rand(i + 9001) - 0.5) * 0.6
   }
