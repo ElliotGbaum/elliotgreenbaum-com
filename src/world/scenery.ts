@@ -294,7 +294,7 @@ function createTrees(): {
 /* ================================================================== *
  * Grass
  * ================================================================== */
-const GRASS_N = PHONE ? 16000 : 52000
+const GRASS_N = PHONE ? 12000 : 40000
 /** side of the square the blades are wrapped onto, centred on the figure */
 const GRASS_SPAN = PHONE ? 60 : 96
 /** blades are scaled away between these two distances from the figure, so the
@@ -303,7 +303,7 @@ const GRASS_FADE = PHONE ? [16, 28] : [28, 46]
 
 function bladeGeometry(): THREE.BufferGeometry {
   const SEG = 3
-  const W = 0.16
+  const W = 0.12
   const pos: number[] = []
   const nrm: number[] = []
   const idx: number[] = []
@@ -340,10 +340,11 @@ function createGrass(clearing: THREE.Vector3, pathFromZ: number, pathToZ: number
   for (let i = 0; i < GRASS_N; i++) {
     offset[i * 4] = rand(i * 4 + 1) * GRASS_SPAN
     offset[i * 4 + 1] = rand(i * 4 + 2) * GRASS_SPAN
-    // height, in figure units: ankle to shin, a few taller
-    offset[i * 4 + 2] = 0.55 + Math.pow(rand(i * 4 + 3), 2) * 1.1
+    // height, in figure units: a mown meadow, ankle-high at most. It was
+    // shin-high and the figure waded through it, which felt like wading.
+    offset[i * 4 + 2] = 0.2 + Math.pow(rand(i * 4 + 3), 2) * 0.35
     offset[i * 4 + 3] = rand(i * 4 + 4) * Math.PI * 2
-    lean[i] = (rand(i + 9001) - 0.5) * 0.6
+    lean[i] = (rand(i + 9001) - 0.5) * 0.4
   }
   inst.setAttribute('aOffset', new THREE.InstancedBufferAttribute(offset, 4))
   inst.setAttribute('aLean', new THREE.InstancedBufferAttribute(lean, 1))
