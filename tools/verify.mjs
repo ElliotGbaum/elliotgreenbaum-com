@@ -11,7 +11,12 @@
 import { chromium } from 'playwright-core'
 
 const base = (process.argv[2] ?? 'http://localhost:4173').replace(/\/$/, '')
-const browser = await chromium.launch({ channel: 'chrome', args: ['--mute-audio'] })
+// Real Chrome by default; CHROME_PATH points it at another Chromium build on a
+// machine that has no Chrome installed (a CI box, a container).
+const browser = await chromium.launch({
+  ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : { channel: 'chrome' }),
+  args: ['--mute-audio'],
+})
 
 let pass = 0
 let fail = 0
@@ -526,6 +531,74 @@ console.log('\n10. The card stays away from a working world')
   await page.goto(base + '/', { waitUntil: 'domcontentloaded' })
   await page.waitForTimeout(2500)
   ok('a dead bundle brings the card back, quickly', await page.locator('#card').isVisible())
+  await ctx.close()
+}
+
+/* ── 11. Elliot answers, and says what he is ───────────────────────── *
+ * The figure out in the field is the one thing on the site whose words are
+ * generated rather than written, so the checks here are about honesty as
+ * much as function: the nametag, the panel and the first line all have to
+ * say it is an AI before a visitor has typed anything, and when the model
+ * cannot be reached the figure has to say so rather than sit on a spinner.
+ * This runs against a preview with no key on purpose — the one thing that
+ * cannot be verified here is the model's own reply, and the fallback line
+ * is the path a broken deploy would take.
+ */
+console.log('\n11. Elliot answers, and says what he is')
+{
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+  const page = await ctx.newPage()
+  const errors = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  await page.goto(base + '/', { waitUntil: 'networkidle' })
+  await page.waitForTimeout(2200)
+
+  // he stands to the left of the path, about twenty units out: walk there
+  await page.keyboard.down('ArrowLeft')
+  await page.keyboard.down('ArrowUp')
+  await page.waitForTimeout(2000)
+  await page.keyboard.up('ArrowLeft')
+  await page.keyboard.up('ArrowUp')
+  await page.waitForTimeout(900)
+  const line = ((await page.locator('#prompt').textContent()) ?? '').trim()
+  ok('the prompt at him names him and says it is an AI', /Elliot/.test(line) && /AI/.test(line), line)
+  ok('standing next to him does NOT open the panel', await page.locator('#talk').isHidden())
+
+  await page.keyboard.press('e')
+  let up = false
+  for (let i = 0; i < 40 && !up; i++) {
+    await page.waitForTimeout(250)
+    up = await page.locator('#talk').isVisible()
+  }
+  ok('pressing E at him opens the conversation', up)
+  if (up) {
+    ok('the HUD steps aside', await page.locator('#hud').isHidden())
+    const note = ((await page.locator('#talk-note').textContent()) ?? '').trim()
+    ok('the panel says the answers are generated', /AI/.test(note) && /not a script/i.test(note), note.slice(0, 60))
+    const first = ((await page.locator('#talk-log li').first().textContent()) ?? '').trim()
+    ok('the first line says it is an AI, in his voice', /AI/.test(first), first.slice(0, 60))
+    const chips = await page.locator('.talk__ask').count()
+    ok('there are questions to choose from', chips >= 4, `${chips}`)
+    ok('the classic ones are there', (await page.locator('.talk__ask').allTextContents()).some((t) => /startups/i.test(t)))
+
+    await page.locator('.talk__ask').first().click()
+    await page.waitForTimeout(2500)
+    const lines = await page.locator('#talk-log li').allTextContents()
+    ok('the question lands in the log', lines.length >= 3, `${lines.length} lines`)
+    const last = (lines[lines.length - 1] ?? '').trim()
+    ok('with no model he says so and gives the email', /gmail\.com/.test(last), last.slice(0, 70))
+
+    await page.locator('#talk-input').fill('hello')
+    await page.keyboard.press('Enter')
+    await page.waitForTimeout(1500)
+    ok('a typed question is asked too', (await page.locator('#talk-log li').count()) >= 5)
+
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(1500)
+    ok('Escape leaves the conversation', await page.locator('#talk').isHidden())
+    ok('the HUD comes back', await page.locator('#prompt').isVisible())
+  }
+  ok('no uncaught errors', errors.length === 0, errors[0] ?? '')
   await ctx.close()
 }
 
