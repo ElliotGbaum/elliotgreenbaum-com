@@ -24,9 +24,11 @@
   },
   "type": "module",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.125.0",
     "three": "^0.185.1"
   },
   "devDependencies": {
+    "@types/node": "^22.20.2",
     "@types/three": "^0.185.1",
     "playwright-core": "^1.62.0",
     "typescript": "^7.0.2",
