@@ -24,14 +24,22 @@
  * camera. It shares the #hud layer — so it fades with the rest of the chrome
  * when the film takes over, for free — and nothing else.
  *
- * KEYBOARDS ONLY, AND THAT IS NOT THE SAME AS "DESKTOP ONLY" ANY MORE. A phone
- * has no E to press, so the CSS takes the badge off screen at `(hover: none)`
- * — but the field itself now answers a finger: tapping the ground walks the
- * figure there and tapping an object uses it, both resolved by a raycast in
- * main.ts. So the badge going away costs a touch visitor nothing except the
- * name of a key they do not have. It is `aria-hidden` because it is a picture
- * of a keyboard rather than information; the readable version of this
- * instruction is #prompt, which is live text and says the same thing in words.
+ * IT NAMES THE GESTURE THE DEVICE IN YOUR HANDS ACTUALLY HAS. A phone has no
+ * E to press, and the field answers a finger instead: tapping the ground walks
+ * the figure there and tapping an object uses it, both resolved by a raycast in
+ * main.ts. So on touch the badge reads TAP TO TURN ON and on a keyboard it
+ * reads PRESS [E] TO TURN ON — same anchor, same verb, one word of difference,
+ * swapped by CSS at `(hover: none)` rather than by anything measured here.
+ *
+ * IT WAS `display: none` ON TOUCH FOR A WHILE, and that was the wrong lesson
+ * from a true premise: a phone told to press E is a phone told a lie, so the
+ * badge went away entirely — which also took away the only thing on screen
+ * that said this machine is the thing you touch, from the one position where
+ * that is worth saying. The lie was the keycap, not the label.
+ *
+ * It is `aria-hidden` because it is a picture of a keyboard rather than
+ * information; the readable version of this instruction is #prompt, which is
+ * live text and says the same thing in words.
  */
 
 import * as THREE from 'three'
@@ -47,8 +55,9 @@ export interface InteractPrompt {
    * @param point world position the badge hangs over — the switch, the handle,
    *   the thing you reach for. Not the object's centre and never its anchor on
    *   the ground: both put the label somewhere your hand does not go.
-   * @param verb completes "Press E to …" — "turn on", "play it again". Two or
-   *   three words, lower case, no full stop.
+   * @param verb completes "Press E to …" / "Tap to …" — "turn on", "play it
+   *   again". Two or three words, lower case, no full stop, and the same words
+   *   whichever gesture the device offers.
    *
    * `null`/empty for either takes it off screen.
    */
@@ -61,17 +70,6 @@ export interface InteractPrompt {
 function noopPrompt(): InteractPrompt {
   return { update() {}, hit() {}, dispose() {} }
 }
-
-/**
- * Keyboards only, and asked live rather than at boot so a tablet that gains a
- * keyboard gains the badge. The CSS hides it at the same breakpoint — this is
- * here so a phone is not also paying for a projection and a style write sixty
- * times a second to position something it will never draw.
- */
-const TOUCH =
-  typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-    ? window.matchMedia('(hover: none)')
-    : null
 
 export function createInteractPrompt(): InteractPrompt {
   const el = document.getElementById('interact')
@@ -98,7 +96,7 @@ export function createInteractPrompt(): InteractPrompt {
 
   return {
     update(camera: THREE.Camera, point: THREE.Vector3 | null, verb = '') {
-      if (!point || !verb || TOUCH?.matches) return hide()
+      if (!point || !verb) return hide()
 
       p.copy(point).project(camera)
 

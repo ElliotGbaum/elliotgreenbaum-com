@@ -82,6 +82,7 @@ import { act8 } from './acts/act8'
 import { act9 } from './acts/act9'
 import { act10 } from './acts/act10'
 import { act11 } from './acts/act11'
+import { digest } from './acts/digest'
 
 /**
  * The film, in order. It follows the two minutes Elliot says out loud when
@@ -141,6 +142,180 @@ export const RUNTIME = ACTS.reduce((n, a) => n + a.duration, 0)
  * be able to answer without knowing the act order.
  */
 export const CARD_INDEX = ACTS.findIndex((a) => a.id === 'act11')
+
+/* ==================================================================== *
+ * THE TL;DR CARD, AND THE WIND FORWARD TO IT
+ *
+ * There is a thirteenth frame in this film and it is not in ACTS. It is the
+ * whole film on one slide — see src/film/acts/digest.ts — and the only way to
+ * it is the TLDR VERSION button that sits over the top-right
+ * corner of the screen while the film is running (src/film/controls.ts).
+ * Press it and the reel
+ * winds forward: the picture takes hold, rolls through the gate at whatever
+ * speed gets it to the end in a little over a second, and the card cuts in
+ * over it while the reel is still turning.
+ *
+ * IT IS NOT A THIRTEENTH ACT AND MUST NOT BECOME ONE. Nothing derived from
+ * ACTS knows it exists: it has no chapter on the scrubber, it adds nothing to
+ * RUNTIME, the depth cues in src/world/filmstage.ts are not keyed to it, and
+ * a viewer who never presses the button never sees it. What it does have is
+ * its own clock — `digestT` below — because `state.time` is parked at the end
+ * of the film while the card is up, and the card still has to arrive.
+ *
+ * THE WAY OUT OF IT IS `seek`. Touch the scrubber, press an arrow, jump a
+ * chapter, and the card goes and the film is back at wherever you asked for.
+ * That is the whole of the return path and it is deliberately not a second
+ * button: the transport is already sitting there saying where in the film you
+ * are, and it is the thing a viewer reaches for.
+ * ==================================================================== */
+
+/** the card the wind-forward lands on. Exported so the chrome can name it. */
+export const DIGEST = digest
+
+/**
+ * How long the wind forward takes, in real seconds, from wherever it is
+ * pressed. It is a fixed WAIT rather than a fixed SPEED — the rate is worked
+ * out from how much film is left — because the button is a request for the
+ * facts and the price of it should not depend on how far in you happened to
+ * be. Pressed at the very end there is nothing left to wind, so the floor
+ * below takes over and it is simply quick.
+ *
+ * IT IS A GLIMPSE, NOT A PREVIEW. Two seconds was long enough that the roll
+ * started to read as something you were meant to watch, which is the one thing
+ * the button's own label promises you are not going to have to do. At this
+ * length the film goes past — you see there was a film, and you see roughly
+ * how much of it there was — and then the card is up.
+ *
+ * It is a shade longer than the 1.15 it ran at when the wind was a flat rate,
+ * and that is not a change of mind about the length. The curve below spends
+ * its first sixth taking hold and its last seventh easing off; at 1.15 there
+ * was no room left in the middle for it to actually run, and a dial that
+ * starts stopping before it has finished starting is the one thing this was
+ * meant to stop looking like.
+ */
+const RUSH_SECONDS = 1.3
+
+/**
+ * The floor under the wind's TOP speed, in film-seconds per real second, and
+ * the reason a press two seconds from the end does not sit there winding for
+ * the full RUSH_SECONDS. Below it the wind keeps its shape and simply takes
+ * less time — see `rush`.
+ */
+const RUSH_MIN_PEAK = 8
+
+/* -------------------------------------------------------------------- *
+ * THE SHAPE OF THE WIND
+ *
+ * It used to be a flat rate: press the button and the clock jumped to sixty
+ * times speed for a second and then stopped dead at the card. Two hard edges,
+ * a constant in between, and the roll over the top of it running at its own
+ * unrelated seven a second — which is why it read as the film cutting rather
+ * than as anything being wound.
+ *
+ * What it is now is a dial being spun. `spin` is the speed, as a fraction of
+ * the wind's own top speed: it takes hold over the first sixth, runs, and
+ * eases off over the last seventh. `windTo` is that curve integrated, which is
+ * where the clock actually comes from; the roll comes off the same number, so
+ * the picture slows down because the REEL is slowing down and not because a
+ * second timer says so.
+ *
+ * IT DOES NOT COME TO REST. For a while the tail was a cosine down to zero,
+ * and a reel that stops dead is a reel that sits: the last third of the wind
+ * was spent slowing, the final few frames were all but still, and the screen
+ * held the last act's closing lines for a beat before the card arrived — long
+ * enough to read as a glimpse of an ending the button had promised to spare
+ * you. So the tail is short and stops at SPIN_FLOOR of the peak: the reel is
+ * still turning when the card cuts in over it, which is what a cut is.
+ * -------------------------------------------------------------------- */
+
+/** the fraction of the wind spent getting up to speed */
+const SPIN_RAMP = 0.16
+
+/** the fraction of the wind spent easing off at the end */
+const SPIN_TAIL = 0.14
+
+/** the speed the wind is still doing, as a fraction of its peak, when the card cuts in */
+const SPIN_FLOOR = 0.45
+
+/** a³ − a⁴/2: the smoothstep a²(3 − 2a) integrated from 0 */
+const smoothArea = (a: number): number => a * a * a - 0.5 * a * a * a * a
+
+/**
+ * The area under `spin` over its whole length, which is the wind's average
+ * speed as a fraction of its peak. `rush` needs it to turn a floor on the
+ * peak into a floor on the wait.
+ */
+const SPIN_MEAN =
+  SPIN_RAMP * 0.5 + (1 - SPIN_RAMP - SPIN_TAIL) + SPIN_TAIL * (SPIN_FLOOR + (1 - SPIN_FLOOR) * 0.5)
+
+/** the wind's speed at `u` of its own length, as a fraction of its own peak */
+function spin(u: number): number {
+  if (u <= 0 || u >= 1) return 0
+  if (u < SPIN_RAMP) {
+    const a = u / SPIN_RAMP
+    return a * a * (3 - 2 * a)
+  }
+  if (u < 1 - SPIN_TAIL) return 1
+  const c = (u - (1 - SPIN_TAIL)) / SPIN_TAIL
+  return SPIN_FLOOR + (1 - SPIN_FLOOR) * (1 - c * c * (3 - 2 * c))
+}
+
+/**
+ * How far through the film that was left the wind has got, 0…1, at `u` of its
+ * own length. `spin`, integrated and renormalised — so it is exactly 0 at the
+ * start and exactly 1 at the end whatever shape the curve above is given, and
+ * the card drops into the gate on the frame the reel is passing rather than
+ * on wherever a clock happened to land.
+ */
+function windTo(u: number): number {
+  if (u <= 0) return 0
+  if (u >= 1) return 1
+  let area: number
+  if (u < SPIN_RAMP) {
+    area = SPIN_RAMP * smoothArea(u / SPIN_RAMP)
+  } else if (u < 1 - SPIN_TAIL) {
+    area = SPIN_RAMP * 0.5 + (u - SPIN_RAMP)
+  } else {
+    const c = (u - (1 - SPIN_TAIL)) / SPIN_TAIL
+    area =
+      SPIN_RAMP * 0.5 +
+      (1 - SPIN_RAMP - SPIN_TAIL) +
+      SPIN_TAIL * (SPIN_FLOOR * c + (1 - SPIN_FLOOR) * (c - smoothArea(c)))
+  }
+  return area / SPIN_MEAN
+}
+
+/**
+ * How many whole frames go past the gate over the length of the wind. This is
+ * the only reason the rush reads as a projector rather than as the film
+ * glitching: the picture is drawn twice, offset, with the frame line between
+ * them travelling up the screen — which is what a reel being wound on
+ * actually looks like.
+ *
+ * IT IS A COUNT AND NOT A RATE, and that is what lets the card cut in without
+ * a jump. The roll is driven off how far the wind has GOT rather than off the
+ * clock, so when the wind ends it has turned exactly this many times and the
+ * frame standing in the gate is square in it. A rate landed wherever it landed
+ * and handed over with the frame line halfway up the screen.
+ *
+ * Four over a second and a third comes out around six a second at the top of
+ * the wind — slow enough to see individual frames go past, fast enough that
+ * nobody tries to read one — and it slows with the reel, because it IS the
+ * reel.
+ */
+const SLIP_TURNS = 4
+
+/**
+ * The picture runs at the world's own rate for the length of the wind, and
+ * only for that. See the note on FPS: thirty is plenty for an act, which is
+ * three lines of type holding still, and it is not nearly enough for a
+ * full-screen vertical roll — sampled at thirty the frame line jumps a
+ * quarter of the screen at a time and strobes, which was most of what "it
+ * feels unsmooth" actually was. The cost is a second and a third of uploads
+ * at sixty rather than thirty, once, on a button press.
+ */
+const RUSH_FPS = 60
+const RUSH_FRAME_DT = 1 / RUSH_FPS
 
 /* ==================================================================== *
  * The picture buffer
@@ -276,7 +451,7 @@ function grainPattern(ctx: CanvasRenderingContext2D): CanvasPattern | null {
  * The chrome builds one button per entry (src/film/controls.ts), so adding a
  * speed here adds a button and nothing else needs to know.
  */
-export const RATES: readonly number[] = [0.5, 1, 1.5, 2]
+export const RATES: readonly number[] = [0.5, 1, 2, 3]
 
 /** the speed a film starts at, and what the shuttle and Escape fall back to */
 export const RATE_DEFAULT = 1
@@ -289,6 +464,10 @@ export interface FilmState {
   /** one of RATES */
   rate: number
   chapter: number
+  /** the reel is winding forward to the TL;DR card. Over in about a second. */
+  rushing: boolean
+  /** the TL;DR card is up, and the film is holding on it */
+  digest: boolean
 }
 
 export interface Film {
@@ -322,6 +501,12 @@ export interface Film {
   nudge(seconds: number): void
   /** jump to the start of chapter `i`, or the start of the current one */
   toChapter(i: number): void
+  /**
+   * Wind the reel forward to the TL;DR card and hold there. Safe at any point
+   * in the film, including while paused; a no-op once the card is already up.
+   * `seek` is the way back out. See the note above RUSH_SECONDS.
+   */
+  rush(): void
   setRate(rate: number): void
   /** advance by `dt` seconds of wall clock. Returns true if the picture
    *  was repainted, so the caller knows when to re-upload the texture. */
@@ -366,11 +551,25 @@ export function createFilm(): Film {
     time: 0,
     rate: RATE_DEFAULT,
     chapter: 0,
+    rushing: false,
+    digest: false,
   }
 
   let acc = 0
   let dirty = true
   let grainStep = 0
+  /** the TL;DR card's own clock — `state.time` is parked at the end while it is up */
+  let digestT = 0
+  /** real seconds since the wind started */
+  let rushT = 0
+  /** how long this wind is going to take, worked out when the button is pressed */
+  let rushDur = RUSH_SECONDS
+  /** where the clock was when it was pressed, and how much film was left */
+  let rushFrom = 0
+  let rushSpan = 0
+  /** how far through that the wind has got, 0…1. The clock, the roll and the
+   *  grain are all read off this one number, which is why they move together. */
+  let rushRoll = 0
 
   /* ---------------- painting ---------------- */
 
@@ -384,7 +583,16 @@ export function createFilm(): Film {
       const oy = -((grainStep * 61) % 128)
       ctx.save()
       ctx.globalCompositeOperation = 'overlay'
-      ctx.globalAlpha = REDUCED_MOTION ? 0.035 : 0.06
+      // A film going past the gate at sixty times speed is a dirtier picture,
+      // and the grain is the only thing on screen that can say so. It is tied
+      // to how fast the reel is actually going rather than to whether it is
+      // winding at all, so the dirt comes up with the wind and settles with
+      // it instead of switching on and off at both ends.
+      ctx.globalAlpha = REDUCED_MOTION
+        ? 0.035
+        : state.rushing
+          ? 0.06 + 0.06 * spin(rushT / rushDur)
+          : 0.06
       ctx.translate(ox, oy)
       ctx.fillStyle = grain
       ctx.fillRect(0, 0, CANVAS_W + 128, CANVAS_H + 128)
@@ -396,11 +604,23 @@ export function createFilm(): Film {
   }
 
   function paint(): void {
-    const i = state.chapter
-    const act = ACTS[i] ?? ACTS[0]
-    const chapter = CHAPTERS[i] ?? CHAPTERS[0]
-    if (!act || !chapter) return
-    const local = clamp(state.time - chapter.start, 0, act.duration)
+    /* WHAT IS ON THE SCREEN is one of two things: the act the clock is inside,
+       or the TL;DR card — which is not in ACTS and runs on its own clock,
+       because `state.time` is parked at the end of the film while it is up. */
+    let act: Act | undefined
+    let local: number
+    if (state.digest) {
+      act = DIGEST
+      local = digestT
+    } else {
+      const i = state.chapter
+      act = ACTS[i] ?? ACTS[0]
+      const chapter = CHAPTERS[i] ?? CHAPTERS[0]
+      if (!act || !chapter) return
+      local = clamp(state.time - chapter.start, 0, act.duration)
+    }
+    if (!act) return
+    const showing: Act = act
 
     // Whatever was clickable belonged to the frame that has just been thrown
     // away. Clear it here, once, before the act draws: an act that publishes
@@ -419,14 +639,42 @@ export function createFilm(): Film {
       ctx,
       w: CANVAS_W,
       h: CANVAS_H,
-      p: REDUCED_MOTION ? 1 : clamp(local / act.duration),
-      t: REDUCED_MOTION ? act.duration : local,
+      p: REDUCED_MOTION ? 1 : clamp(local / showing.duration),
+      t: REDUCED_MOTION ? showing.duration : local,
       reduced: REDUCED_MOTION,
     }
 
-    ctx.save()
-    act.draw(frame)
-    ctx.restore()
+    if (state.rushing && !REDUCED_MOTION) {
+      /* THE GATE. The picture is drawn twice, offset by one whole frame, with
+         a frame line travelling up between them — so the reel reads as being
+         wound on rather than as the film skipping. The two copies are the same
+         act at the same instant, which is what two adjacent frames of a film
+         very nearly are.
+
+         The roll comes off `rushRoll` — how far the wind has got — and not
+         off a clock of its own, so it runs at a speed the eye can follow
+         while the film underneath it is doing sixty times normal, and it
+         comes to rest square in a frame at the end. See SLIP_TURNS. */
+      const slip = (rushRoll * SLIP_TURNS) % 1
+      const dy = -slip * CANVAS_H
+      for (const off of [dy, dy + CANVAS_H]) {
+        ctx.save()
+        ctx.translate(0, off)
+        showing.draw(frame)
+        ctx.restore()
+      }
+      // the black bar between one frame and the next
+      ctx.fillStyle = 'rgba(0,0,0,0.82)'
+      ctx.fillRect(0, dy + CANVAS_H - CANVAS_H * 0.012, CANVAS_W, CANVAS_H * 0.024)
+      /* …and nothing on a frame going past at this speed is clickable. The
+         acts publish their link boxes as they draw, twice over and at the
+         wrong height, and the pointer is still live out in main.ts. */
+      clearLinks()
+    } else {
+      ctx.save()
+      showing.draw(frame)
+      ctx.restore()
+    }
 
     finish()
     dirty = false
@@ -469,9 +717,34 @@ export function createFilm(): Film {
     state.chapter = chapterAt(state.time)
   }
 
+  /** the reel has run out; the card drops into the gate and the film holds */
+  function enterDigest(): void {
+    clearLinks()
+    state.rushing = false
+    state.digest = true
+    rushRoll = 0
+    // the film IS over — the transport should say so, and the last chapter
+    // should be the lit one on the scrubber
+    state.time = RUNTIME - 0.001
+    state.chapter = CHAPTERS.length - 1
+    digestT = 0
+    acc = 0
+    dirty = true
+  }
+
+  /* THE WAY BACK INTO THE FILM, and the reason there is no second button for
+     it: asking for a position in the film is asking to be in the film, so the
+     card and the wind-forward both end here. Note the guard is not just
+     "did the time change" any more — the card parks the clock at the end, so
+     clicking the far right of the scrubber while it is up would have been a
+     no-op that left the card exactly where it was. */
   function seek(seconds: number): void {
     const t = clamp(seconds, 0, RUNTIME - 0.001)
-    if (t === state.time) return
+    const leaving = state.digest || state.rushing
+    if (t === state.time && !leaving) return
+    state.rushing = false
+    state.digest = false
+    rushRoll = 0
     state.time = t
     locate()
     acc = 0
@@ -487,6 +760,10 @@ export function createFilm(): Film {
     state.rate = 1
     state.time = 0
     state.chapter = 0
+    state.rushing = false
+    state.digest = false
+    digestT = 0
+    rushRoll = 0
     acc = 0
     dirty = true
     // DELIBERATELY NOT BLANKED. `update()` goes to some trouble to land on the
@@ -505,6 +782,55 @@ export function createFilm(): Film {
 
   function update(dt: number): boolean {
     if (!state.running) return false
+
+    /* ---- the TL;DR card, holding ----
+       It never ends. The film is over — `state.time` is at RUNTIME and the
+       scrubber is full — and this frame stays on the screen until somebody
+       scrubs back into the film or leaves. Nothing here may call `stop()`:
+       that is what ends the viewing, walks the camera back and gives the
+       field to the figure, and it is not what pressing TLDR asked for. */
+    if (state.digest) {
+      if (!state.paused) digestT += dt
+      if (REDUCED_MOTION) {
+        if (!dirty) return false
+        paint()
+        return true
+      }
+      if (dirty) {
+        acc = 0
+        paint()
+        return true
+      }
+      if (state.paused) return false
+      acc += dt
+      if (acc < FRAME_DT) return false
+      acc %= FRAME_DT
+      paint()
+      return true
+    }
+
+    /* ---- winding forward ----
+       Pause has no say in it: the wind is an action already in flight, not a
+       speed, and it is over in a second and a third. The clock is not
+       advanced by a rate — it is PLACED, off `windTo`, so the curve owns
+       where the film is and the end of the curve is exactly the end of the
+       film. Nothing here can overshoot RUNTIME or stop short of it. */
+    if (state.rushing) {
+      rushT += dt
+      if (rushT >= rushDur) {
+        enterDigest()
+        paint()
+        return true
+      }
+      rushRoll = windTo(rushT / rushDur)
+      state.time = rushFrom + rushSpan * rushRoll
+      state.chapter = chapterAt(state.time)
+      acc += dt
+      if (acc < RUSH_FRAME_DT) return false
+      acc %= RUSH_FRAME_DT
+      paint()
+      return true
+    }
 
     if (!state.paused) {
       state.time += dt * state.rate
@@ -556,10 +882,42 @@ export function createFilm(): Film {
       state.paused = false
       state.rate = 1
       state.time = clamp(from, 0, RUNTIME - 0.001)
+      state.rushing = false
+      state.digest = false
+      digestT = 0
+      rushRoll = 0
       locate()
       acc = 0
       dirty = true
       paint()
+    },
+
+    rush() {
+      if (!state.running || state.digest) return
+      // whatever the transport was doing, this is what is happening now
+      state.paused = false
+      const remaining = RUNTIME - state.time
+      /* Nothing to wind, or nobody to watch it wind: go straight to the card.
+         Under reduced motion the roll is exactly the kind of thing that is not
+         to be inflicted on anybody — a full-screen picture rolling vertically
+         six times a second — and the card is the point of the button. */
+      if (REDUCED_MOTION || remaining < 0.3) {
+        enterDigest()
+        paint()
+        return
+      }
+      rushFrom = state.time
+      rushSpan = remaining
+      /* The wait is fixed, and the FLOOR is on the speed rather than on the
+         wait: the curve peaks at 1/SPIN_MEAN of its own average, so a wind
+         that would not get above RUSH_MIN_PEAK keeps its shape and takes less
+         time instead. Pressed near the end it is simply quick. */
+      rushDur = Math.min(RUSH_SECONDS, remaining / (SPIN_MEAN * RUSH_MIN_PEAK))
+      rushT = 0
+      rushRoll = 0
+      state.rushing = true
+      acc = 0
+      dirty = true
     },
 
     stop,

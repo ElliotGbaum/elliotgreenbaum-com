@@ -254,7 +254,17 @@
    One button per speed, in a single hairline pill — a segmented control, not
    four loose buttons, because they are one choice. It sits to the right of the
    chapter name and takes the slack that the old HOLD SPACE hint used to hold,
-   so the Exit button stays pinned to the right edge of the bar. */
+   so the Exit button stays pinned to the right edge of the bar.
+
+   It used to be the quietest object on the bar and it was the wrong one to be
+   quiet: 10.5px type — smaller than the running time beside it — ink at 0.76,
+   and a lit segment tinted amber at 0.16, which over this near-black pill is a
+   shade rather than a signal. Somebody who never went looking for a speed
+   control never found one. It is still the LIGHTER object next to pause and
+   EXIT — shorter, no border of its own per segment — but it is now legible at
+   a glance: the type matches the time and the chapter name it sits between,
+   the resting ink is within a hair of the buttons either side, and the segment
+   you are on is a filled, ringed, amber thing rather than a tint. */
 
 #film-speed {
   flex: 0 0 auto;
@@ -275,20 +285,23 @@
   /* the divider between segments, so there is one hairline between each pair
      and none on the two outer edges — a border on every button doubles up.
      Kept lighter than the pill's own edge: it divides, it does not enclose. */
-  border-left: 1px solid rgba(233, 228, 214, 0.24);
+  border-left: 1px solid rgba(233, 228, 214, 0.3);
   background: none;
-  padding: 0 clamp(7px, 1.2vw, 11px);
-  min-height: 30px;
+  padding: 0 clamp(8px, 1.3vw, 12px);
+  min-height: 34px;
   font-family: var(--film-mono);
-  font-size: 10.5px;
+  /* the same size as #film-time and #film-chapter — the three of them are one
+     line of type across the bar, and the picker was the one set smaller */
+  font-size: 11.5px;
   line-height: 1;
   letter-spacing: 0.06em;
-  color: rgba(233, 228, 214, 0.76);
+  color: rgba(233, 228, 214, 0.9);
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   transition:
     color 0.18s ease,
-    background-color 0.18s ease;
+    background-color 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .film-rate:first-child {
@@ -297,14 +310,22 @@
 
 .film-rate:hover {
   color: var(--film-amber-lit);
-  background: rgba(227, 169, 74, 0.08);
+  background: rgba(227, 169, 74, 0.14);
 }
 
 /* the one you are at. `data-on` is written from film.state.rate, so holding
-   space lights 2× and gives it back on release — see src/film/controls.ts. */
+   space lights 2× and gives it back on release — see src/film/controls.ts.
+
+   Fill AND ring, because the fill alone was doing all the work and doing it
+   at a tenth of the contrast the rest of the bar runs at. The ring is inset,
+   so it costs no layout and cannot push the segment off its neighbours; on
+   the two outer segments the pill's `overflow: hidden` trims it to the round
+   end, which is what you want — it reads as the pill lighting up a quarter of
+   itself rather than as a rectangle parked inside a capsule. */
 .film-rate[data-on="true"] {
   color: var(--film-amber-lit);
-  background: rgba(227, 169, 74, 0.16);
+  background: rgba(227, 169, 74, 0.26);
+  box-shadow: inset 0 0 0 1px rgba(227, 169, 74, 0.5);
 }
 
 .film-rate:focus-visible {
@@ -379,6 +400,148 @@
   clip-path: polygon(10% 0, 100% 50%, 10% 100%);
 }
 
+/* ---------- TLDR VERSION ----------
+   The one control that is not on the bar, and the only piece of film chrome
+   that lives at a moving point in the world: it sits just above the top-right
+   corner of the screen and is repositioned every frame from src/main.ts,
+   which projects that corner through the camera. See the markup note in
+   index.html for why it is a sibling of #film rather than a child of it.
+
+   Everything here is a copy of what the buttons on the bar are made of —
+   same surface, same hairline, same lift — because it IS one of them, standing
+   somewhere else. What it does not copy is EXIT's uppercase tracking. It used
+   to say a whole sentence — SKIP VIDEO, TLDR VERSION — and a sentence set in
+   tracked capitals at 12px is a banner rather than a label; it is two words
+   now, but they are two words a viewer has to read as a NAME for the thing
+   they get, and capitals would make TLDR shout over VERSION.
+
+   It carries its position in a JS-written transform, so nothing here may
+   animate `transform` — the arrival is on opacity alone, and `data-on` is
+   what main.ts turns on once it has been placed, so it can never flash in the
+   top-left corner for the one frame before its first placement. */
+
+#film-tldr {
+  --film-ink: #e9e4d6;
+  --film-amber: #e3a94a;
+  --film-amber-lit: #f3c77e;
+  --film-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 61;
+  -webkit-appearance: none;
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid rgba(233, 228, 214, 0.44);
+  border-radius: 999px;
+  background: rgba(12, 20, 25, 0.86);
+  box-shadow: 0 1px 12px rgba(0, 0, 0, 0.5);
+  color: rgba(233, 228, 214, 0.94);
+  font-family: var(--film-mono);
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    opacity 0.35s ease,
+    color 0.18s ease,
+    border-color 0.18s ease,
+    background-color 0.18s ease;
+}
+
+#film-tldr[hidden] {
+  display: none !important;
+}
+
+#film-tldr[data-on="true"] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Half an act in, it steps back — still there, no longer the brightest thing
+   over the screen. The fade is slow so it reads as the button settling rather
+   than as something going wrong; the way back, under the pointer, is quick.
+   src/film/controls.ts sets the flag. */
+#film-tldr[data-on="true"][data-dim="true"] {
+  opacity: 0.42;
+  transition:
+    opacity 1.6s ease,
+    color 0.18s ease,
+    border-color 0.18s ease,
+    background-color 0.18s ease;
+}
+
+#film-tldr[data-on="true"][data-dim="true"]:hover,
+#film-tldr[data-on="true"][data-dim="true"]:focus-visible {
+  opacity: 1;
+  transition-duration: 0.18s;
+}
+
+#film-tldr:hover {
+  color: var(--film-amber-lit);
+  border-color: rgba(227, 169, 74, 0.6);
+  background: rgba(227, 169, 74, 0.12);
+}
+
+#film-tldr:focus-visible {
+  outline: 2px solid var(--film-amber);
+  outline-offset: 3px;
+}
+
+/* the fast-forward mark — two triangles, drawn in CSS so there is nothing to
+   load, and the only part of the button that says what pressing it DOES
+   rather than what it gets you */
+.film-ff {
+  display: block;
+  width: 13px;
+  height: 10px;
+  flex: 0 0 auto;
+  background: currentColor;
+  clip-path: polygon(
+    0 0, 48% 50%, 0 100%,
+    52% 0, 100% 50%, 52% 100%
+  );
+}
+
+@media (hover: none) {
+  /* a thumb needs the same 44px every other control on the bar gives it */
+  #film-tldr {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 420px) {
+  #film-tldr {
+    padding: 0 13px;
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    gap: 7px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #film-tldr {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  #film-tldr {
+    border-color: ButtonBorder;
+    color: ButtonText;
+    box-shadow: none;
+  }
+}
+
 /* ---------- a device with no hover ----------
    Everything above that reveals itself on hover has to be ALREADY REVEALED
    here, because there is no state a finger can put the bar into that a mouse
@@ -426,6 +589,7 @@
   }
   .film-rate {
     padding: 0 8px;
+    font-size: 11px;
   }
 }
 
@@ -448,10 +612,16 @@
     font-size: 11px;
     letter-spacing: 0.1em;
   }
+  /* The narrowest the labels are allowed to get, and the one width where the
+     type could barely move: at 375 the row is already full — pause, the clock,
+     four segments and EXIT come to exactly the 351px between the paddings —
+     so the half point back onto the labels is paid for by dropping the
+     tracking, and the picker's visibility down here is carried by the fill and
+     the ring rather than by size. */
   .film-rate {
     padding: 0 6px;
-    font-size: 10px;
-    letter-spacing: 0.02em;
+    font-size: 10.5px;
+    letter-spacing: 0;
   }
   #film-caption {
     font-size: 12px;

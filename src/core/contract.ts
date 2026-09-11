@@ -117,8 +117,10 @@ export interface Landmark {
   activate(ctx: LandmarkContext): void
   /**
    * The verb for the key badge that floats at this thing once you are close
-   * enough to reach it — see src/ui/interact.ts. It completes "Press E to …",
-   * so it is two or three words, lower case, no full stop: `'turn on'`.
+   * enough to reach it — see src/ui/interact.ts. It completes "Press E to …"
+   * on a keyboard and "Tap to …" on a touchscreen, so it is two or three
+   * words, lower case, no full stop: `'turn on'`. One string for both: the
+   * gesture is the half that changes with the device, never the action.
    *
    * It is NOT a shorter `prompt`. `prompt` is the sentence at the bottom of
    * the screen that says what the thing is *for*, readable from across the

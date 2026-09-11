@@ -10,3 +10,7 @@ shots/
 refs/
 .vercel
 .env*
+
+# private working notes, kept local
+PLAN.md
+CONTEXT.md

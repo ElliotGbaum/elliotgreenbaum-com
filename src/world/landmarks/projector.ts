@@ -99,6 +99,29 @@ export interface Projector extends Landmark {
   readonly pressSpot: THREE.Vector3
   /** …and reach for this */
   readonly pressPoint: THREE.Vector3
+  /**
+   * The OUTER TOP-RIGHT CORNER OF THE SCREEN FRAME, and the one thing that
+   * hangs off it is the TLDR VERSION button — main.ts projects
+   * this point through the camera every frame of the film so the button stays
+   * pinned there as the shot breathes, and the chrome hangs the button up and
+   * to the left of it (see `place` in src/film/controls.ts).
+   *
+   * IT USED TO BE THE TOP OF THE MACHINE, and that was wrong in a way that was
+   * only obvious once the card behind it grew. The projector stands a long way
+   * in FRONT of the screen, so a point above it projects into the middle of
+   * the picture however mean you are with the height — the button ended up
+   * sitting on top of whatever the act was drawing, which is the one place a
+   * control offering to skip the film must never be. The corner of the screen
+   * is the opposite: it is off the picture by construction, it is where a
+   * viewer already looks for the controls of a thing they are watching, and it
+   * moves with the screen rather than with the machine.
+   *
+   * The numbers are the frame's own: the top bar sits at the screen's top edge
+   * and is 0.8 deep, the side bars are 0.8 wide, and the top bar overhangs
+   * them by the same, so this is the outside corner of the woodwork and not a
+   * guess at it.
+   */
+  readonly screenCorner: THREE.Vector3
   /** stand here to watch, once it's running */
   readonly watchSpot: THREE.Vector3
   /** the third-person shot, framed for this viewport shape */
@@ -543,8 +566,10 @@ export function createProjector(picture: HTMLCanvasElement): Projector {
     again: 'Switch it on again to replay the film',
     /**
      * …and up at the machine itself, once you are within arm's reach of it,
-     * the badge every game puts on an interactable: PRESS [E] TO TURN ON,
-     * floating at the switch. It is not a third phrasing of the sentence above
+     * the badge every game puts on an interactable: PRESS [E] TO TURN ON on a
+     * keyboard, TAP TO TURN ON on a phone — same words after the gesture, and
+     * the gesture is the only part that knows what device it is on.
+     * It is not a third phrasing of the sentence above
      * — that one says what the projector is for, from across a field, and this
      * one names the mechanical action while you are standing at the knob it
      * happens to. Different job, different register, and it is small and mono
@@ -566,8 +591,8 @@ export function createProjector(picture: HTMLCanvasElement): Projector {
     /**
      * Standing here is not consent. The film is a two-minute commitment and it
      * takes the camera off you to make it, so it starts when someone asks for
-     * it — walk up and press E — and never merely because they wandered into
-     * the radius. See the dwell block in main.ts.
+     * it — walk up and press E, or tap the machine — and never merely because
+     * they wandered into the radius. See the dwell block in main.ts.
      *
      * A CLICK ON THE MACHINE IS AN ERRAND, NOT A SWITCH, and the distinction is
      * the whole of how the pointer is allowed to work here. Pointing at it from
@@ -584,6 +609,7 @@ export function createProjector(picture: HTMLCanvasElement): Projector {
     // beside the body, within arm's reach of the switch
     pressSpot: new THREE.Vector3(2.6, 0, PROJ_Z + 2.1),
     pressPoint: new THREE.Vector3(1.32, 3.1, PROJ_Z + 0.6),
+    screenCorner: new THREE.Vector3(SCREEN_W / 2 + 0.8, SCREEN_Y + SCREEN_H / 2 + 0.4, SCREEN_Z),
     // off to one side and behind the lens, so the figure is in the shot and
     // not in the beam
     watchSpot: new THREE.Vector3(-6, 0, PROJ_Z + 1),

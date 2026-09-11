@@ -275,10 +275,19 @@
          the outer div carries that translate and the pin inside it carries
          the centring, so the two never fight over `transform`.
          aria-hidden because it is a picture of a keyboard rather than
-         information: #prompt above is the readable version. -->
+         information: #prompt above is the readable version.
+
+         TWO HALVES OF THE SENTENCE AND ONLY ONE OF THEM IS EVER ON SCREEN.
+         The badge names the gesture the device you are holding actually has:
+         a keyboard gets PRESS [E], a touchscreen gets TAP, and the verb after
+         it is the same string in both. The swap is CSS at `(hover: none)` —
+         see src/ui/ui.css — so nothing measures anything at boot and a tablet
+         that gains a keyboard gains the keycap. -->
     <div id="interact" data-on="false" data-hit="false" aria-hidden="true">
       <span class="interact__pin">
-        Press <kbd>E</kbd> to <span class="interact__verb">turn on</span>
+        <span class="interact__press">Press <kbd>E</kbd> to</span>
+        <span class="interact__tap">Tap to</span>
+        <span class="interact__verb">turn on</span>
       </span>
     </div>
 
@@ -300,6 +309,30 @@
        nothing is worse than no button. -->
   <button id="fs-btn" type="button" hidden data-on="false" aria-label="Full screen">
     <span class="fs-icon" aria-hidden="true"></span>
+  </button>
+
+  <!-- TLDR VERSION — the one control that is not on the bar.
+
+       It floats just above the top-right corner of the screen, pinned in
+       screen space to the corner of the frame and repositioned every frame
+       from src/main.ts as the watching shot breathes, exactly the way the key
+       badge is pinned to the switch. That is on purpose: it is an offer the
+       PROJECTOR is making — wind the reel forward and give me the whole thing
+       on one slide — and an offer parked in the corner of the transport bar
+       reads as another playback control.
+
+       It is OUTSIDE #film and not inside it, because #film animates on a
+       transform, and an ancestor with a transform becomes the containing block
+       for `position: fixed` children — which would quietly re-base this
+       button's coordinates onto the bottom strip of the screen. Same reason
+       the full-screen button above is outside #hud.
+
+       src/film/controls.ts shows it with the rest of the chrome, hides it once
+       the card is up (there is nothing left for it to do then), and owns the
+       click. -->
+  <button id="film-tldr" type="button" hidden data-on="false">
+    <span class="film-ff" aria-hidden="true"></span>
+    <span class="film-tldr__label">TLDR Version</span>
   </button>
 
   <!-- The film's controls.

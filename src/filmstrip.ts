@@ -23,6 +23,7 @@ import { act8 } from './film/acts/act8'
 import { act9 } from './film/acts/act9'
 import { act10 } from './film/acts/act10'
 import { act11 } from './film/acts/act11'
+import { digest } from './film/acts/digest'
 
 const ACTS: Act[] = [
   act0,
@@ -50,7 +51,12 @@ const W = Math.max(240, Number(params.get('w') ?? 384))
 const H = Math.round((W * 9) / 16)
 const dpr = Math.min(window.devicePixelRatio || 1, 2)
 
-const chosen = only ? ACTS.filter((a) => a.id === `act${only}`) : ACTS
+/* `?act=3` for an act, `?act=digest` for the TL;DR card — which is not in the
+   film and so is never on the default sheet, but is drawn by the same kit and
+   is the one frame most worth checking at contact-sheet size. */
+const chosen = only
+  ? [...ACTS, digest].filter((a) => a.id === `act${only}` || a.id === only)
+  : ACTS
 
 // cumulative start time, so labels show the position in the finished film
 let clock = 0

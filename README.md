@@ -2,10 +2,6 @@
 
 A dark field you walk through carrying a lantern. At the centre is a projector that needs your light; switch it on and a short film about Elliot plays on the screen while you stand there and watch it.
 
-- **`PLAN.md`** — what we're building and in what order.
-- **`CONTEXT.md`** — why it's built this way. Read this before changing anything structural.
-
----
 
 ## Running it
 
@@ -20,16 +16,17 @@ npm run preview  # serve the production build locally
 
 ```bash
 npm run preview            # in one terminal
-npm run verify             # in another — 38 checks, must be 38/38
+npm run verify             # in another — 54 checks, must be 54/54
 ```
 
-`npm run verify` is the gate. It runs the checklist from `PLAN.md`: the fallback
+`npm run verify` is the gate. It runs the publish checklist: the fallback
 card is in the served HTML and no résumé is, the site works with JavaScript disabled and with WebGL
 blocked, reduced-motion is honoured, everything is keyboard-operable with focus
 trapped and returned, tap targets clear 44px at 375px, landmarks disarm after
 use so the film can't loop, and the film's transport actually transports —
 clicking the projector starts it, pause holds, the scrubber seeks, space runs it
-at 2×. **Do not ship on a red.**
+at 2×, and the TL;DR button winds forward to the card and back out again.
+**Do not ship on a red.**
 
 Three more tools, all driving real Chrome on the real GPU:
 
@@ -67,9 +64,21 @@ The card is what no-JS, no-WebGL, a dead bundle, a screen reader and every crawl
 
 Because there is no second place for detail to go, a number either earns a line in an act or does not ship at all.
 
+**The TL;DR card is not a hole in this.** There is now one frame in the film that
+is a page of bullets — press SKIP VIDEO, TLDR VERSION above the projector and the
+reel winds forward to it. It is drawn on the canvas by `src/film/acts/digest.ts`,
+it is reachable only from inside the film, and it is not in the served HTML, not
+in the DOM, and not linked from anywhere. Verify §1 still asserts the absence and
+still goes red if bullets or dated entries reappear in the markup, which is the
+fence that was always the point: the visitor the world cannot serve gets a name
+and three ways to reach him, not the least interesting version of the thing.
+What the card changes is that a visitor who CAN be served but does not have two
+minutes now gets a second answer, out of the same projector, in the film's own
+type — instead of leaving.
+
 ### The film's words → `src/content/film.json`
 
-One entry per act. Change the text, not the code.
+One entry per act, plus one for the TL;DR card. Change the text, not the code.
 
 Two keys in each entry do double duty and are worth knowing about:
 
@@ -83,6 +92,14 @@ Two keys in each entry do double duty and are worth knowing about:
   already showing. The picture carries all of its own words now — which is also
   why every act's closing line has to be legible ON the screen. Keep the caption
   to one or two plain sentences; nobody sees it, somebody hears it.
+
+The TL;DR card's copy is the **`digest`** entry: a heading, then sections of
+bullets laid out in two columns in the order they appear there. Its "Next Steps"
+foot is read straight off `act11` — the roles, the three addresses and the
+invitation — so the film and the card can never end up offering two different
+email addresses. Adding a bullet costs type size on every row rather than
+running the last section off the bottom: the card measures itself and scales to
+the frame (see the fitting pass in `src/film/acts/digest.ts`).
 
 ### Things to keep
 
@@ -106,11 +123,14 @@ src/
     filmstage.ts      the depth cues a few acts throw off the screen (3D / `d`)
   film/
     film.ts           the act list, the picture buffer, the transport
-    controls.ts       the player chrome: chaptered scrubber, pause, 2×, 3D
+    controls.ts       the player chrome: chaptered scrubber, pause, 2×, 3D,
+                      and the TL;DR button that floats above the projector
     timeline.ts       the drawing kit the acts share
     sketch.ts         line art, and the pen that draws it
     sketches/         the four drawings, by hand — kit.ts is what they are drawn with
     acts/             one file per act, each drawing to a 2D canvas
+                      …plus digest.ts, the TL;DR card, which is NOT in ACTS —
+                      the whole film on one slide, reached only by the button
   ui/
     hud.ts            compass, prompt line, key hint, time-of-day switch
   content/

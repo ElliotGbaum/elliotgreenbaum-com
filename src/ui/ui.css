@@ -356,6 +356,19 @@ html.is-day #day-btn::before {
   color: var(--ui-ink-2);
 }
 
+/* …and the half in front of it names the gesture. `Press [E] to` carries the
+   keycap, so it is a flex row of its own with the pin's own gap — the badge
+   reads identically to the day it had no wrapper around it. Only one of the
+   two is ever in the layout; see the `(hover: none)` block at the end. */
+.interact__press {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.interact__tap {
+  display: none;
+}
+
 #interact kbd {
   display: flex;
   align-items: center;
@@ -403,12 +416,43 @@ html.is-day #day-btn::before {
   box-shadow: 0 0 18px rgba(227, 169, 74, 0.38);
 }
 
-/* no E to press. Touch reaches the same activation by tapping the machine —
-   main.ts resolves that with a raycast — so nothing is lost by taking the
-   badge off entirely, and a phone told to press E is a phone told a lie. */
+/* no E to press — SO IT SAYS TAP, and that is the whole of the difference.
+   The badge used to be `display: none` here on the argument that a phone told
+   to press E is a phone told a lie, which was true about the keycap and wrong
+   about the label: a finger reaches the same activation by tapping the machine
+   (main.ts resolves that with a raycast), and taking the badge away took the
+   only thing on screen that said so from the one position where it is worth
+   saying it. So the sentence swaps its first half and the machine keeps its
+   label. `TAP` gets the keycap's own colour, because on this device the
+   gesture is the information the way the cap is on the other one. */
 @media (hover: none) {
-  #interact {
+  .interact__press {
     display: none;
+  }
+  .interact__tap {
+    display: inline;
+    color: var(--ui-glow);
+  }
+  /* …and the words take the tap themselves. They hang above the machine, in
+     sky the raycast reads as grass, so a finger that goes to the label rather
+     than to the projector under it would walk the figure sideways — see
+     onPointerDown in src/main.ts, which fires the landmark for a press that
+     lands in here. The padding is the tap target: the type stays 0.63rem
+     because the badge is still the quietest thing on screen, and the box
+     around it is a thumb wide. Only while it is up — an invisible label is
+     not a button. */
+  #interact[data-on='true'] .interact__pin {
+    pointer-events: auto;
+    position: relative;
+  }
+  /* the target, and it is bigger than the words — a pseudo-element rather
+     than padding on the pin, because the pin is centred on its own width with
+     translate(-50%) and anything that changes its box moves the label off the
+     switch it is pinned to. Out of flow, so it is not a flex item either. */
+  #interact[data-on='true'] .interact__pin::after {
+    content: '';
+    position: absolute;
+    inset: -12px -16px;
   }
 }
 

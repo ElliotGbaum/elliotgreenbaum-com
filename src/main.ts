@@ -307,6 +307,8 @@ function boot() {
   /** the shot the film is being watched on, before the drift is added */
   let vantage = projector.watchVantage(aspect())
   const shot = new THREE.Vector3()
+  /** scratch, so projecting the screen's corner once a frame allocates nothing */
+  const corner = new THREE.Vector3()
 
   async function startFilm() {
     if (filmActive) return
@@ -638,6 +640,24 @@ function boot() {
 
   function onPointerDown(e: PointerEvent) {
     if (e.button !== 0) return
+
+    /* THE BADGE IS ITSELF A BUTTON ON A TOUCHSCREEN, and it has to be. On a
+       phone it reads TAP TO TURN ON, floating a little above the machine —
+       and a finger goes to the words, which hang in the sky where the raycast
+       below finds no landmark and only grass behind them. The figure would
+       walk sideways and the label would look broken. So the label answers for
+       the thing it names. It is the same press E makes: `fire` does not care
+       which gesture asked, and the badge is only ever on screen while you are
+       within arm's reach of the switch it is pinned to. On a keyboard the pin
+       is `pointer-events: none` and none of this is reachable — see the
+       `(hover: none)` block in src/ui/ui.css. */
+    if (!filmActive && near && (e.target as HTMLElement | null)?.closest('#interact')) {
+      e.preventDefault()
+      pending = null
+      fire(near)
+      return
+    }
+
     if (e.target !== canvas) return
 
     /* the film is up: the picture takes clicks and the field does not. Walking
@@ -853,9 +873,31 @@ function boot() {
       if (film.update(dt)) projector.refreshScreen()
       controls.sync()
 
-      // the depth cues run off the same clock as the act they belong to
+      /* TLDR VERSION sits above the top-right corner of the
+         screen, so it has to be told where that corner is on screen — every
+         frame, because the watching shot breathes. Same projection the key
+         badge does (src/ui/interact.ts); the clamping and the not-writing-a-
+         style-that-has-not-changed both live in the chrome, which is the only
+         thing that knows how big the button is. */
+      corner.copy(projector.screenCorner).project(rig.camera)
+      controls.place(
+        ((corner.x + 1) / 2) * window.innerWidth,
+        ((1 - corner.y) / 2) * window.innerHeight,
+      )
+
+      /* The depth cues run off the same clock as the act they belong to — and
+         the TL;DR card is not one of them. It is not in ACTS, nothing in
+         src/world/filmstage.ts is keyed to it, and the last act's cue would
+         otherwise be lit under it by whatever `state.chapter` happens to say.
+         -1 is a chapter no cue claims. */
+      const digest = film.state.digest
       const chapter = CHAPTERS[film.state.chapter]
-      stage.update(dt, film.state.chapter, chapter ? film.state.time - chapter.start : 0, true)
+      stage.update(
+        dt,
+        digest ? -1 : film.state.chapter,
+        !digest && chapter ? film.state.time - chapter.start : 0,
+        true,
+      )
 
       // …and the shot breathes, so the picture is being watched from a place
       // rather than from a tripod. Small on purpose: this is a long lens from

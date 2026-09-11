@@ -1,5 +1,5 @@
 /**
- * The checklist from PLAN.md §7, automated.
+ * The publish checklist, automated.
  *
  * These are the checks that decide whether the site is publishable at all —
  * a recruiter with no WebGL, someone on a keyboard, someone with reduced
@@ -392,6 +392,45 @@ console.log('\n8. The film is a video player')
     const after = await seconds()
     await page.keyboard.up(' ')
     ok('holding space runs at 2×', after - before >= 3, `${after - before}s in 2s`)
+
+    /* ── the TL;DR route ──────────────────────────────────────────────
+       The button above the projector winds the reel forward and holds on a
+       card with the whole film on it. Three things have to be true and all
+       three have been wrong at some point in a build like this: the button is
+       reachable (it is positioned from a projected world point, so a bad
+       projection parks it off screen), the film ENDS UP somewhere rather than
+       running past the end, and the film does NOT stop — the card is a hold,
+       and stopping would walk the camera back and give the field away.
+       The way back out is the scrubber, so that is checked too. */
+    const tldrBox = await page.locator('#film-tldr').boundingBox()
+    const vp = page.viewportSize()
+    ok(
+      'the TL;DR button is on screen and reachable',
+      !!tldrBox &&
+        tldrBox.width > 60 &&
+        tldrBox.height >= 38 &&
+        tldrBox.x >= 0 &&
+        tldrBox.y >= 0 &&
+        tldrBox.x + tldrBox.width <= vp.width &&
+        tldrBox.y + tldrBox.height <= vp.height,
+      tldrBox ? `${Math.round(tldrBox.x)},${Math.round(tldrBox.y)}` : 'missing',
+    )
+
+    await page.click('#film-tldr')
+    await page.waitForTimeout(4200)
+    const landed = await seconds()
+    ok('the wind forward lands on the card', landed === (await runtime()), `${landed}s`)
+    ok('the card names itself', ((await page.locator('#film-chapter').textContent()) ?? '').trim().length > 0)
+    ok('the film is still up on the card', await page.locator('#film').isVisible())
+    ok('the button retires once the card is up', await page.locator('#film-tldr').isHidden())
+
+    // …and the way back into the film is the transport that is already there
+    const back = await page.locator('#film-scrub').boundingBox()
+    if (back) await page.mouse.click(back.x + back.width * 0.3, back.y + back.height / 2)
+    await page.waitForTimeout(800)
+    const returned = await seconds()
+    ok('scrubbing off the card returns to the film', returned > 0 && returned < landed, `${returned}s`)
+    ok('and the button comes back with it', await page.locator('#film-tldr').isVisible())
 
     await page.keyboard.press('Escape')
     await page.waitForTimeout(1200)

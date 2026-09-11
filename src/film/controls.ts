@@ -25,7 +25,7 @@
  * `chosen` below is the picked speed and `state.rate` is what the clock is
  * actually running at; they are the same number except while the key is down.
  * Restoring to 1× was the first build and it silently cancelled the picker:
- * choose 1.5×, brush the space bar, and the film is at 1× with the 1.5× button
+ * choose 3×, brush the space bar, and the film is at 1× with the 3× button
  * still lit, which is a control that lies about the thing it controls.
  *
  * The buttons reflect `state.rate`, so the shuttle lights the 2× button while
@@ -40,6 +40,25 @@
  *                  the last fifteen years will try it.
  *   ← →            ±5s.   ↑ ↓ / j l   previous / next chapter, ±10s.
  *   Escape         stop the film and give the field back.
+ *   t              wind forward to the TL;DR card. The button over the corner
+ *                  of the screen is the real control; this is here because every
+ *                  other one of these has a key and a viewer who found `k`
+ *                  will try the obvious letter for the thing on screen.
+ *
+ * ── THE ONE CONTROL THAT IS NOT ON THE BAR ──────────────────────────────
+ *
+ * TLDR VERSION sits just above the top-right corner of the screen,
+ * out in the world, and main.ts moves it every frame to stay there (see `place`
+ * below).
+ * It is an offer the machine is making rather than a transport control, which
+ * is the whole reason it is not sitting next to Exit. Press it and the reel
+ * winds forward to a card with the whole film on it — `film.rush()`, and the
+ * note over RUSH_SECONDS in src/film/film.ts.
+ *
+ * It takes itself off screen once the card is up, because there is nothing
+ * left for it to do: the way back into the film is the scrubber, which is
+ * already there, already says where in the film you are, and is the thing a
+ * viewer reaches for.
  *
  * Space is claimed at the window, in capture, because the world is still live
  * underneath — but only when focus is not on a button, since Space is how a
@@ -49,6 +68,7 @@
 
 import {
   CHAPTERS,
+  DIGEST,
   RUNTIME,
   RATES,
   RATE_DEFAULT,
@@ -68,6 +88,15 @@ export interface FilmControls {
   sync(): void
   /** the Exit button, and Escape */
   onSkip(cb: () => void): void
+  /**
+   * Where the TLDR VERSION button should sit, in CSS pixels from
+   * the top-left of the viewport. The point is the TOP-RIGHT CORNER OF THE
+   * SCREEN, projected through the camera by main.ts once a frame — the button
+   * hangs above it and to its left, so its own bottom-right corner lands
+   * there. Clamped in here rather than out there, because the clamp needs the
+   * button's own size and this is the only module that has it.
+   */
+  place(x: number, y: number): void
   /** `d` — whether the acts reach off the screen. On unless you turn it off. */
   onDepth(cb: (on: boolean) => void): void
   dispose(): void
@@ -84,6 +113,7 @@ function noopControls(): FilmControls {
     hide() {},
     sync() {},
     onSkip() {},
+    place() {},
     onDepth() {},
     dispose() {},
   }
@@ -99,6 +129,7 @@ export function createFilmControls(film: Film): FilmControls {
   const $speed = document.getElementById('film-speed')
   const $tip = document.getElementById('film-tip')
   const $caption = document.getElementById('film-caption')
+  const $tldr = document.getElementById('film-tldr')
 
   if (
     !($root instanceof HTMLElement) ||
@@ -109,7 +140,8 @@ export function createFilmControls(film: Film): FilmControls {
     !($title instanceof HTMLElement) ||
     !($speed instanceof HTMLElement) ||
     !($tip instanceof HTMLElement) ||
-    !($caption instanceof HTMLElement)
+    !($caption instanceof HTMLElement) ||
+    !($tldr instanceof HTMLButtonElement)
   ) {
     // The film is not the reason anyone came; if its chrome is missing, the
     // rest of the site is still a site.
@@ -128,6 +160,7 @@ export function createFilmControls(film: Film): FilmControls {
   const speedBox: HTMLElement = $speed
   const tip: HTMLElement = $tip
   const caption: HTMLElement = $caption
+  const tldrBtn: HTMLButtonElement = $tldr
 
   const skips: Array<() => void> = []
   const depths: Array<(on: boolean) => void> = []
@@ -153,7 +186,7 @@ export function createFilmControls(film: Film): FilmControls {
    * clock is running at. They differ only while Space is held — see the header.
    *
    * role="radio" rather than a pressed toggle, because that is what this is:
-   * one of a set, exactly one on. A screen reader then announces it as "1.5×,
+   * one of a set, exactly one on. A screen reader then announces it as "3×,
    * radio button, 2 of 4" instead of leaving somebody to work out that four
    * unrelated buttons are a group.
    */
@@ -397,8 +430,66 @@ export function createFilmControls(film: Film): FilmControls {
     e.preventDefault()
     for (const cb of skips.slice()) cb()
   }
+
+  /* TLDR VERSION. It hands focus back to the scrubber for exactly
+     the reason pause and the speed picker do — a click leaves focus on the
+     button, Space on a focused button presses it again, and the film would be
+     winding forward every time somebody brushed the shuttle. */
+  const onTldrClick = (e: Event) => {
+    e.preventDefault()
+    film.rush()
+    if (e instanceof MouseEvent && e.detail > 0) {
+      try {
+        scrub.focus({ preventScroll: true })
+      } catch {
+        /* focus is a nicety, never a failure */
+      }
+    }
+  }
+
   playBtn.addEventListener('click', onPlay)
   skipBtn.addEventListener('click', onSkipClick)
+  tldrBtn.addEventListener('click', onTldrClick)
+
+  /* ---------------- placing the button ----------------
+   * It hangs over a point in the WORLD, so main.ts projects that point through
+   * the camera every frame and hands the answer down here. Two things this has
+   * to do that a static control does not:
+   *
+   *   Not write a style that has not changed. A projected point moves by a
+   *   fraction of a pixel most frames and every write is a style recalc — the
+   *   same guard, for the same reason, as the key badge in src/ui/interact.ts.
+   *
+   *   Keep itself on screen. The shot breathes and the viewport can be any
+   *   shape, so the point can end up under the transport bar or off an edge.
+   *   A LABEL would rather be hidden than mispositioned; this is a CONTROL,
+   *   and a control you cannot reach is worse than one an inch from where it
+   *   ought to be. So it clamps.
+   *
+   * The size it clamps against is cached: reading it back from the element is
+   * a forced layout, and this runs sixty times a second.
+   */
+  /** the film-second the TLDR button steps back at: halfway through act 1 */
+  const TLDR_DIM_AT = (CHAPTERS[0]?.duration ?? 0) * 0.5
+  const TLDR_LIFT = 14
+  const TLDR_EDGE = 12
+  /** the strip along the bottom the transport owns, and this must stay out of */
+  const TLDR_BAR = 96
+
+  let btnW = 0
+  let btnH = 0
+  let lastX = Number.NaN
+  let lastY = Number.NaN
+
+  function measureTldr(): void {
+    btnW = tldrBtn.offsetWidth
+    btnH = tldrBtn.offsetHeight
+  }
+
+  const onResize = () => {
+    if (!bar.hidden) measureTldr()
+  }
+  window.addEventListener('resize', onResize)
 
   /* ---------------- the keyboard ---------------- */
 
@@ -443,6 +534,10 @@ export function createFilmControls(film: Film): FilmControls {
       e.preventDefault()
       e.stopPropagation()
       toggleDepth()
+    } else if (k === 't') {
+      e.preventDefault()
+      e.stopPropagation()
+      film.rush()
     }
   }
 
@@ -471,6 +566,9 @@ export function createFilmControls(film: Film): FilmControls {
 
   let shownTime = -1
   let shownChapter = -1
+  let shownDigest: boolean | null = null
+  let shownTldr: boolean | null = null
+  let shownDim: boolean | null = null
   let shownPaused: boolean | null = null
   let shownRate = -1
   let restore: HTMLElement | null = null
@@ -496,16 +594,55 @@ export function createFilmControls(film: Film): FilmControls {
       scrub.setAttribute('aria-valuenow', t.toFixed(0))
     }
 
-    if (s.chapter !== shownChapter) {
+    /* WHAT IS ON THE SCREEN, which is not always the act the clock is inside:
+       once the TL;DR card is up the film is parked at its end and the card is
+       what is being shown, so that is what gets named and announced. Keyed off
+       the pair, because moving between the last act and the card does not
+       change the chapter index. */
+    if (s.chapter !== shownChapter || s.digest !== shownDigest) {
       shownChapter = s.chapter
+      shownDigest = s.digest
       const c = CHAPTERS[s.chapter]
-      const act = ACTS[s.chapter]
-      titleEl.textContent = c ? c.title : ''
-      caption.textContent = act ? act.caption : ''
-      scrub.setAttribute('aria-valuetext', c ? `${timecode(t)} — ${c.title}` : timecode(t))
+      const title = s.digest ? DIGEST.chapter : c ? c.title : ''
+      titleEl.textContent = title
+      /* THE CAPTION SAYS NOTHING WHILE THE REEL IS WINDING. It is the film's
+         aria-live region, and the wind crosses all twelve acts in about two
+         seconds — which is twelve announcements queued one behind another,
+         none of them the thing the viewer just asked for. It speaks again when
+         the reel stops, which is the card. */
+      if (!s.rushing) {
+        caption.textContent = s.digest ? DIGEST.caption : (ACTS[s.chapter]?.caption ?? '')
+      }
+      scrub.setAttribute('aria-valuetext', title ? `${timecode(t)} — ${title}` : timecode(t))
       segs.forEach((seg, i) => {
         seg.dataset.on = i === s.chapter ? 'true' : 'false'
       })
+    }
+
+    /* …and the button goes with it. Once the card is up there is nothing left
+       for it to skip; scrubbing back into the film brings it back. */
+    if (s.digest !== shownTldr) {
+      shownTldr = s.digest
+      tldrBtn.hidden = s.digest
+      if (s.digest) {
+        tldrBtn.dataset.on = 'false'
+        lastX = Number.NaN
+        lastY = Number.NaN
+      }
+    }
+
+    /* IT IS BRIGHT FOR HALF AN ACT AND THEN IT STEPS BACK. The button has to
+       be seen once — it is the only way to the card — and after that it is a
+       lit control in the corner of a screen you are meant to be watching. So
+       it holds full for the first half of the opening act and then dims to
+       the level the CSS sets, where it is still plainly there and no longer
+       asking for anything. Hover or focus brings it back (src/film/film.css).
+       Keyed off the clock rather than off time-since-shown, so scrubbing back
+       to the start un-dims it and a wind never sees it flicker. */
+    const dim = s.time >= TLDR_DIM_AT
+    if (dim !== shownDim) {
+      shownDim = dim
+      tldrBtn.dataset.dim = dim ? 'true' : 'false'
     }
 
     if (s.paused !== shownPaused) {
@@ -538,8 +675,18 @@ export function createFilmControls(film: Film): FilmControls {
     show() {
       restore = document.activeElement instanceof HTMLElement ? document.activeElement : null
       bar.hidden = false
+      /* the button comes back UNPLACED — `data-on` is false and stays false
+         until main.ts has projected the screen's corner through the camera
+         at least once, or it would show for one frame in the top-left corner */
+      tldrBtn.hidden = false
+      tldrBtn.dataset.on = 'false'
+      lastX = Number.NaN
+      lastY = Number.NaN
+      measureTldr()
       shownTime = -1
       shownChapter = -1
+      shownDigest = null
+      shownTldr = null
       shownPaused = null
       shownRate = -1
       sync()
@@ -563,6 +710,8 @@ export function createFilmControls(film: Film): FilmControls {
       dragging = false
       delete scrub.dataset.drag
       bar.hidden = true
+      tldrBtn.hidden = true
+      tldrBtn.dataset.on = 'false'
       caption.textContent = ''
       const back = restore
       restore = null
@@ -576,6 +725,33 @@ export function createFilmControls(film: Film): FilmControls {
     },
 
     sync,
+
+    place(x: number, y: number) {
+      if (tldrBtn.hidden || !Number.isFinite(x) || !Number.isFinite(y)) return
+      if (btnW <= 0 || btnH <= 0) measureTldr()
+
+      const vw = window.innerWidth
+      const vh = window.innerHeight
+      /* `x` is the RIGHT-HAND edge, not the middle. The button is right-aligned
+         on the screen's corner rather than centred on it, because half a button
+         hanging out past the frame of the picture is not "at the top right of
+         the screen", it is next to it. */
+      const cx = clamp(x, btnW + TLDR_EDGE, Math.max(btnW + TLDR_EDGE, vw - TLDR_EDGE))
+      // `y` is the point it hangs OVER, so the button's own height and the lift
+      // come off it before the bottom of the box lands anywhere
+      const cy = clamp(
+        y - TLDR_LIFT,
+        btnH + TLDR_EDGE,
+        Math.max(btnH + TLDR_EDGE, vh - TLDR_BAR),
+      )
+
+      if (cx !== lastX || cy !== lastY) {
+        lastX = cx
+        lastY = cy
+        tldrBtn.style.transform = `translate3d(${cx.toFixed(1)}px, ${cy.toFixed(1)}px, 0) translate(-100%, -100%)`
+      }
+      if (tldrBtn.dataset.on !== 'true') tldrBtn.dataset.on = 'true'
+    },
 
     onSkip(cb: () => void) {
       if (typeof cb === 'function') skips.push(cb)
@@ -597,6 +773,8 @@ export function createFilmControls(film: Film): FilmControls {
       scrub.removeEventListener('keydown', onScrubKey)
       playBtn.removeEventListener('click', onPlay)
       skipBtn.removeEventListener('click', onSkipClick)
+      tldrBtn.removeEventListener('click', onTldrClick)
+      window.removeEventListener('resize', onResize)
       speedBox.removeEventListener('click', onSpeedClick)
       speedBox.removeEventListener('keydown', onSpeedKey)
       window.removeEventListener('keydown', onKeyDown, { capture: true })
