@@ -21,7 +21,27 @@ import { PALETTE, PHONE, clamp, ease, rand, range } from '../core/contract'
 export const DISPLAY = '"Hoefler Text","Iowan Old Style",Palatino,Georgia,serif'
 export const MONO = 'ui-monospace,"SF Mono",Menlo,monospace'
 
-export type FontKind = 'display' | 'mono'
+/**
+ * The display stack again, with LINING FIGURES. Every face in the stack
+ * defaults to old-style figures, which sit at x-height and dip below the
+ * line — right for a date inside a sentence, wrong for a figure that has to
+ * be read as a figure: an old-style "1" is a small capital I, and "1M+" on
+ * the TL;DR card read as "IM+". Canvas has no font-variant-numeric, but a
+ * FontFace built from the same local faces can carry the feature, and Chrome,
+ * Safari and Firefox all honour it on a canvas. Registered once, below; until
+ * it resolves (local faces, so at once) the name falls through to DISPLAY.
+ */
+export const DISPLAY_LINING = `"Display Lining",${DISPLAY}`
+
+if (typeof FontFace !== 'undefined' && typeof document !== 'undefined') {
+  const src = ['Hoefler Text', 'Iowan Old Style', 'Palatino', 'Georgia']
+    .map((f) => `local("${f}")`)
+    .join(', ')
+  const face = new FontFace('Display Lining', src, { featureSettings: '"lnum" 1' })
+  face.load().then((f) => document.fonts.add(f), () => undefined)
+}
+
+export type FontKind = 'display' | 'mono' | 'lining'
 export type Align = 'left' | 'center' | 'right'
 
 export interface Pt {
@@ -119,7 +139,8 @@ export function setFont(
   kind: FontKind = 'display',
   weight = 400,
 ): void {
-  ctx.font = `${weight} ${size.toFixed(2)}px ${kind === 'mono' ? MONO : DISPLAY}`
+  const stack = kind === 'mono' ? MONO : kind === 'lining' ? DISPLAY_LINING : DISPLAY
+  ctx.font = `${weight} ${size.toFixed(2)}px ${stack}`
 }
 
 /**
