@@ -71,7 +71,7 @@ const DAY = {
   horizon: 0xa9c8d9,
   zenith: 0x5f97bf,
   moon: 0,
-  grass: 0x94b164,
+  grass: 0xa6bd72,
   tree: 0x4e7a4a,
   trunk: 0x5a4a3a,
   hill: 0x7a9670,
@@ -296,7 +296,7 @@ function createTrees(): {
 /* ================================================================== *
  * Grass
  * ================================================================== */
-const GRASS_N = PHONE ? 14000 : 46000
+const GRASS_N = PHONE ? 16000 : 52000
 /** side of the square the blades are wrapped onto, centred on the figure */
 const GRASS_SPAN = PHONE ? 60 : 96
 /** blades are scaled away between these two distances from the figure, so the
@@ -305,7 +305,7 @@ const GRASS_FADE = PHONE ? [16, 28] : [28, 46]
 
 function bladeGeometry(): THREE.BufferGeometry {
   const SEG = 3
-  const W = 0.14
+  const W = 0.16
   const pos: number[] = []
   const nrm: number[] = []
   const idx: number[] = []
@@ -342,11 +342,13 @@ function createGrass(clearing: THREE.Vector3, pathFromZ: number, pathToZ: number
   for (let i = 0; i < GRASS_N; i++) {
     offset[i * 4] = rand(i * 4 + 1) * GRASS_SPAN
     offset[i * 4 + 1] = rand(i * 4 + 2) * GRASS_SPAN
-    // height, in figure units: mid-calf. Shin-high was wading, ankle-high
-    // was stubble; this is the one that looked like a field.
-    offset[i * 4 + 2] = 0.38 + Math.pow(rand(i * 4 + 3), 2) * 0.7
+    // height, in figure units: ankle to shin, a few taller. This is the
+    // first version and the one that was right — shorter cuts looked like
+    // stubble. It only ever shows by day, which is why wading through it
+    // in the dark stopped being a problem.
+    offset[i * 4 + 2] = 0.55 + Math.pow(rand(i * 4 + 3), 2) * 1.1
     offset[i * 4 + 3] = rand(i * 4 + 4) * Math.PI * 2
-    lean[i] = (rand(i + 9001) - 0.5) * 0.5
+    lean[i] = (rand(i + 9001) - 0.5) * 0.6
   }
   inst.setAttribute('aOffset', new THREE.InstancedBufferAttribute(offset, 4))
   inst.setAttribute('aLean', new THREE.InstancedBufferAttribute(lean, 1))
@@ -552,6 +554,7 @@ export function createScenery(scene: THREE.Scene, opts: SceneryOptions): Scenery
     mix(hills.mat.color, NIGHT.hill, DAY.hill, k)
     mix(trees.canopy.color, NIGHT.tree, DAY.tree, k)
     mix(trees.trunk.color, NIGHT.trunk, DAY.trunk, k)
+    mix(grass.mat.color, NIGHT.grass, DAY.grass, k)
     grass.uniforms.uDay.value = k
     grass.mesh.visible = k > 0.01
     flies.mat.uniforms.uNight.value = lerp(NIGHT.fireflies, DAY.fireflies, k)
