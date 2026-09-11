@@ -204,8 +204,8 @@ function boot() {
   const projector = createProjector(film.canvas)
   const landmarks: Landmark[] = [projector]
 
-  // what is simply there: grass, a horizon, a sky, fireflies. Bare ground
-  // under the machine, and a trodden line from where you start to it.
+  // what is simply there: a horizon, a sky, fireflies, and by day a meadow —
+  // bare under the machine, with a trodden line from where you start to it
   const scenery = createScenery(scene, {
     clearing: new THREE.Vector3(0, 0, 4),
     pathFromZ: 46,

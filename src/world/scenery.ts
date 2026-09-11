@@ -2,8 +2,8 @@
  * Scenery — everything in the field that is simply *there*.
  *
  * None of this can be used, and none of it competes with the projector: it is
- * outside the walkable radius (the hills, the trees), under your feet (the
- * grass), or too faint to walk toward (the fireflies, the moon). It exists so
+ * outside the walkable radius (the hills, the trees), under your feet by day
+ * (the grass), or too faint to walk toward (the fireflies, the moon). It exists so
  * the field reads as a field — grass moving in a breeze, a horizon with a
  * shape, a sky that is darker overhead than at the edge — rather than as a
  * plane with a texture on it.
@@ -20,13 +20,15 @@
  *            swallowed by the night fog and plainly there by day.
  *   trees    a broken ring of dark broadleaf silhouettes between the field's
  *            edge and the hills.
- *   grass    the big one. Tens of thousands of instanced blades that follow the
+ *   grass    BY DAY ONLY. Tens of thousands of instanced blades that follow the
  *            figure around: each blade's position is wrapped onto a square
  *            centred on you, so the patch is always underfoot but no blade
  *            ever moves — it is fixed in the world until it drops off one edge
- *            of the square and reappears on the other, out in the dark. They
- *            sway, they catch the lantern, and they are trodden thin along the
- *            line to the projector and bare under the machine itself.
+ *            of the square and reappears on the other. They sway, and they
+ *            are trodden thin along the line to the projector and bare under
+ *            the machine. At night they are gone: a meadow round your legs in
+ *            the dark felt like wading, and the ground under the lantern is
+ *            better plain. The grass grows in with the daylight crossfade.
  *   fireflies a few dozen points drifting over the field at night, gone by day.
  *
  * Every number that describes an object's size is in the same units as the
@@ -69,7 +71,7 @@ const DAY = {
   horizon: 0xa9c8d9,
   zenith: 0x5f97bf,
   moon: 0,
-  grass: 0xa6bd72,
+  grass: 0x94b164,
   tree: 0x4e7a4a,
   trunk: 0x5a4a3a,
   hill: 0x7a9670,
@@ -294,7 +296,7 @@ function createTrees(): {
 /* ================================================================== *
  * Grass
  * ================================================================== */
-const GRASS_N = PHONE ? 12000 : 40000
+const GRASS_N = PHONE ? 16000 : 52000
 /** side of the square the blades are wrapped onto, centred on the figure */
 const GRASS_SPAN = PHONE ? 60 : 96
 /** blades are scaled away between these two distances from the figure, so the
@@ -303,7 +305,7 @@ const GRASS_FADE = PHONE ? [16, 28] : [28, 46]
 
 function bladeGeometry(): THREE.BufferGeometry {
   const SEG = 3
-  const W = 0.12
+  const W = 0.16
   const pos: number[] = []
   const nrm: number[] = []
   const idx: number[] = []
@@ -340,11 +342,10 @@ function createGrass(clearing: THREE.Vector3, pathFromZ: number, pathToZ: number
   for (let i = 0; i < GRASS_N; i++) {
     offset[i * 4] = rand(i * 4 + 1) * GRASS_SPAN
     offset[i * 4 + 1] = rand(i * 4 + 2) * GRASS_SPAN
-    // height, in figure units: a mown meadow, ankle-high at most. It was
-    // shin-high and the figure waded through it, which felt like wading.
-    offset[i * 4 + 2] = 0.2 + Math.pow(rand(i * 4 + 3), 2) * 0.35
+    // height, in figure units: ankle to shin, a few taller
+    offset[i * 4 + 2] = 0.55 + Math.pow(rand(i * 4 + 3), 2) * 1.1
     offset[i * 4 + 3] = rand(i * 4 + 4) * Math.PI * 2
-    lean[i] = (rand(i + 9001) - 0.5) * 0.4
+    lean[i] = (rand(i + 9001) - 0.5) * 0.6
   }
   inst.setAttribute('aOffset', new THREE.InstancedBufferAttribute(offset, 4))
   inst.setAttribute('aLean', new THREE.InstancedBufferAttribute(lean, 1))
@@ -356,6 +357,7 @@ function createGrass(clearing: THREE.Vector3, pathFromZ: number, pathToZ: number
     uClear: { value: new THREE.Vector3(clearing.x, clearing.z, 7.5) },
     uPath: { value: new THREE.Vector3(Math.min(pathFromZ, pathToZ), Math.max(pathFromZ, pathToZ), 3.2) },
     uTime: { value: 0 },
+    uDay: { value: 0 },
   }
 
   const mat = new THREE.MeshLambertMaterial({ color: NIGHT.grass, side: THREE.DoubleSide })
@@ -373,6 +375,7 @@ function createGrass(clearing: THREE.Vector3, pathFromZ: number, pathToZ: number
         uniform vec3 uClear;
         uniform vec3 uPath;
         uniform float uTime;
+        uniform float uDay;
         varying float vH;`,
       )
       .replace(
@@ -389,7 +392,9 @@ function createGrass(clearing: THREE.Vector3, pathFromZ: number, pathToZ: number
         float clear = smoothstep(uClear.z * 0.45, uClear.z, distance(base, uClear.xy));
         float pz = clamp(base.y, uPath.x, uPath.y);
         float path = mix(0.22, 1.0, smoothstep(uPath.z * 0.3, uPath.z, distance(base, vec2(0.0, pz))));
-        float s = aOffset.z * fade * clear * path;
+        // the meadow belongs to the day: it grows in with the light and is
+        // gone by night, when the ground under the lantern is plain
+        float s = aOffset.z * fade * clear * path * uDay;
         float t = position.y;
         vH = t;
         vec3 p = position * s;
@@ -546,7 +551,8 @@ export function createScenery(scene: THREE.Scene, opts: SceneryOptions): Scenery
     mix(hills.mat.color, NIGHT.hill, DAY.hill, k)
     mix(trees.canopy.color, NIGHT.tree, DAY.tree, k)
     mix(trees.trunk.color, NIGHT.trunk, DAY.trunk, k)
-    mix(grass.mat.color, NIGHT.grass, DAY.grass, k)
+    grass.uniforms.uDay.value = k
+    grass.mesh.visible = k > 0.01
     flies.mat.uniforms.uNight.value = lerp(NIGHT.fireflies, DAY.fireflies, k)
     flies.points.visible = flies.mat.uniforms.uNight.value > 0.01
   }

@@ -117,7 +117,7 @@ src/
   core/contract.ts    palette, shared interfaces, easing helpers — the only shared import
   world/
     field.ts          ground, stars, fog, ambient
-    scenery.ts        what is simply there: grass, treeline, hills, sky dome, fireflies
+    scenery.ts        what is simply there: treeline, hills, sky dome, fireflies, daytime grass
     player.ts         you: a figure with a lantern, a walk cycle and damping
     camera.ts         lagging follow rig, and the lens for the watching shot
     landmarks/        projector.ts — the one interactive thing in the field
