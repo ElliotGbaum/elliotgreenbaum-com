@@ -24,9 +24,11 @@
  *            figure around: each blade's position is wrapped onto a square
  *            centred on you, so the patch is always underfoot but no blade
  *            ever moves — it is fixed in the world until it drops off one edge
- *            of the square and reappears on the other. They sway, and they
- *            are trodden thin along the line to the projector and bare under
- *            the machine. At night they are gone: a meadow round your legs in
+ *            of the square and reappears on the other. A second, sparser
+ *            layer of bigger blades takes over past the middle of the shot
+ *            and carries the meadow to the tree line. They sway, and they
+ *            are bare under the machine. At night they are gone: a meadow
+ *            round your legs in
  *            the dark felt like wading, and the ground under the lantern is
  *            better plain. The grass grows in with the daylight crossfade.
  *   fireflies a few dozen points drifting over the field at night, gone by day.
@@ -295,19 +297,39 @@ function createTrees(): {
 
 /* ================================================================== *
  * Grass
+ *
+ * Two layers of the same instanced blade, each wrapped onto its own square
+ * centred on the figure. The near layer is dense and life-size and thins out
+ * past the middle of the shot; the far layer is a fifth as dense, its blades
+ * near twice as wide and a little taller, and it thins in exactly where the
+ * near one goes — so the meadow keeps its weight all the way to the tree line
+ * for a fraction of the blades a single dense layer would cost. At that range
+ * a blade is a pixel or two, so nobody can tell the far ones are bigger.
  * ================================================================== */
-const GRASS_N = PHONE ? 26000 : 72000
-/** side of the square the blades are wrapped onto, centred on the figure */
-const GRASS_SPAN = PHONE ? 116 : 136
-/** blades are scaled away between these two distances from the figure, so the
- *  square's edge is never seen. The far end has to sit well past the middle of
- *  the shot: a fade that finished at 46 read as a line across the field by
- *  day, because daylight fog is far too thin at that range to soften it. Now
- *  it finishes out where the ground is already flattening into haze, and the
- *  ground under the blades is the same colour as the blades (see the field's
- *  DAY.ground), so where the last of them go there is nothing to notice. */
-const GRASS_FADE = PHONE ? [32, 56] : [40, 68]
-
+interface GrassLayer {
+  /** blades in the layer */
+  n: number
+  /** side of the square the blades are wrapped onto, centred on the figure */
+  span: number
+  /** distance from the figure the layer grows in over [0..1], and out over [2..3] */
+  fade: [number, number, number, number]
+  /** width and height multipliers on the blade */
+  blade: [number, number]
+}
+/** A fade here thins the layer out blade by blade, at full size — never by
+ *  shrinking blades, which halved the meadow's weight wherever two fades
+ *  overlapped and read as a thin band across the field. The near fade has to
+ *  finish well past the middle of the shot: one that ended at 46 read as a
+ *  line by day, because daylight fog is far too thin at that range to soften
+ *  it. The far layer thins in over the same band the near one thins out, so
+ *  the count stays level, and it runs on through the tree line (which starts
+ *  at 98) so the last of it goes behind trunks rather than at an edge. */
+const GRASS_NEAR: GrassLayer = PHONE
+  ? { n: 19000, span: 116, fade: [-1, 0, 32, 56], blade: [1, 1] }
+  : { n: 54000, span: 136, fade: [-1, 0, 40, 68], blade: [1, 1] }
+const GRASS_FAR: GrassLayer = PHONE
+  ? { n: 15000, span: 260, fade: [32, 56, 108, 128], blade: [1.8, 1.15] }
+  : { n: 40000, span: 260, fade: [40, 68, 108, 128], blade: [1.8, 1.15] }
 function bladeGeometry(): THREE.BufferGeometry {
   const SEG = 3
   const W = 0.16
@@ -331,7 +353,7 @@ function bladeGeometry(): THREE.BufferGeometry {
   return geo
 }
 
-function createGrass(clearing: THREE.Vector3, pathFromZ: number, pathToZ: number): {
+function createGrass(layer: GrassLayer, clearing: THREE.Vector3, seed: number): {
   mesh: THREE.Mesh
   mat: THREE.MeshLambertMaterial
   uniforms: Record<string, THREE.IUniform>
@@ -342,29 +364,31 @@ function createGrass(clearing: THREE.Vector3, pathFromZ: number, pathToZ: number
   inst.index = geo.index
   inst.attributes = geo.attributes
 
-  const offset = new Float32Array(GRASS_N * 4)
-  const lean = new Float32Array(GRASS_N)
-  for (let i = 0; i < GRASS_N; i++) {
-    offset[i * 4] = rand(i * 4 + 1) * GRASS_SPAN
-    offset[i * 4 + 1] = rand(i * 4 + 2) * GRASS_SPAN
+  const { n, span } = layer
+  const offset = new Float32Array(n * 4)
+  const lean = new Float32Array(n)
+  for (let i = 0; i < n; i++) {
+    const k = i * 4 + seed
+    offset[i * 4] = rand(k + 1) * span
+    offset[i * 4 + 1] = rand(k + 2) * span
     // height, in figure units: ankle-high, a few to the shin. The first cut
     // (0.55 to 1.65) came to the figure's thigh and read as wading; the mown
     // cut (0.2 to 0.55) read as stubble. This sits between, nearer the short
     // end. It only ever shows by day, which is why wading through it in the
     // dark stopped being a problem.
-    offset[i * 4 + 2] = 0.38 + Math.pow(rand(i * 4 + 3), 2) * 0.72
-    offset[i * 4 + 3] = rand(i * 4 + 4) * Math.PI * 2
-    lean[i] = (rand(i + 9001) - 0.5) * 0.6
+    offset[i * 4 + 2] = (0.38 + Math.pow(rand(k + 3), 2) * 0.72) * layer.blade[1]
+    offset[i * 4 + 3] = rand(k + 4) * Math.PI * 2
+    lean[i] = (rand(i + 9001 + seed) - 0.5) * 0.6
   }
   inst.setAttribute('aOffset', new THREE.InstancedBufferAttribute(offset, 4))
   inst.setAttribute('aLean', new THREE.InstancedBufferAttribute(lean, 1))
 
   const uniforms: Record<string, THREE.IUniform> = {
     uCenter: { value: new THREE.Vector2(0, 0) },
-    uSpan: { value: GRASS_SPAN },
-    uFade: { value: new THREE.Vector2(GRASS_FADE[0], GRASS_FADE[1]) },
+    uSpan: { value: span },
+    uFade: { value: new THREE.Vector4(...layer.fade) },
+    uWidth: { value: layer.blade[0] },
     uClear: { value: new THREE.Vector3(clearing.x, clearing.z, 7.5) },
-    uPath: { value: new THREE.Vector3(Math.min(pathFromZ, pathToZ), Math.max(pathFromZ, pathToZ), 3.2) },
     uTime: { value: 0 },
     uDay: { value: 0 },
   }
@@ -380,9 +404,9 @@ function createGrass(clearing: THREE.Vector3, pathFromZ: number, pathToZ: number
         attribute float aLean;
         uniform vec2 uCenter;
         uniform float uSpan;
-        uniform vec2 uFade;
+        uniform vec4 uFade;
+        uniform float uWidth;
         uniform vec3 uClear;
-        uniform vec3 uPath;
         uniform float uTime;
         uniform float uDay;
         varying float vH;`,
@@ -396,17 +420,19 @@ function createGrass(clearing: THREE.Vector3, pathFromZ: number, pathToZ: number
         rel -= uSpan * floor(rel / uSpan + 0.5);
         vec2 base = uCenter + rel;
         float dist = length(rel);
-        float fade = 1.0 - smoothstep(uFade.x, uFade.y, dist);
-        // bare ground under the machine, and a trodden line to it
+        // thin the layer by dropping whole blades, never by shrinking them:
+        // each blade has a fixed lot number (its angle, folded to 0..1) and
+        // stands only while the fade at its distance is above that number
+        float lot = fract(aOffset.w * 0.15915494);
+        float fade = step(lot, smoothstep(uFade.x, uFade.y, dist)) * step(lot, 1.0 - smoothstep(uFade.z, uFade.w, dist));
+        // bare ground under the machine
         float clear = smoothstep(uClear.z * 0.45, uClear.z, distance(base, uClear.xy));
-        float pz = clamp(base.y, uPath.x, uPath.y);
-        float path = mix(0.22, 1.0, smoothstep(uPath.z * 0.3, uPath.z, distance(base, vec2(0.0, pz))));
         // the meadow belongs to the day: it grows in with the light and is
         // gone by night, when the ground under the lantern is plain
-        float s = aOffset.z * fade * clear * path * uDay;
+        float s = aOffset.z * fade * clear * uDay;
         float t = position.y;
         vH = t;
-        vec3 p = position * s;
+        vec3 p = position * vec3(s * uWidth, s, s);
         float sway = sin(uTime * 1.3 + base.x * 0.42 + base.y * 0.31) * 0.16
                    + sin(uTime * 2.1 + base.x * 0.9 - base.y * 0.6) * 0.05;
         p.x += (aLean + sway) * t * t * s * 1.4;
@@ -433,7 +459,7 @@ function createGrass(clearing: THREE.Vector3, pathFromZ: number, pathToZ: number
 
   // a plain Mesh over an instanced geometry, not an InstancedMesh: placement
   // is entirely in the shader, so there is no per-instance matrix to carry
-  inst.instanceCount = GRASS_N
+  inst.instanceCount = n
   const mesh = new THREE.Mesh(inst, mat)
   mesh.frustumCulled = false
   mesh.name = 'grass'
@@ -525,19 +551,16 @@ function createFireflies(): { points: THREE.Points; mat: THREE.ShaderMaterial } 
 export interface SceneryOptions {
   /** world point the grass is bare around — the machine's footprint */
   clearing: THREE.Vector3
-  /** the trodden line runs down x=0 between these two z values */
-  pathFromZ: number
-  pathToZ: number
 }
 
 export function createScenery(scene: THREE.Scene, opts: SceneryOptions): Scenery {
   const sky = createSky()
   const hills = createHills()
   const trees = createTrees()
-  const grass = createGrass(opts.clearing, opts.pathFromZ, opts.pathToZ)
+  const grass = [createGrass(GRASS_NEAR, opts.clearing, 0), createGrass(GRASS_FAR, opts.clearing, 500000)]
   const flies = createFireflies()
 
-  scene.add(sky.mesh, hills.mesh, trees.group, grass.mesh, flies.points)
+  scene.add(sky.mesh, hills.mesh, trees.group, ...grass.map((g) => g.mesh), flies.points)
 
   const cA = new THREE.Color()
   const cB = new THREE.Color()
@@ -560,9 +583,11 @@ export function createScenery(scene: THREE.Scene, opts: SceneryOptions): Scenery
     mix(hills.mat.color, NIGHT.hill, DAY.hill, k)
     mix(trees.canopy.color, NIGHT.tree, DAY.tree, k)
     mix(trees.trunk.color, NIGHT.trunk, DAY.trunk, k)
-    mix(grass.mat.color, NIGHT.grass, DAY.grass, k)
-    grass.uniforms.uDay.value = k
-    grass.mesh.visible = k > 0.01
+    for (const g of grass) {
+      mix(g.mat.color, NIGHT.grass, DAY.grass, k)
+      g.uniforms.uDay.value = k
+      g.mesh.visible = k > 0.01
+    }
     flies.mat.uniforms.uNight.value = lerp(NIGHT.fireflies, DAY.fireflies, k)
     flies.points.visible = flies.mat.uniforms.uNight.value > 0.01
   }
@@ -578,19 +603,21 @@ export function createScenery(scene: THREE.Scene, opts: SceneryOptions): Scenery
       // a settled frame for reduced motion: the grass still stands, it just
       // does not move, and the fireflies hang where they are
       if (!reducedMotion()) time += dt
-      grass.uniforms.uTime.value = time
-      grass.uniforms.uCenter.value.set(focus.x, focus.z)
+      for (const g of grass) {
+        g.uniforms.uTime.value = time
+        g.uniforms.uCenter.value.set(focus.x, focus.z)
+      }
       flies.mat.uniforms.uTime.value = time
       sky.mesh.position.set(focus.x, 0, focus.z)
     },
     dispose() {
-      scene.remove(sky.mesh, hills.mesh, trees.group, grass.mesh, flies.points)
+      scene.remove(sky.mesh, hills.mesh, trees.group, ...grass.map((g) => g.mesh), flies.points)
       sky.mesh.geometry.dispose()
       sky.mat.dispose()
       hills.mesh.geometry.dispose()
       hills.mat.dispose()
       trees.dispose()
-      grass.dispose()
+      for (const g of grass) g.dispose()
       flies.points.geometry.dispose()
       flies.mat.dispose()
     },

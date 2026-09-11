@@ -205,11 +205,9 @@ function boot() {
   const landmarks: Landmark[] = [projector]
 
   // what is simply there: a horizon, a sky, fireflies, and by day a meadow —
-  // bare under the machine, with a trodden line from where you start to it
+  // bare under the machine
   const scenery = createScenery(scene, {
     clearing: new THREE.Vector3(0, 0, 4),
-    pathFromZ: 46,
-    pathToZ: 12,
   })
 
   /* The standing instruction, shown until the film has been watched once — and
