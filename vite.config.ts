@@ -1,6 +1,9 @@
 import { defineConfig } from 'vite'
+import { agentLayer } from './tools/agent-layer'
 
 export default defineConfig({
+  // the film in words, in the served HTML and at /llms.txt — see tools/agent-layer.ts
+  plugins: [agentLayer()],
   build: {
     target: 'es2022',
     // three is the only heavy dependency; keeping it in its own chunk means
