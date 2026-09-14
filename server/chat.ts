@@ -28,6 +28,7 @@
 
 import Anthropic from '@anthropic-ai/sdk'
 import { PERSONA } from './persona'
+import { latestTrack, describe } from './spotify'
 
 /**
  * The model. Overridable from the environment so it can be changed without a
@@ -126,6 +127,21 @@ export async function handleChat(req: Request): Promise<Response> {
 
   const client = new Anthropic()
 
+  /* What he is listening to, live from Spotify (server/spotify.ts). It goes
+     in as a second system block AFTER the cache mark, because it changes and
+     the notes do not. Absent when it cannot be read, in which case the model
+     is simply never told and says so if asked. */
+  const listening = describe(await latestTrack())
+  const system: Anthropic.Beta.BetaTextBlockParam[] = [
+    { type: 'text', text: PERSONA, cache_control: { type: 'ephemeral' } },
+  ]
+  if (listening) {
+    system.push({
+      type: 'text',
+      text: `LIVE, FROM SPOTIFY (read a moment ago, not from the notes): ${listening} If the visitor asks what you are listening to, what music you like, or anything the answer fits, use it — it is true right now. Do not bring it up otherwise.`,
+    })
+  }
+
   /* The notes are the same every request and the transcript is not, so the
      notes go first with a cache mark on them: the prefix is what the API can
      reuse. `fallbacks: "default"` is the safety net for a refusal — if the
@@ -138,7 +154,7 @@ export async function handleChat(req: Request): Promise<Response> {
     max_tokens: MAX_TOKENS,
     betas: ['server-side-fallback-2026-07-01'],
     fallbacks: 'default',
-    system: [{ type: 'text', text: PERSONA, cache_control: { type: 'ephemeral' } }],
+    system,
     messages: turns,
     // a short conversational reply is the one case where the cheapest
     // setting is also the right one

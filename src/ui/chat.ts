@@ -62,6 +62,7 @@ export function createChat(): Chat {
   const closeBtn = document.getElementById('talk-close')
   const note = document.getElementById('talk-note')
   const status = document.getElementById('talk-status')
+  const now = document.getElementById('talk-now')
   if (
     !panel ||
     !log ||
@@ -73,7 +74,7 @@ export function createChat(): Chat {
   )
     return noopChat()
 
-  return build({ panel, log, asks, form, input, send, closeBtn, note, status })
+  return build({ panel, log, asks, form, input, send, closeBtn, note, status, now })
 }
 
 interface Parts {
@@ -86,9 +87,10 @@ interface Parts {
   closeBtn: HTMLButtonElement
   note: HTMLElement | null
   status: HTMLElement | null
+  now: HTMLElement | null
 }
 
-function build({ panel, log, asks, form, input, send, closeBtn, note, status }: Parts): Chat {
+function build({ panel, log, asks, form, input, send, closeBtn, note, status, now }: Parts): Chat {
   if (note) note.textContent = copy.note
   input.placeholder = copy.placeholder
   input.maxLength = MAX_CHARS
@@ -146,6 +148,35 @@ function build({ panel, log, asks, form, input, send, closeBtn, note, status }: 
     input.disabled = on
     panel.dataset.busy = on ? 'true' : 'false'
     for (const b of asks.querySelectorAll('button')) b.disabled = on
+  }
+
+  /* ---------------- what he is listening to ----------------
+     GET /api/spotify, once per opening of the panel: the track playing on
+     his Spotify right now, or the last one played, as one line under the
+     note with a link out. The same fact is handed to the model server-side,
+     so the line and the answer to "what are you listening to?" agree. No
+     track, no line — the panel looks as it did. */
+  type Track = { title: string; artists: string; url: string; playing: boolean }
+  async function showListening(): Promise<void> {
+    if (!now) return
+    try {
+      const res = await fetch('/api/spotify')
+      if (!res.ok) return
+      const { track } = (await res.json()) as { track: Track | null }
+      if (!track) return
+      const label = document.createElement('span')
+      label.className = 'talk__now-label'
+      label.textContent = track.playing ? copy.listening.playing : copy.listening.played
+      const a = document.createElement('a')
+      a.href = track.url
+      a.target = '_blank'
+      a.rel = 'noopener'
+      a.textContent = `${track.title} — ${track.artists}`
+      now.replaceChildren(label, a)
+      now.hidden = false
+    } catch {
+      /* Spotify is a nicety; its absence is silent */
+    }
   }
 
   /* ---------------- the chips ---------------- */
@@ -267,6 +298,7 @@ function build({ panel, log, asks, form, input, send, closeBtn, note, status }: 
         opened = true
         line('assistant', copy.greeting)
       }
+      void showListening()
       scrollDown()
       // a phone would bring the keyboard up over the figures on the first
       // frame; the visitor can tap the line or a chip, both of which are in

@@ -44,7 +44,24 @@ ELLIOT_MODEL=claude-sonnet-5
 ```
 
 Without a key the world runs as before and the figure says he has lost his
-voice and gives the real email, which is the intended failure. What he knows
+voice and gives the real email, which is the intended failure.
+
+He also knows what I am listening to. `GET /api/spotify` (`api/spotify.ts`
+around `server/spotify.ts`) reads the track playing on my Spotify right now,
+or the last one played, and the chat hands the same fact to the model, so the
+line under the panel's header and the answer to "what are you listening to?"
+agree. It needs two more variables, produced by a one-time login:
+
+```bash
+# run once; it opens Spotify's consent page and writes both into .env
+SPOTIFY_CLIENT_ID=<from developer.spotify.com/dashboard> node tools/spotify-auth.mjs
+# then copy SPOTIFY_CLIENT_ID and SPOTIFY_REFRESH_TOKEN into Vercel too
+```
+
+The login uses PKCE, so there is no client secret. Spotify gives the refresh
+token 180 days for an app in development mode; when it stops working, run the
+script again and replace the token in Vercel. Without the variables the line
+is simply absent and the figure does not know. What he knows
 is `server/persona.ts`; what the panel says on its own — the greeting, the
 suggested questions, the standing note that every answer is generated — is
 `src/content/talk.json`.

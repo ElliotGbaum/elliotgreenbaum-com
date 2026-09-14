@@ -597,6 +597,21 @@ console.log('\n11. Elliot answers, and says what he is')
     ok('the first line says it is an AI, in his voice', /AI/.test(first), first.slice(0, 60))
     const chips = await page.locator('.talk__ask').count()
     ok('there are questions to choose from', chips >= 4, `${chips}`)
+
+    // what he is listening to, live from Spotify: the endpoint always answers,
+    // and the line is there exactly when there is a track to show
+    const spotify = await page.request.get(base + '/api/spotify')
+    const body = spotify.ok() ? await spotify.json().catch(() => null) : null
+    ok('/api/spotify answers', !!body && 'track' in body, `${spotify.status()}`)
+    await page.waitForTimeout(800)
+    const nowUp = await page.locator('#talk-now').isVisible()
+    if (body?.track) {
+      const nowText = ((await page.locator('#talk-now').textContent()) ?? '').trim()
+      ok('the listening line shows the track', nowUp && nowText.includes(body.track.title), nowText.slice(0, 60))
+      ok('…and links out to Spotify', (await page.locator('#talk-now a').getAttribute('href'))?.startsWith('https://open.spotify.com/') ?? false)
+    } else {
+      ok('no track, no listening line', !nowUp)
+    }
     ok('the classic ones are there', (await page.locator('.talk__ask').allTextContents()).some((t) => /startups/i.test(t)))
 
     await page.locator('.talk__ask').first().click()

@@ -2,9 +2,9 @@ import { defineConfig, loadEnv, type Plugin, type ViteDevServer, type PreviewSer
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
 /**
- * /api/chat, in development and preview.
+ * /api/chat and /api/spotify, in development and preview.
  *
- * In production that path is a Vercel function (api/chat.ts). Vite knows
+ * In production each path is a Vercel function (api/chat.ts, api/spotify.ts). Vite knows
  * nothing about api/, so without this the figure in the field would have no
  * voice on localhost and every answer would be the "lost my voice" fallback.
  * This mounts the same `handleChat` at the same path, translating Node's
@@ -23,13 +23,15 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
  * already set in the shell.
  */
 function chatApi(): Plugin {
+  type Handler = (req: Request) => Promise<Response>
   const mount = (
     server: ViteDevServer | PreviewServer,
-    load: () => Promise<{ handleChat(req: Request): Promise<Response> }>,
+    path: string,
+    load: () => Promise<Handler>,
   ) => {
-    server.middlewares.use('/api/chat', async (req: IncomingMessage, res: ServerResponse) => {
+    server.middlewares.use(path, async (req: IncomingMessage, res: ServerResponse) => {
       try {
-        const { handleChat } = await load()
+        const handle = await load()
         const headers = new Headers()
         for (const [k, v] of Object.entries(req.headers)) {
           if (typeof v === 'string') headers.set(k, v)
@@ -43,7 +45,7 @@ function chatApi(): Plugin {
           headers,
           body: method === 'GET' || method === 'HEAD' ? undefined : Buffer.concat(chunks),
         })
-        const response = await handleChat(request)
+        const response = await handle(request)
         res.statusCode = response.status
         response.headers.forEach((v, k) => res.setHeader(k, v))
         if (!response.body) return res.end()
@@ -55,7 +57,7 @@ function chatApi(): Plugin {
         }
         res.end()
       } catch (err) {
-        console.error('[api/chat]', err)
+        console.error('[api]', path, err)
         if (!res.headersSent) res.statusCode = 500
         res.end()
       }
@@ -68,10 +70,14 @@ function chatApi(): Plugin {
       for (const [k, v] of Object.entries(env)) if (process.env[k] === undefined) process.env[k] = v
     },
     configureServer(server) {
-      mount(server, () => server.ssrLoadModule('/server/chat.ts') as never)
+      const dev = (file: string, name: string) => async () =>
+        (await server.ssrLoadModule(file))[name] as Handler
+      mount(server, '/api/chat', dev('/server/chat.ts', 'handleChat'))
+      mount(server, '/api/spotify', dev('/server/spotify.ts', 'handleSpotify'))
     },
     configurePreviewServer(server) {
-      mount(server, () => import('./server/chat'))
+      mount(server, '/api/chat', async () => (await import('./server/chat')).handleChat)
+      mount(server, '/api/spotify', async () => (await import('./server/spotify')).handleSpotify)
     },
   }
 }

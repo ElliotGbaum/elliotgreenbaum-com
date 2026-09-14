@@ -129,6 +129,45 @@
   color: var(--talk-sage);
 }
 
+/* ---- what he is listening to ----
+   One line, live from Spotify, in the same mono as the tag by his name: a
+   label, then the track as a link out to Spotify. Hidden until there is
+   something to show, so a panel with no Spotify behind it looks as it did. */
+.talk__now {
+  margin: 0;
+  padding-bottom: 11px;
+  border-bottom: 1px solid var(--talk-rule);
+  font-family: var(--talk-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  line-height: 1.5;
+  color: var(--talk-sage);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.talk__now-label {
+  color: var(--talk-amber-lit);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin-right: 8px;
+}
+.talk__now a {
+  color: var(--talk-ink);
+  text-decoration: underline;
+  text-decoration-color: var(--talk-rule-lit);
+  text-underline-offset: 3px;
+}
+.talk__now a:hover {
+  text-decoration-color: currentColor;
+}
+/* a phone has no room to keep it on one line; wrap rather than cut */
+@media (max-width: 480px) {
+  .talk__now {
+    white-space: normal;
+  }
+}
+
 /* ---- the log ---- */
 #talk-log {
   flex: 1 1 auto;

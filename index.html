@@ -356,6 +356,9 @@
       <button id="talk-close" type="button">Leave</button>
     </header>
     <p id="talk-note"></p>
+    <!-- what he is listening to, live from Spotify — filled by chat.ts from
+         /api/spotify when the panel opens; stays hidden when there is nothing -->
+    <p id="talk-now" class="talk__now" hidden></p>
     <ol id="talk-log"></ol>
     <div id="talk-asks" role="group" aria-label="Questions to ask"></div>
     <form id="talk-form" autocomplete="off">
