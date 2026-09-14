@@ -30,7 +30,8 @@
  * nothing extra to configure.
  *
  * The rate limit is per address per minute. It counts in a shared store
- * when one is configured (UPSTASH_REDIS_REST_URL and _TOKEN — a free Upstash
+ * when one is configured (KV_REST_API_URL and _TOKEN, the names Vercel's
+ * Upstash integration writes, or UPSTASH_REDIS_REST_URL and _TOKEN — a free Upstash
  * Redis from the Vercel marketplace), because a serverless function runs as
  * many instances as there is load and memory in one of them means nothing
  * to the others. Without a store it counts in memory, which blunts a loop
@@ -73,8 +74,8 @@ const hits = new Map<string, number[]>()
 
 /** the shared counter, when there is one: INCR on a key that expires with the window */
 async function limitedShared(ip: string): Promise<boolean | null> {
-  const url = process.env.UPSTASH_REDIS_REST_URL
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN
+  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL
+  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN
   if (!url || !token) return null
   const key = `chat:${hash(ip)}:${Math.floor(Date.now() / RATE_WINDOW_MS)}`
   try {

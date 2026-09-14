@@ -15,7 +15,7 @@
  * back a new one and kills the old one. So the current token has to be kept
  * somewhere that outlives one serverless instance:
  *
- *   - with UPSTASH_REDIS_REST_URL/_TOKEN set (the same store the chat's rate
+ *   - with KV_REST_API_URL/_TOKEN set (the same store the chat's rate
  *     limit uses), it lives there under one key, and WHOOP_REFRESH_TOKEN in
  *     the environment is only the seed used the first time;
  *   - without a store, it lives in this instance's memory and, locally, in
@@ -52,8 +52,8 @@ let access: { token: string; expires: number } | null = null
 let refreshToken: string | null = null
 
 async function store(cmd: string[]): Promise<string | null> {
-  const url = process.env.UPSTASH_REDIS_REST_URL
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN
+  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL
+  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN
   if (!url || !token) return null
   const r = await fetch(url, {
     method: 'POST',

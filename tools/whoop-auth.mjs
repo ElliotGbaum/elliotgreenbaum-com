@@ -85,8 +85,8 @@ async function exchange(code) {
   // a fresh chain: the local copy of the old one is dead now
   try { unlinkSync(new URL('../.vite/whoop-refresh', import.meta.url)) } catch {}
   // and so is whatever the shared store had, when there is one
-  const storeUrl = process.env.UPSTASH_REDIS_REST_URL
-  const storeToken = process.env.UPSTASH_REDIS_REST_TOKEN
+  const storeUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL
+  const storeToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN
   if (storeUrl && storeToken) {
     const r = await fetch(storeUrl, {
       method: 'POST',
@@ -100,7 +100,7 @@ async function exchange(code) {
   console.log(`WHOOP_CLIENT_ID=${CLIENT_ID}`)
   console.log(`WHOOP_CLIENT_SECRET=${CLIENT_SECRET}`)
   console.log(`WHOOP_REFRESH_TOKEN=${tok.refresh_token}\n`)
-  console.log('The token is single-use. With UPSTASH_REDIS_REST_URL/_TOKEN in .env and in Vercel, the dev server\nand the site share one chain through the store; without them, whichever runs first takes the chain.')
+  console.log('The token is single-use. With KV_REST_API_URL/_TOKEN in .env and in Vercel, the dev server\nand the site share one chain through the store; without them, whichever runs first takes the chain.')
 }
 
 /** the code out of a pasted callback address, or the bare code itself */

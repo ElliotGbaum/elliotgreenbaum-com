@@ -69,8 +69,8 @@ STRAVA_CLIENT_ID=... STRAVA_CLIENT_SECRET=... node tools/strava-auth.mjs
 # WHOOP — this morning's recovery score. Create an app at developer-dashboard.whoop.com
 # (redirect URL: https://localhost:8890/callback; scope: read:recovery), run once,
 # copy the three into Vercel. WHOOP refresh tokens are single-use, so the deployed site
-# keeps the rotated one in the Upstash store below — set that up too, or the line will
-# go quiet after the first cold start.
+# keeps the rotated one in the Upstash store below — set that up first, and put the same
+# two store values in .env so the dev server and the site share one token.
 WHOOP_CLIENT_ID=... WHOOP_CLIENT_SECRET=... node tools/whoop-auth.mjs
 
 # Calendly — the booking link, and with a token the next open slots.
@@ -80,11 +80,12 @@ CALENDLY_TOKEN=...               # optional: calendly.com → Integrations → A
 # The week and the clock are in this zone (default America/New_York).
 ELLIOT_ZONE=America/New_York
 
-# Rate limiting for /api/chat counts in a shared store when one exists —
-# a free Upstash Redis from the Vercel marketplace sets both of these.
+# Rate limiting for /api/chat counts in a shared store when one exists, and the
+# WHOOP token lives there — a free Upstash Redis from the Vercel marketplace
+# (Storage → Upstash for Redis → connect to the project) sets both of these.
 # Without it each function instance counts on its own.
-UPSTASH_REDIS_REST_URL=...
-UPSTASH_REDIS_REST_TOKEN=...
+KV_REST_API_URL=...              # the names the Vercel integration writes;
+KV_REST_API_TOKEN=...            # UPSTASH_REDIS_REST_URL/_TOKEN are read too
 ```
 
 `vercel.json` sets the security headers, including a Content-Security-Policy
