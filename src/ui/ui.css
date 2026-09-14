@@ -178,83 +178,161 @@ html.is-day #day-btn::before {
   box-shadow: 0 0 10px rgba(159, 196, 221, 0.5);
 }
 
-/* ---- compass ----
-   A needle and the name of the thing it points at. The name is the entire
-   reason it earns its place: a bare arrow at the top of the screen is a
-   direction, and what a first-time visitor needs is a destination. */
-
-#compass {
+/* ---- clock ----
+   The time where Elliot is, top right. The field runs on his sky
+   (src/core/sun.ts), and without this the dark would read as a mood rather
+   than a fact. Built by src/ui/hud.ts. Not a control: nothing to press. */
+#clock {
   position: absolute;
-  top: var(--pad-t);
-  left: 50%;
-  transform: translateX(-50%);
-  width: 42px;
-  height: 42px;
-  border: 1px solid var(--ui-rule);
-  border-radius: 50%;
-  background: rgba(10, 20, 24, 0.45);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 240ms ease;
-}
-#compass > em {
-  position: absolute;
-  top: calc(100% + 7px);
-  left: 50%;
-  transform: translateX(-50%);
+  top: calc(var(--pad-t) + 6px);
+  right: var(--pad-r);
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
   font-family: var(--ui-font-mono);
-  font-style: normal;
-  font-size: 0.6rem;
+  font-size: 0.7rem;
   font-weight: 500;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ui-ink);
+  text-align: right;
   white-space: nowrap;
-  color: var(--ui-ink-2);
+  pointer-events: none;
   text-shadow:
     0 1px 3px rgba(0, 0, 0, 0.9),
     0 0 14px rgba(0, 0, 0, 0.75);
 }
-/* the needle — rotated from JS, 0rad points at the top of the screen */
-#compass > span {
-  position: absolute;
-  inset: 0;
-  display: block;
-  transform-origin: 50% 50%;
-  will-change: transform;
+#clock > time {
+  font-variant-numeric: tabular-nums;
 }
-#compass > span::before {
-  content: '';
+#clock > span {
+  font-size: 0.56rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ui-ink-2);
+}
+#clock:empty,
+#clock > time:empty {
+  display: none;
+}
+html.has-fs-btn #clock {
+  right: calc(var(--pad-r) + 52px);
+}
+
+/* ---- compass ----
+   One strip at the top of the screen, the way Skyrim, Fallout and Elden Ring
+   do it: straight ahead is the middle, and everything you can walk to rides
+   along the strip by how far it sits to your left or right — whatever is
+   behind you pins to an edge. Two markers used to be two dials side by side,
+   and two dials read as two instruments; one strip reads as one place with
+   two things in it. Each marker names its destination, because a bare tick
+   is a direction and what a first-time visitor needs is a destination.
+   `--compass-half` is the reach of the strip from its centre; hud.ts reads
+   it, so the same number lays the markers out and draws the rule under them. */
+
+.compass {
+  --compass-half: 120px;
   position: absolute;
+  top: var(--pad-t);
   left: 50%;
-  top: 5px;
-  width: 0;
-  height: 0;
   transform: translateX(-50%);
-  border-left: 4.5px solid transparent;
-  border-right: 4.5px solid transparent;
-  border-bottom: 10px solid var(--ui-glow);
-  filter: drop-shadow(0 0 5px rgba(255, 196, 107, 0.55));
+  width: calc(var(--compass-half) * 2 + 24px);
+  height: 44px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 240ms ease;
 }
-#compass > span::after {
-  content: '';
+/* the rule the markers ride on: barely there, fading out at both ends so it
+   has no hard edge to compete with the sky */
+.compass__rule {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 12px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--ui-rule) 18%, var(--ui-rule) 82%, transparent);
+}
+/* the centre tick: straight ahead */
+.compass__tick {
   position: absolute;
   left: 50%;
-  top: 50%;
+  top: 9px;
   width: 1px;
-  height: 11px;
+  height: 7px;
   transform: translateX(-50%);
-  background: linear-gradient(180deg, rgba(255, 196, 107, 0.45), rgba(255, 196, 107, 0));
+  background: var(--ui-ink-3);
 }
-#compass::after {
-  content: '';
+/* a marker: a plain tick on the rule and, under it, the name of the thing
+   in a small pill. The tick was an amber point with a glow; it read as a
+   warning light and the type under it — bare mono with a dark halo — went
+   to mud on a mid-blue sky. So the marker is now ink, and the name sits in
+   the same flat veil every other piece of chrome carries: one treatment
+   that holds on a night sky and a noon one, no inversion needed.
+   Positioned from JS with --x, the offset from centre in pixels. */
+.compass__mark {
+  --x: 0px;
   position: absolute;
   left: 50%;
-  top: 50%;
-  width: 3px;
-  height: 3px;
-  margin: -1.5px 0 0 -1.5px;
-  border-radius: 50%;
-  background: var(--ui-ink-3);
+  top: 0;
+  width: 0;
+  height: 100%;
+  transform: translateX(var(--x));
+  will-change: transform, opacity;
+  opacity: 0;
+  transition: opacity 240ms ease;
+}
+.compass__mark > span {
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 2px;
+  height: 11px;
+  border-radius: 1px;
+  transform: translateX(-50%);
+  background: var(--ui-ink);
+  box-shadow: 0 0 0 1px rgba(10, 20, 24, 0.55);
+}
+/* pinned to an edge means it is behind you: the tick drops under the rule */
+.compass__mark[data-behind='true'] > span {
+  top: 13px;
+  height: 7px;
+  opacity: 0.7;
+}
+.compass__mark > em {
+  position: absolute;
+  top: 22px;
+  left: 0;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 9px;
+  border: 1px solid var(--ui-rule);
+  border-radius: 999px;
+  background: rgba(10, 20, 24, 0.82);
+  font-family: var(--ui-font-mono);
+  font-style: normal;
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--ui-ink);
+}
+/* on a phone the clock owns the top right, so the strip is shorter and the
+   names under it tighter */
+@media (max-width: 480px) {
+  .compass {
+    --compass-half: 48px;
+  }
+  .compass__mark > em {
+    height: 18px;
+    padding: 0 7px;
+    font-size: 0.52rem;
+    letter-spacing: 0.08em;
+  }
 }
 
 /* ---- prompt ---- */
@@ -576,32 +654,34 @@ html.is-day #day-btn::before {
   html.has-fs-btn .hud-corner {
     right: calc(var(--pad-r) + 52px);
   }
+  /* the dev-only switch shares the corner with the clock */
+  #hud:has(#clock) .hud-corner {
+    right: calc(var(--pad-r) + 150px);
+  }
+  html.has-fs-btn #hud:has(#clock) .hud-corner {
+    right: calc(var(--pad-r) + 202px);
+  }
 }
 
 /* ---- HUD, in daylight ----
    The chrome is authored to sit on a dusk world and most of it still does:
    every pill carries its own dark veil, so it is legible over anything. The
    two exceptions are the pieces that rely on the world being dark — the
-   compass disc, which is barely there on purpose, and the prompt, which is
+   compass rule, which is barely there on purpose, and the prompt, which is
    pale text with a shadow for contrast rather than a background. `is-day` is
    set on <html> from main.ts. */
-html.is-day #compass {
-  background: rgba(8, 18, 22, 0.66);
-  border-color: rgba(233, 228, 214, 0.26);
+html.is-day .compass__rule {
+  background: linear-gradient(90deg, transparent, rgba(10, 20, 24, 0.35) 18%, rgba(10, 20, 24, 0.35) 82%, transparent);
 }
-/* The needle keeps reading in daylight — it is amber on its own dark disc —
-   but the word under it was buff type with a dark halo, and a dark halo does
-   nothing on a pale sky: it measured 1.35:1 against the daytime horizon, where
-   the same label at night is 5.7:1 and the rule at the top of this file says
-   the quietest thing on screen still clears 4.5:1. So the ink inverts and the
-   halo goes pale with it. Dark type on a bright sky, no new furniture — a
-   veiled pill would hang a solid tag under a disc that is deliberately barely
-   there, and the two would stop reading as one instrument. */
-html.is-day #compass > em {
-  color: #0a1418;
-  text-shadow:
-    0 1px 2px rgba(233, 228, 214, 0.7),
-    0 0 10px rgba(233, 228, 214, 0.55);
+html.is-day .compass__tick {
+  background: rgba(10, 20, 24, 0.5);
+}
+/* the ink tick is pale on a pale sky: it goes dark by day, the way the rule
+   and the centre tick do. The name under it needs nothing — its pill is its
+   own ground, night or day. */
+html.is-day .compass__mark > span {
+  background: #0a1418;
+  box-shadow: 0 0 0 1px rgba(233, 228, 214, 0.45);
 }
 /* Buff type on sunlit grass: a heavier shadow was tried first and it was
    still a wash — the halo blurs into the same mid-green it is fighting. So
@@ -649,7 +729,8 @@ html.is-day .interact__verb {
    -------------------------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
   #hud,
-  #compass,
+  .compass,
+  .compass__mark,
   #prompt,
   .hud-btn,
   #fs-btn,
@@ -724,5 +805,12 @@ html.is-day .interact__verb {
      so the switch moves over for it and moves back when it goes. */
   html.has-fs-btn .hud-corner {
     right: calc(var(--pad-r) + 52px);
+  }
+  /* the dev-only switch shares the corner with the clock */
+  #hud:has(#clock) .hud-corner {
+    right: calc(var(--pad-r) + 150px);
+  }
+  html.has-fs-btn #hud:has(#clock) .hud-corner {
+    right: calc(var(--pad-r) + 202px);
   }
 }

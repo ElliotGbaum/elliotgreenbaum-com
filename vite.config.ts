@@ -1,10 +1,29 @@
 import { defineConfig, loadEnv, type Plugin, type ViteDevServer, type PreviewServer } from 'vite'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { readFileSync } from 'node:fs'
 
 /**
- * /api/chat and /api/spotify, in development and preview.
+ * The production security headers (vercel.json), put on every preview
+ * response too — so `npm run verify`, which drives the preview server, runs
+ * under the same Content-Security-Policy the deploy will. A CSP that broke
+ * the world would go red here rather than on elliotgreenbaum.com.
+ */
+function productionHeaders(): Record<string, string> {
+  try {
+    const cfg = JSON.parse(readFileSync(new URL('./vercel.json', import.meta.url), 'utf8')) as {
+      headers?: { source: string; headers: { key: string; value: string }[] }[]
+    }
+    const all = cfg.headers?.find((h) => h.source === '/(.*)')?.headers ?? []
+    return Object.fromEntries(all.map((h) => [h.key, h.value]))
+  } catch {
+    return {}
+  }
+}
+
+/**
+ * /api/chat, /api/spotify and /api/live, in development and preview.
  *
- * In production each path is a Vercel function (api/chat.ts, api/spotify.ts). Vite knows
+ * In production each path is a Vercel function (api/*.ts). Vite knows
  * nothing about api/, so without this the figure in the field would have no
  * voice on localhost and every answer would be the "lost my voice" fallback.
  * This mounts the same `handleChat` at the same path, translating Node's
@@ -74,10 +93,12 @@ function chatApi(): Plugin {
         (await server.ssrLoadModule(file))[name] as Handler
       mount(server, '/api/chat', dev('/server/chat.ts', 'handleChat'))
       mount(server, '/api/spotify', dev('/server/spotify.ts', 'handleSpotify'))
+      mount(server, '/api/live', dev('/server/live.ts', 'handleLive'))
     },
     configurePreviewServer(server) {
       mount(server, '/api/chat', async () => (await import('./server/chat')).handleChat)
       mount(server, '/api/spotify', async () => (await import('./server/spotify')).handleSpotify)
+      mount(server, '/api/live', async () => (await import('./server/live')).handleLive)
     },
   }
 }
@@ -98,4 +119,5 @@ export default defineConfig({
     },
   },
   server: { host: true },
+  preview: { headers: productionHeaders() },
 })

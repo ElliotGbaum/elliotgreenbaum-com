@@ -1,0 +1,6 @@
+{
+  "_readme": "What Elliot is into this week. There is no feed for this — he does not read books, and nothing he does leaves a trail that says what he is thinking about — so it is the one live line that is written by hand. Edit 'interested', set 'since' to today, push: the deploy is the update. The panel shows it with how long ago it was written, so a stale line says it is stale rather than pretending. 'link' is optional: something to read on it. Keep it to one clause; it is a line, not a paragraph.",
+  "interested": "AI alignment and interpretability — how you actually look inside a model and know what it is doing",
+  "since": "2026-09-13",
+  "link": null
+}

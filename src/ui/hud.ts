@@ -2,8 +2,11 @@
 /**
  * The HUD — the only chrome that is on screen while you are moving.
  *
- * Two things and no more: a compass that points at the projector and says so,
- * and a prompt line that tells you what to do about it.
+ * Three things and no more: a compass that points at the projector and says
+ * so, a prompt line that tells you what to do about it, and a clock in the
+ * top-right corner saying what time it is where Elliot is — the field runs on
+ * his sky (src/core/sun.ts), and the clock is what makes that legible rather
+ * than arbitrary. It is not a control and nothing can be done to it.
  *
  * It was three. The third was a switch for the time of day, bottom right, and
  * it went when the field started reading the time off the visitor's own sky
@@ -36,9 +39,12 @@ export interface Hud {
   setPrompt(text: string | null): void
   /**
    * @param angle screen-space bearing of the projector in radians —
-   *   0 points at the top of the screen, positive turns clockwise.
-   *   `null` hides the needle.
-   * @param distance world units to the projector. The compass fades out as
+   *   0 points at the top of the screen, positive turns clockwise. The
+   *   marker rides along the strip by this: dead ahead is the middle, a
+   *   right angle is the end of the strip, and anything further round than
+   *   that is behind you and pins to the end with its point turned over.
+   *   `null` hides the marker.
+   * @param distance world units to the projector. The marker fades out as
    *   you close in; it is a way-finder, not a permanent fixture.
    */
   setCompass(angle: number | null, distance: number): void
@@ -49,8 +55,16 @@ export interface Hud {
    * to change with it.
    */
   setCompassLabel(text: string): void
+  /**
+   * The second marker on the same strip, which names Elliot. Same contract
+   * as `setCompass`: a screen-space bearing, or `null` to hide, and a
+   * distance it fades out over as you close in.
+   */
+  setCompassAside(angle: number | null, distance: number): void
   /** tell the chrome what time it is (and, on the dev server, repoint the switch) */
   setTimeOfDay(mode: TimeOfDay): void
+  /** the wall clock where Elliot is, already formatted ("11:16 PM EDT") */
+  setClock(text: string): void
   /** dev server only: the time-of-day switch was thrown; `mode` is the one asked for */
   onDayNight(cb: (mode: TimeOfDay) => void): void
   show(): void
@@ -70,7 +84,9 @@ function noopHud(): Hud {
     setPrompt() {},
     setCompass() {},
     setCompassLabel() {},
+    setCompassAside() {},
     setTimeOfDay() {},
+    setClock() {},
     onDayNight() {},
     show() {},
     hide() {},
@@ -90,14 +106,29 @@ function buildDaySwitch(hud: HTMLElement): HTMLButtonElement {
   return btn
 }
 
+/** the clock, top right: the time, then whose it is */
+function buildClock(hud: HTMLElement): HTMLElement {
+  const clock = document.createElement('p')
+  clock.id = 'clock'
+  clock.setAttribute('aria-label', 'The time where Elliot is')
+  const time = document.createElement('time')
+  const whose = document.createElement('span')
+  whose.textContent = 'Elliot’s time'
+  clock.append(time, whose)
+  hud.append(clock)
+  return time
+}
+
 export function createHud(): Hud {
   const hud = document.getElementById('hud')
   if (!hud) return noopHud()
+  const clockTime = buildClock(hud)
 
   const dayBtn = import.meta.env.DEV ? buildDaySwitch(hud) : null
   const compass = document.getElementById('compass')
-  const needle = compass?.querySelector<HTMLElement>('span') ?? null
-  const compassName = compass?.querySelector<HTMLElement>('em') ?? null
+  const compassMain = compass?.querySelector<HTMLElement>('[data-mark="projector"]') ?? null
+  const compassName = compassMain?.querySelector<HTMLElement>('em') ?? null
+  const compassAside = compass?.querySelector<HTMLElement>('[data-mark="elliot"]') ?? null
   const prompt = document.getElementById('prompt')
 
   // The markup ships `aria-hidden` on #world for the pre-boot state. The HUD
@@ -136,6 +167,10 @@ export function createHud(): Hud {
   dayBtn?.addEventListener('click', () => {
     for (const cb of dayCbs.slice()) cb(offering)
   })
+
+  const setClock = (text: string) => {
+    if (clockTime.textContent !== text) clockTime.textContent = text
+  }
 
   /* ---------------- prompt ---------------- */
 
@@ -180,36 +215,107 @@ export function createHud(): Hud {
 
   /* ---------------- compass ---------------- */
 
-  // called every frame — write to the DOM only when something actually moved
-  let lastDeg = Number.NaN
-  let lastOpacity = Number.NaN
+  // One strip, two markers. Each marker's place on the strip is its bearing,
+  // mapped so that dead ahead is the centre and a right angle either way is
+  // the end; past a right angle the thing is behind you, and the marker pins
+  // to the end with its point turned over rather than swinging back through
+  // the middle. The strip itself shows whenever any marker does.
+  //
+  // Called every frame — write to the DOM only when something actually moved.
+  const readHalf = () => {
+    const v = compass ? parseFloat(getComputedStyle(compass).getPropertyValue('--compass-half')) : 0
+    return Number.isFinite(v) && v > 0 ? v : 120
+  }
+  let half = readHalf()
+  window.addEventListener('resize', () => { half = readHalf() })
 
-  const setCompass = (angle: number | null, distance: number) => {
-    if (!compass) return
+  /** the two markers must never sit on top of each other: this is the least
+   *  gap between their centres, in px, before they are nudged apart. Each
+   *  name sits in a pill, so the gap is half of each pill plus a little air,
+   *  measured off the DOM rather than guessed — it changes with the phone
+   *  breakpoint and with the font that actually loaded. */
+  const measureGap = () => {
+    const w = (el: HTMLElement | null) => el?.querySelector<HTMLElement>('em')?.offsetWidth ?? 0
+    const sum = w(compassMain) + w(compassAside)
+    return sum > 0 ? sum / 2 + 8 : Math.min(74, half * 1.2)
+  }
+  let gapPx = measureGap()
+  window.addEventListener('resize', () => { gapPx = measureGap() })
+  if (document.fonts?.ready) document.fonts.ready.then(() => { gapPx = measureGap() })
+  const markGap = () => gapPx
 
-    let opacity = 0
-    if (angle !== null && Number.isFinite(angle)) {
-      const d = Number.isFinite(distance) ? distance : COMPASS_FAR
-      opacity = ease(clamp((d - COMPASS_NEAR) / (COMPASS_FAR - COMPASS_NEAR)))
+  type Mark = { el: HTMLElement | null; x: number; behind: boolean; opacity: number; lastX: number; lastO: number; lastBehind: boolean }
+  const mark = (el: HTMLElement | null): Mark => ({ el, x: 0, behind: false, opacity: 0, lastX: Number.NaN, lastO: Number.NaN, lastBehind: false })
+  const marks = { main: mark(compassMain), aside: mark(compassAside) }
+  let lastStrip = Number.NaN
 
-      if (needle) {
-        const deg = Math.round((angle * 180) / Math.PI / 0.5) * 0.5
-        if (deg !== lastDeg) {
-          needle.style.transform = `rotate(${deg}deg)`
-          lastDeg = deg
-        }
+  const place = (m: Mark, angle: number | null, distance: number) => {
+    if (angle === null || !Number.isFinite(angle)) {
+      m.opacity = 0
+      return
+    }
+    const d = Number.isFinite(distance) ? distance : COMPASS_FAR
+    m.opacity = ease(clamp((d - COMPASS_NEAR) / (COMPASS_FAR - COMPASS_NEAR)))
+    // wrap to (-π, π] so a bearing of 350° reads as −10°, not as "far right"
+    const a = Math.atan2(Math.sin(angle), Math.cos(angle))
+    m.behind = Math.abs(a) > Math.PI / 2
+    m.x = clamp(a / (Math.PI / 2), -1, 1) * half
+  }
+
+  const layout = () => {
+    const { main, aside } = marks
+    // two live markers closer than the gap: Elliot's steps aside. The
+    // projector's marker never moves off the truth — it is the thing the
+    // field is for, and when it is dead ahead it sits on the tick.
+    const mx = main.x
+    let ax = aside.x
+    const gap = markGap()
+    if (main.opacity > 0.02 && aside.opacity > 0.02 && Math.abs(mx - ax) < gap) {
+      const dir = ax >= mx ? 1 : -1
+      // stepping aside never steps off the strip: he goes as far as the end
+      // on his own side, and only crosses to the other side of the projector
+      // when that would still leave the two names on top of each other
+      ax = clamp(mx + dir * gap, -half, half)
+      if (Math.abs(ax - mx) < gap * 0.6) ax = mx - dir * gap
+    }
+    for (const [m, x] of [[main, mx], [aside, ax]] as const) {
+      if (!m.el) continue
+      const px = Math.round(x * 2) / 2
+      if (px !== m.lastX) {
+        m.el.style.setProperty('--x', `${px}px`)
+        m.lastX = px
+      }
+      if (m.behind !== m.lastBehind) {
+        m.el.dataset.behind = m.behind ? 'true' : 'false'
+        m.lastBehind = m.behind
+      }
+      const o = Math.round(m.opacity * 100) / 100
+      if (o !== m.lastO) {
+        m.el.style.opacity = String(o)
+        m.el.dataset.on = o > 0.02 ? 'true' : 'false'
+        m.lastO = o
       }
     }
-
-    const o = Math.round(opacity * 100) / 100
-    if (o !== lastOpacity) {
-      compass.style.opacity = String(o)
-      compass.dataset.on = o > 0.02 ? 'true' : 'false'
-      lastOpacity = o
+    const strip = Math.max(main.opacity, aside.opacity)
+    const so = Math.round(strip * 100) / 100
+    if (compass && so !== lastStrip) {
+      compass.style.opacity = String(so)
+      compass.dataset.on = so > 0.02 ? 'true' : 'false'
+      lastStrip = so
     }
   }
 
+  const setCompass = (angle: number | null, distance: number) => {
+    place(marks.main, angle, distance)
+    layout()
+  }
+  const setCompassAside = (angle: number | null, distance: number) => {
+    place(marks.aside, angle, distance)
+    layout()
+  }
+
   setCompass(null, 0)
+  setCompassAside(null, 0)
 
   /* ---------------- visibility ---------------- */
 
@@ -244,7 +350,9 @@ export function createHud(): Hud {
     setCompassLabel(text: string) {
       if (compassName && compassName.textContent !== text) compassName.textContent = text
     },
+    setCompassAside,
     setTimeOfDay,
+    setClock,
     onDayNight(cb: (mode: TimeOfDay) => void) {
       dayCbs.push(cb)
     },

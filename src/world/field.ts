@@ -13,10 +13,22 @@
  * way to find anything, and the world turns out to have been a field the whole
  * time. Everything below is expressed as two `Look`s and a crossfade between
  * them, so there is exactly one place to tune either state.
+ *
+ * AND THE HOUR BETWEEN. The crossfade is driven by the height of the sun
+ * (`setSun`), not by a switch, and on its way from one look to the other it
+ * passes through a third: the golden hour, `DUSK`, a warm tint the two-state
+ * mix is pulled toward while the sun is near the horizon. It is not a state
+ * the field can rest in — `dusk` rises and falls again over about twenty
+ * minutes of real sun — so everything that reads the field still reads one
+ * number, `daylight`, and the few things that care about the colour of the
+ * light read `dusk` beside it. `setMode` is still here for the dev switch
+ * and for anything that only knows day from night: it parks the sun high or
+ * puts it well under.
  */
 
 import * as THREE from 'three'
-import { PALETTE, clamp, ease, rand } from '../core/contract'
+import { PALETTE, clamp, ease, rand, reducedMotion } from '../core/contract'
+import { WEATHER_GLSL, weatherUniforms } from './weather'
 
 export const FIELD_RADIUS = 90
 
@@ -138,6 +150,48 @@ const DAY: Look = {
   sunIntensity: 2.35,
   stars: 0,
   exposure: 1.02,
+}
+
+/* The golden hour. Authored as where the day→night mix goes when the sun is
+   on the horizon: the air goes warm and a little thicker, the light comes in
+   low and orange, the ground loses its green. The sky here must equal the
+   scenery's DUSK.horizon — same trick as the other two. */
+const DUSK: Look = {
+  sky: 0xe4b08c,
+  haze: 0xe8c0a4,
+  fogDensity: 0.0054,
+  ground: 0xbcb07c,
+  hemiSky: 0xdcb49c,
+  hemiGround: 0x4a4038,
+  hemiIntensity: 1.6,
+  fillColor: 0xdcb89e,
+  fillIntensity: 0.48,
+  sunColor: 0xffbe80,
+  sunIntensity: 2.0,
+  stars: 0.12,
+  exposure: 1.06,
+}
+
+/** where the sun is by day (and the moon by night), and where it drops to at dusk */
+const SUN_HIGH = new THREE.Vector3(-46, 62, 40)
+const SUN_LOW = new THREE.Vector3(-46, 16, 40)
+
+/**
+ * Sun elevation in degrees → how much day, and how much golden hour.
+ * `daylight` climbs from nothing at seven degrees under the horizon to full at
+ * five over it, which spans civil dusk (the old switch flipped at -4). `dusk`
+ * is a bump over the same band: nothing well under, nothing well over, most
+ * of it with the sun a degree or two either side of the hills.
+ */
+function sunToLook(elevation: number): { daylight: number; dusk: number } {
+  const s = (a: number, b: number) => {
+    const t = clamp((elevation - a) / (b - a))
+    return t * t * (3 - 2 * t)
+  }
+  return {
+    daylight: s(-7, 5),
+    dusk: s(-7, -1) * (1 - s(1.5, 12)),
+  }
 }
 
 /** linear 0…1 → the sRGB byte that encodes it */
@@ -288,9 +342,14 @@ export interface Field {
   /** 0 = full night, 1 = full day. The live crossfade value, eased. Anything
    *  that has to know what time it is reads this, not `mode`. */
   readonly daylight: number
+  /** 0..1, how far into the golden hour: the warm tint on top of `daylight` */
+  readonly dusk: number
   /** what the renderer's tone-mapping exposure should be this frame */
   readonly exposure: number
+  /** park the sun high (day) or well under (night) — the dev switch's verb */
   setMode(mode: TimeOfDay, instant?: boolean): void
+  /** where the sun actually is, degrees over the horizon; the field crossfades toward it */
+  setSun(elevation: number, instant?: boolean): void
   update(dt: number): void
   dispose(): void
 }
@@ -316,6 +375,28 @@ export function createField(scene: THREE.Scene): Field {
     roughness: 0.96,
     metalness: 0,
   })
+  // Cloud shadows: the same field the sky draws its clouds from and the
+  // grass darkens under (weather.ts), sampled at the ground's world position.
+  // `uCloudShade` is how much of the sun a cloud can take — all of it by day,
+  // none at night when there is no sun to shade.
+  const weather = weatherUniforms()
+  const cloudShade = { value: 0 }
+  mat.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, weather, { uCloudShade: cloudShade })
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec2 vCloudXZ;')
+      .replace(
+        '#include <begin_vertex>',
+        '#include <begin_vertex>\nvCloudXZ = (modelMatrix * vec4(transformed, 1.0)).xz;',
+      )
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>\n${WEATHER_GLSL}\nuniform float uCloudShade;\nvarying vec2 vCloudXZ;`)
+      .replace(
+        '#include <color_fragment>',
+        '#include <color_fragment>\ndiffuseColor.rgb *= 1.0 - (1.0 - cloudShade(vCloudXZ, uWeatherTime)) * uCloudShade;',
+      )
+  }
+  mat.customProgramCacheKey = () => 'ground-cloud'
   const ground = new THREE.Mesh(geo, mat)
   ground.rotation.x = -Math.PI / 2
   ground.name = 'ground'
@@ -349,42 +430,73 @@ export function createField(scene: THREE.Scene): Field {
   let want = 0 // where we are going: 0 night, 1 day
   let raw = 0 // linear progress
   let k = 0 // eased — this is `daylight`
+  let wantDusk = 0 // how golden the hour we are going to is
+  let d = 0 // the live value — this is `dusk`
   let exposure = NIGHT.exposure
+  let time = 0 // the clouds' clock; runs with the scenery's
 
   // scratch, so a per-frame crossfade allocates nothing
   const cA = new THREE.Color()
   const cB = new THREE.Color()
+  const cC = new THREE.Color()
   const lerp = (a: number, b: number, t: number) => a + (b - a) * t
-  const mix = (out: THREE.Color, a: number, b: number, t: number) => {
+  /** night→day by t, then toward dusk by u */
+  const blend = (a: number, b: number, c: number, t: number, u: number) => lerp(lerp(a, b, t), c, u)
+  const mix = (out: THREE.Color, a: number, b: number, c: number, t: number, u: number) => {
     cA.setHex(a)
     cB.setHex(b)
-    out.copy(cA).lerp(cB, t)
+    cC.setHex(c)
+    out.copy(cA).lerp(cB, t).lerp(cC, u)
   }
 
-  function apply(t: number) {
-    mix(background, NIGHT.sky, DAY.sky, t)
-    mix(fog.color, NIGHT.haze, DAY.haze, t)
-    fog.density = lerp(NIGHT.fogDensity, DAY.fogDensity, t)
+  function apply(t: number, u: number) {
+    // The sky goes all the way to the golden hour's colour — half-way between
+    // a blue sky and a peach one is grey, which is an overcast, not a sunset.
+    // The ground and the light take less of it: a field fully pulled into
+    // the tint is a sepia photograph.
+    const ug = u * 0.5
+    const ul = u * 0.75
+    mix(background, NIGHT.sky, DAY.sky, DUSK.sky, t, u)
+    mix(fog.color, NIGHT.haze, DAY.haze, DUSK.haze, t, u)
+    fog.density = blend(NIGHT.fogDensity, DAY.fogDensity, DUSK.fogDensity, t, u)
 
-    mix(mat.color, NIGHT.ground, DAY.ground, t)
+    mix(mat.color, NIGHT.ground, DAY.ground, DUSK.ground, t, ug)
+    // a cloud can only shade what the sun lights: nothing at night, and less
+    // in the golden hour, when the light comes in under the sheet
+    cloudShade.value = t * (1 - u * 0.5)
 
-    mix(hemi.color, NIGHT.hemiSky, DAY.hemiSky, t)
-    mix(hemi.groundColor, NIGHT.hemiGround, DAY.hemiGround, t)
-    hemi.intensity = lerp(NIGHT.hemiIntensity, DAY.hemiIntensity, t)
+    mix(hemi.color, NIGHT.hemiSky, DAY.hemiSky, DUSK.hemiSky, t, ul)
+    mix(hemi.groundColor, NIGHT.hemiGround, DAY.hemiGround, DUSK.hemiGround, t, ul)
+    hemi.intensity = blend(NIGHT.hemiIntensity, DAY.hemiIntensity, DUSK.hemiIntensity, t, ul)
 
-    mix(fill.color, NIGHT.fillColor, DAY.fillColor, t)
-    fill.intensity = lerp(NIGHT.fillIntensity, DAY.fillIntensity, t)
+    mix(fill.color, NIGHT.fillColor, DAY.fillColor, DUSK.fillColor, t, ul)
+    fill.intensity = blend(NIGHT.fillIntensity, DAY.fillIntensity, DUSK.fillIntensity, t, ul)
 
-    mix(sun.color, NIGHT.sunColor, DAY.sunColor, t)
-    sun.intensity = lerp(NIGHT.sunIntensity, DAY.sunIntensity, t)
+    mix(sun.color, NIGHT.sunColor, DAY.sunColor, DUSK.sunColor, t, ul)
+    sun.intensity = blend(NIGHT.sunIntensity, DAY.sunIntensity, DUSK.sunIntensity, t, ul)
+    // the light comes in low as the sun goes down — the same place the
+    // scenery draws the sun's disc
+    sun.position.copy(SUN_HIGH).lerp(SUN_LOW, u)
 
-    skyMat.opacity = lerp(NIGHT.stars, DAY.stars, t)
+    skyMat.opacity = blend(NIGHT.stars, DAY.stars, DUSK.stars, t, u)
     sky.visible = skyMat.opacity > 0.01
 
-    exposure = lerp(NIGHT.exposure, DAY.exposure, t)
+    exposure = blend(NIGHT.exposure, DAY.exposure, DUSK.exposure, t, u)
   }
 
-  apply(0)
+  apply(0, 0)
+
+  function aim(daylight: number, dusk: number, instant: boolean) {
+    want = daylight
+    wantDusk = dusk
+    mode = daylight >= 0.5 ? 'day' : 'night'
+    if (instant) {
+      raw = want
+      k = ease(clamp(raw))
+      d = wantDusk
+      apply(k, d)
+    }
+  }
 
   return {
     ground,
@@ -395,26 +507,32 @@ export function createField(scene: THREE.Scene): Field {
     get daylight() {
       return k
     },
+    get dusk() {
+      return d
+    },
     get exposure() {
       return exposure
     },
 
     setMode(next: TimeOfDay, instant = false) {
-      mode = next
-      want = next === 'day' ? 1 : 0
-      if (instant) {
-        raw = want
-        k = want
-        apply(k)
-      }
+      aim(next === 'day' ? 1 : 0, 0, instant)
+    },
+
+    setSun(elevation: number, instant = false) {
+      const look = sunToLook(elevation)
+      aim(look.daylight, look.dusk, instant)
     },
 
     update(dt: number) {
-      if (raw === want) return
+      // the clouds hold still under reduced motion, like everything in the scenery
+      if (!reducedMotion()) time += dt
+      weather.uWeatherTime.value = time
+      if (raw === want && d === wantDusk) return
       const step = dt / FADE
       raw = want > raw ? Math.min(want, raw + step) : Math.max(want, raw - step)
+      d = wantDusk > d ? Math.min(wantDusk, d + step) : Math.max(wantDusk, d - step)
       k = ease(clamp(raw))
-      apply(k)
+      apply(k, d)
     },
 
     dispose() {

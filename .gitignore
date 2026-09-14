@@ -16,3 +16,6 @@ PLAN.md
 CONTEXT.md
 CLAUDE.md
 AGENTS.md
+
+# harness-local state, never committed
+.claude/

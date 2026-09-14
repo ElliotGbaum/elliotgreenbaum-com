@@ -9,6 +9,7 @@
  */
 
 import { chromium } from 'playwright-core'
+import { spawnSync } from 'node:child_process'
 
 const base = (process.argv[2] ?? 'http://localhost:4173').replace(/\/$/, '')
 // Real Chrome by default; CHROME_PATH points it at another Chromium build on a
@@ -62,6 +63,14 @@ console.log('\n1. Served HTML (no JS executed)')
   const html = await res.text()
   ok('status 200', res.status === 200, String(res.status))
   ok('name present', html.includes('Elliot Greenbaum'))
+  // the security headers vercel.json will put on the deploy — the preview
+  // server carries the same set (vite.config.ts), which is what makes the
+  // rest of this file a test of the site under its own CSP
+  const csp = res.headers.get('content-security-policy') ?? ''
+  ok('a Content-Security-Policy is sent', /default-src 'self'/.test(csp) && /frame-ancestors 'none'/.test(csp))
+  ok('no framing, no sniffing', res.headers.get('x-frame-options') === 'DENY' && res.headers.get('x-content-type-options') === 'nosniff')
+  const hashCheck = spawnSync('node', ['tools/csp-hash.mjs', '--check'], { encoding: 'utf8' })
+  ok('the CSP allows the inline probe script, by its current hash', hashCheck.status === 0, (hashCheck.stderr || hashCheck.stdout).trim().slice(0, 80))
   ok('contact links present', /mailto:/.test(html) && /linkedin\.com/i.test(html))
   // comments, CSS and the probe script all talk ABOUT the résumé that used to
   // be here — which is the point of them. What must not come back is markup.
@@ -154,8 +163,17 @@ console.log('\n5. The projector announces itself')
   ok('a standing instruction is shown', /projector/.test(lead) && /film/.test(lead), lead)
   ok('the prompt is actually visible', (await page.locator('#prompt').getAttribute('data-on')) === 'true')
 
-  const compass = ((await page.locator('#compass em').textContent()) ?? '').trim()
+  const compass = ((await page.locator('#compass [data-mark="projector"] em').textContent()) ?? '').trim()
   ok('the compass names its destination', /projector/i.test(compass), compass)
+
+  // the clock, top right: the time where Elliot is, and whose time it is.
+  // The field runs on his sky rather than the visitor's, and the day/night
+  // the world opened on has to agree with that clock.
+  const clock = ((await page.locator('#clock').textContent()) ?? '').trim()
+  const expected = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }).format(new Date())
+  ok('the clock shows the time where Elliot is', clock.includes(expected.slice(0, expected.lastIndexOf(':'))) && /E[SD]T/.test(clock), clock)
+  ok('…and says whose time it is', /Elliot.s time/i.test(clock), clock)
+  ok('it is not a control', (await page.locator('#clock button, #clock a, #clock input').count()) === 0)
 
   // walk all the way in, well inside the projector's 17-unit radius
   await page.keyboard.down('ArrowUp')
@@ -562,24 +580,36 @@ console.log('\n10. The card stays away from a working world')
  * cannot be verified here is the model's own reply, and the fallback line
  * is the path a broken deploy would take.
  */
-console.log('\n11. Elliot answers, and says what he is')
+console.log('\n11. Elliot answers')
 {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } })
   const page = await ctx.newPage()
   const errors = []
   page.on('pageerror', (e) => errors.push(e.message))
+  const blocked = []
+  page.on('console', (m) => {
+    if (/Content Security Policy|Refused to/.test(m.text())) blocked.push(m.text())
+  })
   await page.goto(base + '/', { waitUntil: 'networkidle' })
   await page.waitForTimeout(2200)
 
-  // he stands to the left of the path, about twenty units out: walk there
-  await page.keyboard.down('ArrowLeft')
+  // he stands up by the screen, off to its right (EX, EZ in
+  // src/world/landmarks/elliot.ts). Three legs — up the path, out to the
+  // side, then up again — because the LAST step has to point at him: he only
+  // takes the prompt line from someone actually walking to him, and a
+  // diagonal that carries past him does not count (see headedTo in main.ts)
   await page.keyboard.down('ArrowUp')
-  await page.waitForTimeout(2000)
-  await page.keyboard.up('ArrowLeft')
+  await page.waitForTimeout(4200)
+  await page.keyboard.up('ArrowUp')
+  await page.keyboard.down('ArrowRight')
+  await page.waitForTimeout(2400)
+  await page.keyboard.up('ArrowRight')
+  await page.keyboard.down('ArrowUp')
+  await page.waitForTimeout(1300)
   await page.keyboard.up('ArrowUp')
   await page.waitForTimeout(900)
   const line = ((await page.locator('#prompt').textContent()) ?? '').trim()
-  ok('the prompt at him names him and says it is an AI', /Elliot/.test(line) && /AI/.test(line), line)
+  ok('the prompt at him names him and says to ask', /Elliot/.test(line) && /ask/i.test(line), line)
   ok('standing next to him does NOT open the panel', await page.locator('#talk').isHidden())
 
   await page.keyboard.press('e')
@@ -591,27 +621,37 @@ console.log('\n11. Elliot answers, and says what he is')
   ok('pressing E at him opens the conversation', up)
   if (up) {
     ok('the HUD steps aside', await page.locator('#hud').isHidden())
-    const note = ((await page.locator('#talk-note').textContent()) ?? '').trim()
-    ok('the panel says the answers are generated', /AI/.test(note) && /not a script/i.test(note), note.slice(0, 60))
+    ok('no disclaimer pinned to the panel', (await page.locator('#talk-note, .talk__kind').count()) === 0)
     const first = ((await page.locator('#talk-log li').first().textContent()) ?? '').trim()
     ok('the first line says it is an AI, in his voice', /AI/.test(first), first.slice(0, 60))
     const chips = await page.locator('.talk__ask').count()
-    ok('there are questions to choose from', chips >= 4, `${chips}`)
+    ok('a few questions to choose from, not a menu', chips >= 3 && chips <= 5, `${chips}`)
 
-    // what he is listening to, live from Spotify: the endpoint always answers,
-    // and the line is there exactly when there is a track to show
-    const spotify = await page.request.get(base + '/api/spotify')
-    const body = spotify.ok() ? await spotify.json().catch(() => null) : null
-    ok('/api/spotify answers', !!body && 'track' in body, `${spotify.status()}`)
-    await page.waitForTimeout(800)
-    const nowUp = await page.locator('#talk-now').isVisible()
-    if (body?.track) {
-      const nowText = ((await page.locator('#talk-now').textContent()) ?? '').trim()
-      ok('the listening line shows the track', nowUp && nowText.includes(body.track.title), nowText.slice(0, 60))
-      ok('…and links out to Spotify', (await page.locator('#talk-now a').getAttribute('href'))?.startsWith('https://open.spotify.com/') ?? false)
-    } else {
-      ok('no track, no listening line', !nowUp)
+    // what is true right now, live from his accounts: the endpoint always
+    // answers, and each line is there exactly when there is something to show
+    const liveRes = await page.request.get(base + '/api/live')
+    const live = liveRes.ok() ? await liveRes.json().catch(() => null) : null
+    ok('/api/live answers', !!live && 'track' in live && 'shipped' in live && 'recovery' in live, `${liveRes.status()}`)
+    await page.waitForTimeout(1200)
+    const factsUp = await page.locator('#talk-now').isVisible()
+    const facts = factsUp ? await page.locator('#talk-now .talk__fact').count() : 0
+    const expected = ['track', 'shipped', 'ran', 'recovery', 'booking'].filter((k) => live?.[k]).length
+    ok('one line per live feed that answered', facts === expected, `${facts} shown, ${expected} answered`)
+    if (live?.track) {
+      const nowText = ((await page.locator('#talk-now-track').textContent()) ?? '').trim()
+      ok('the Spotify line shows the track', nowText.includes(live.track.title), nowText.slice(0, 60))
+      ok('…and links out to Spotify', (await page.locator('#talk-now-track a').first().getAttribute('href'))?.startsWith('https://open.spotify.com/') ?? false)
+      await page.locator('#talk-now-track .talk__more').click()
+      await page.waitForTimeout(1500)
+      const detailUp = await page.locator('#talk-now-track .talk__detail').isVisible()
+      const detailLinks = await page.locator('#talk-now-track .talk__detail a').count()
+      ok('tapping "more" opens the recent tracks', detailUp && detailLinks >= 1, `${detailLinks} links`)
+      await page.locator('#talk-now-track .talk__more').click()
+      ok('…and closes again', await page.locator('#talk-now-track .talk__detail').isHidden())
     }
+    const hrefs = await page.locator('#talk-now a').evaluateAll((as) => as.map((a) => a.href))
+    ok('every live link is https to the service it came from', hrefs.every((h) => /^https:\/\/(open\.spotify\.com|github\.com|www\.strava\.com|calendly\.com)\//.test(h)), `${hrefs.length} links`)
+    ok('every live line names its source', (await page.locator('#talk-now .talk__src').count()) === facts)
     ok('the classic ones are there', (await page.locator('.talk__ask').allTextContents()).some((t) => /startups/i.test(t)))
 
     await page.locator('.talk__ask').first().click()
@@ -632,6 +672,7 @@ console.log('\n11. Elliot answers, and says what he is')
     ok('the HUD comes back', await page.locator('#prompt').isVisible())
   }
   ok('no uncaught errors', errors.length === 0, errors[0] ?? '')
+  ok('nothing the world or the panel did was blocked by the CSP', blocked.length === 0, (blocked[0] ?? '').slice(0, 90))
   await ctx.close()
 }
 

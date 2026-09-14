@@ -263,9 +263,17 @@
        (src/core/sun.ts). The dev server alone grows a day/night switch in
        this corner, for looking at both — see src/ui/hud.ts. -->
   <div id="hud">
-    <!-- the compass names its destination, so the needle is an instruction
-         rather than a puzzle -->
-    <div id="compass" aria-hidden="true"><span></span><em>Projector</em></div>
+    <!-- the compass: one strip, the way a game HUD does it. Straight ahead is
+         the middle, and each thing you can walk to rides along it by how far
+         it sits to your left or right; whatever is behind you pins to an edge.
+         Each marker names its destination, so the strip is an instruction
+         rather than a puzzle. The projector's marker comes first: it is the
+         thing the field is for, and verify reads the first name off it. -->
+    <div id="compass" class="compass" aria-hidden="true">
+      <i class="compass__rule"></i><i class="compass__tick"></i>
+      <b class="compass__mark" data-mark="projector"><span></span><em>Projector</em></b>
+      <b class="compass__mark" data-mark="elliot"><span></span><em>Elliot</em></b>
+    </div>
     <p id="prompt"></p>
 
     <!-- The interaction badge, pinned in screen space to the switch on the
@@ -341,29 +349,30 @@
        (src/world/landmarks/elliot.ts); walk up, press E, and this comes up
        (src/ui/chat.ts). The words in it are the only words on this site that
        were not written in advance: an AI with Elliot's own notes about
-       himself answers, live. Which is why the panel says so, twice, before
-       anyone has typed — the tag beside the name and the note under it — and
-       why the nametag out in the world says it a third time.
+       himself answers, live. The model says so if anyone asks. Nothing on
+       the panel labels him, because a person with a disclaimer pinned to his
+       chest is not a person you talk to.
 
-       Empty on purpose: the greeting, the questions and the note are all in
+       Empty on purpose: the questions are all in
        src/content/talk.json and are written in by chat.ts at boot, so the
        copy lives with the rest of the site's words. Outside #hud, because the
        HUD fades out while this is up, and it sits at the film bar's own layer
        for the same reason the film bar does. -->
   <section id="talk" hidden role="dialog" aria-label="Talk to Elliot" data-busy="false">
     <header class="talk__head">
-      <h2 class="talk__name">Elliot<span class="talk__kind">AI stand-in</span></h2>
-      <button id="talk-close" type="button">Leave</button>
+      <h2 class="talk__name">Elliot</h2>
+      <button id="talk-close" type="button">Leave <kbd aria-hidden="true">esc</kbd></button>
     </header>
-    <p id="talk-note"></p>
-    <!-- what he is listening to, live from Spotify — filled by chat.ts from
-         /api/spotify when the panel opens; stays hidden when there is nothing -->
-    <p id="talk-now" class="talk__now" hidden></p>
-    <ol id="talk-log"></ol>
+    <!-- what is true right now, live from his accounts — filled by chat.ts
+         from /api/live when the panel opens; stays hidden when there is nothing -->
+    <div id="talk-body" class="talk__body">
+      <ul id="talk-now" class="talk__facts" hidden aria-label="Live from Elliot’s accounts"></ul>
+      <ol id="talk-log"></ol>
+    </div>
     <div id="talk-asks" role="group" aria-label="Questions to ask"></div>
     <form id="talk-form" autocomplete="off">
       <input id="talk-input" type="text" name="q" aria-label="Your question" autocomplete="off" autocapitalize="sentences" enterkeyhint="send" />
-      <button id="talk-send" type="submit">Ask</button>
+      <button id="talk-send" type="submit" aria-label="Ask"><span aria-hidden="true">→</span></button>
     </form>
     <p id="talk-status" role="status" aria-live="polite" aria-atomic="true"></p>
   </section>

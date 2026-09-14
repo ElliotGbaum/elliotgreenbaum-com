@@ -38,8 +38,24 @@ export interface Track {
   playing: boolean
 }
 
+/**
+ * The longer answer, for a visitor who taps the line: the last few tracks
+ * and the artists and tracks Spotify says he has played most in the last
+ * four weeks. Read with `user-top-read`, which the auth script asks for; a
+ * token from before that scope was added answers null for the two top lists
+ * and the panel simply shows the recent ones. Nothing else is read — not
+ * playlists, not the library, not who he follows.
+ */
+export interface Detail {
+  recent: Track[]
+  topArtists: { name: string; url: string; image: string | null }[]
+  topTracks: Track[]
+}
+
 const RESULT_TTL_MS = 60_000
+const DETAIL_TTL_MS = 10 * 60_000
 let cached: { at: number; track: Track | null } | null = null
+let cachedDetail: { at: number; detail: Detail | null } | null = null
 let access: { token: string; expires: number } | null = null
 
 type Item = {
@@ -118,9 +134,74 @@ export async function latestTrack(): Promise<Track | null> {
   return track
 }
 
-/** GET /api/spotify — the same, as JSON, for the panel */
+async function fetchDetail(): Promise<Detail | null> {
+  const token = await accessToken()
+  if (!token) return null
+  const headers = { authorization: `Bearer ${token}` }
+  const [recent, artists, tracks] = await Promise.all([
+    fetch('https://api.spotify.com/v1/me/player/recently-played?limit=8', { headers }),
+    fetch('https://api.spotify.com/v1/me/top/artists?time_range=short_term&limit=5', { headers }),
+    fetch('https://api.spotify.com/v1/me/top/tracks?time_range=short_term&limit=5', { headers }),
+  ])
+  if (!recent.ok) {
+    console.error('[spotify] recently-played failed', recent.status)
+    return null
+  }
+  const rj = (await recent.json()) as { items: { track: Item; played_at: string }[] }
+  // the same song on repeat is one line, not five
+  const seen = new Set<string>()
+  const recentTracks: Track[] = []
+  for (const it of rj.items ?? []) {
+    if (seen.has(it.track.external_urls.spotify)) continue
+    seen.add(it.track.external_urls.spotify)
+    recentTracks.push(shape(it.track, it.played_at, false))
+    if (recentTracks.length === 5) break
+  }
+  type Artist = { name: string; external_urls: { spotify: string }; images?: { url: string; width: number }[] }
+  let topArtists: Detail['topArtists'] = []
+  if (artists.ok) {
+    const aj = (await artists.json()) as { items: Artist[] }
+    topArtists = (aj.items ?? []).map((a) => {
+      const imgs = a.images ?? []
+      const small = imgs.length ? imgs.reduce((x, y) => (y.width < x.width ? y : x)) : null
+      return { name: a.name, url: a.external_urls.spotify, image: small?.url ?? null }
+    })
+  }
+  let topTracks: Track[] = []
+  if (tracks.ok) {
+    const tj = (await tracks.json()) as { items: Item[] }
+    topTracks = (tj.items ?? []).map((t) => shape(t, '', false))
+  }
+  return { recent: recentTracks, topArtists, topTracks }
+}
+
+/** the longer answer, or null when it cannot be read */
+export async function listeningDetail(): Promise<Detail | null> {
+  if (cachedDetail && Date.now() - cachedDetail.at < DETAIL_TTL_MS) return cachedDetail.detail
+  let detail: Detail | null = null
+  try {
+    detail = await fetchDetail()
+  } catch (err) {
+    console.error('[spotify] detail', err)
+  }
+  cachedDetail = { at: Date.now(), detail }
+  return detail
+}
+
+/** GET /api/spotify — the track, as JSON, for the panel; ?detail for the longer answer */
 export async function handleSpotify(req: Request): Promise<Response> {
   if (req.method !== 'GET') return new Response(null, { status: 405 })
+  const url = new URL(req.url, 'http://localhost')
+  if (url.searchParams.has('detail')) {
+    const detail = await listeningDetail()
+    return new Response(JSON.stringify({ detail }), {
+      status: 200,
+      headers: {
+        'content-type': 'application/json; charset=utf-8',
+        'cache-control': 'public, max-age=300, s-maxage=300',
+      },
+    })
+  }
   const track = await latestTrack()
   return new Response(JSON.stringify({ track }), {
     status: 200,
@@ -129,6 +210,12 @@ export async function handleSpotify(req: Request): Promise<Response> {
       'cache-control': 'public, max-age=60, s-maxage=60',
     },
   })
+}
+
+/** the top artists as one clause for the model, or nothing */
+export function describeDetail(d: Detail | null): string | null {
+  if (!d || !d.topArtists.length) return null
+  return `The artists he has played most in the last four weeks are ${d.topArtists.map((a) => a.name).join(', ')}.`
 }
 
 /** one plain sentence for the model, or nothing */
@@ -140,7 +227,7 @@ export function describe(track: Track | null): string | null {
     : `The last thing Elliot listened to was "${track.title}" by ${track.artists} (from ${track.album}), ${when}.`
 }
 
-function ago(iso: string): string {
+export function ago(iso: string): string {
   const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000))
   if (mins < 2) return 'a moment ago'
   if (mins < 60) return `${mins} minutes ago`

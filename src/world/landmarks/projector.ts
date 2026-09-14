@@ -156,11 +156,14 @@ export function createProjector(picture: HTMLCanvasElement): Projector {
      keeping: a metallic surface has no diffuse colour, only reflections, and
      there is no environment map here, so the sun is the only thing it can
      reflect. The day look is painted machinery — most of the metalness goes
-     with the dark — a charcoal frame and stand, and a canvas screen. */
+     with the dark — a charcoal frame and stand, and a canvas screen. The
+     grey housing sits a step lighter than the grass and the trim a step
+     darker, which is the least it takes to keep the machine from dissolving
+     into the field at thirty units. */
   const METAL_NIGHT = new THREE.Color(0x3d4a4a)
-  const METAL_DAY = new THREE.Color(0x9c978a)
+  const METAL_DAY = new THREE.Color(0xb4afa3)
   const DARK_NIGHT = new THREE.Color(0x1a2426)
-  const DARK_DAY = new THREE.Color(0x4a4640)
+  const DARK_DAY = new THREE.Color(0x3a3733)
   const SCREEN_NIGHT = new THREE.Color(0x121b1d)
   const SCREEN_DAY = new THREE.Color(0xe4dfd1)
 

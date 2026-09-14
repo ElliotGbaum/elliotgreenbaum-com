@@ -46,17 +46,51 @@ ELLIOT_MODEL=claude-sonnet-5
 Without a key the world runs as before and the figure says he has lost his
 voice and gives the real email, which is the intended failure.
 
-He also knows what I am listening to. `GET /api/spotify` (`api/spotify.ts`
-around `server/spotify.ts`) reads the track playing on my Spotify right now,
-or the last one played, and the chat hands the same fact to the model, so the
-line under the panel's header and the answer to "what are you listening to?"
-agree. It needs two more variables, produced by a one-time login:
+He also knows a few things that are true right now. `GET /api/live`
+(`api/live.ts` around `server/live.ts`) gathers them, the panel shows them
+under its header, and the chat hands the same facts to the model, so what
+you see and what he says agree. Each one is off until its variables exist,
+and silently absent when it cannot be read:
 
 ```bash
-# run once; it opens Spotify's consent page and writes both into .env
+# Spotify — the track playing now or last played, plus the last few and the
+# month's top artists when you tap the line. Run once; it opens Spotify's
+# consent page and writes both into .env; copy the same two into Vercel.
 SPOTIFY_CLIENT_ID=<from developer.spotify.com/dashboard> node tools/spotify-auth.mjs
-# then copy SPOTIFY_CLIENT_ID and SPOTIFY_REFRESH_TOKEN into Vercel too
+
+# GitHub — the last public push. No login; only public activity is read.
+GITHUB_USER=ElliotGbaum          # default
+GITHUB_TOKEN=github_pat_...      # optional, no permissions needed: lifts the rate limit
+
+# Strava — miles run this month, since the 1st. Create an app at strava.com/settings/api
+# (callback domain: localhost), then run once and copy the three into Vercel.
+STRAVA_CLIENT_ID=... STRAVA_CLIENT_SECRET=... node tools/strava-auth.mjs
+
+# WHOOP — this morning's recovery score. Create an app at developer-dashboard.whoop.com
+# (redirect URL: https://localhost:8890/callback; scope: read:recovery), run once,
+# copy the three into Vercel. WHOOP refresh tokens are single-use, so the deployed site
+# keeps the rotated one in the Upstash store below — set that up too, or the line will
+# go quiet after the first cold start.
+WHOOP_CLIENT_ID=... WHOOP_CLIENT_SECRET=... node tools/whoop-auth.mjs
+
+# Calendly — the booking link, and with a token the next open slots.
+CALENDLY_URL=https://calendly.com/<you>/<event>
+CALENDLY_TOKEN=...               # optional: calendly.com → Integrations → API & Webhooks
+
+# The week and the clock are in this zone (default America/New_York).
+ELLIOT_ZONE=America/New_York
+
+# Rate limiting for /api/chat counts in a shared store when one exists —
+# a free Upstash Redis from the Vercel marketplace sets both of these.
+# Without it each function instance counts on its own.
+UPSTASH_REDIS_REST_URL=...
+UPSTASH_REDIS_REST_TOKEN=...
 ```
+
+`vercel.json` sets the security headers, including a Content-Security-Policy
+that allows the one inline script in `index.html` by hash. Edit that script
+and the hash must change: `node tools/csp-hash.mjs` prints it, and `verify`
+fails if `vercel.json` disagrees.
 
 The login uses PKCE, so there is no client secret. Spotify gives the refresh
 token 180 days for an app in development mode; when it stops working, run the

@@ -1,12 +1,18 @@
 /**
- * Where the sun is for whoever is looking.
+ * Where the sun is — over Elliot.
  *
- * The site opens on night or day according to the visitor's own sky, not a
- * switch: a Londoner at 4:30pm in December gets night, a Sydneysider at the
- * same wall-clock time gets day. That needs two things the browser can give
- * without asking permission for anything: the instant (`Date.now()`, which is
- * UTC underneath whatever the clock shows) and a rough position on the
- * globe, read off the IANA time zone the browser reports.
+ * The site opens on night or day according to ELLIOT'S sky, not the
+ * visitor's: the field is the place he is standing in, so it is dark when it
+ * is dark where he is, and the clock in the corner says what time it is there
+ * (`ELLIOT_ZONE`, and `elliotPlace()` for the sun). A Londoner visiting at
+ * 4:30pm in December gets late morning in New York, and the corner says so.
+ * It used to follow the visitor's own zone, and that read as a screensaver
+ * rather than a place: there was nothing to learn from it.
+ *
+ * `guessPlace` is still here for the visitor's side — it places a person
+ * from the IANA zone their browser reports, which needs nothing the browser
+ * asks permission for: the instant (`Date.now()`, UTC underneath) and the
+ * zone name.
  *
  * The zone is a coarser fix than GPS, and that is the point. Sunset moves
  * about a minute per fifty miles of latitude, so a city in the right country
@@ -120,6 +126,25 @@ const REGION_LATITUDE: Record<string, number> = {
 export interface Place {
   lat: number
   lon: number
+}
+
+/** the zone Elliot lives in; the server keeps the same default in server/live.ts */
+export const ELLIOT_ZONE = 'America/New_York'
+
+/** where Elliot is, for the sun */
+export function elliotPlace(): Place {
+  const [lat, lon] = ZONES[ELLIOT_ZONE]!
+  return { lat, lon }
+}
+
+/** "11:16 PM EDT" — the wall clock where Elliot is, right now */
+export function elliotClock(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: ELLIOT_ZONE,
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  }).format(now)
 }
 
 /** the visitor's rough place on the globe, from the zone their browser reports */

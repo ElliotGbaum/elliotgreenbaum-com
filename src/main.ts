@@ -46,7 +46,7 @@ import {
   type Landmark,
   type LandmarkContext,
 } from './core/contract'
-import { timeOfDayFor } from './core/sun'
+import { timeOfDayFor, sunElevation, elliotPlace, elliotClock } from './core/sun'
 import { createField, FIELD_RADIUS } from './world/field'
 import { createScenery } from './world/scenery'
 import { createPlayer } from './world/player'
@@ -205,9 +205,10 @@ function boot() {
      badge, the raycast — iterates it rather than naming the projector, so
      putting a landmark back is one push and no other edit. */
   const projector = createProjector(film.canvas)
-  /* …and one more, since: Elliot himself, standing out to the left of the
-     path with a lantern and a nametag. He is the one thing out here that
-     talks back — an AI with his notes answers for him (see the header of
+  /* …and one more, since: Elliot himself, standing up by the screen with a
+     lantern, off to its right, quiet until you come to him or the film has
+     been watched. He is the one thing out here that talks back — an AI with
+     his notes answers for him (see the header of
      src/world/landmarks/elliot.ts). He is a landmark like the projector is:
      walk up, press E, and the field hands you a panel. He never fires for
      being walked past. */
@@ -295,34 +296,56 @@ function boot() {
     },
     setPrompt: say,
     playerPosition: player.position,
+    filmSeen: () => seenFilm,
   }
 
   /* ---------------- time of day ----------------
-     The visitor's own sky decides: the sun's height over wherever their
-     browser says they are (src/core/sun.ts), so a December afternoon in
-     London opens on night and the same hour in Sydney on day. It is set
-     before the first frame, with no crossfade, and re-read once a minute so
-     a visitor who stays through sunset watches the field go dark.
+     Elliot's sky decides, not the visitor's: the sun's height over where he
+     lives (src/core/sun.ts), so the field is dark when it is dark for him,
+     and the clock in the top-right corner says what time it is there. It is
+     set before the first frame, with no crossfade, and re-read once a minute
+     so a visitor who stays through his sunset watches the field go dark.
 
      The field owns the crossfade; everything that has to know what time it is
      reads `field.daylight` off it once a frame (see the loop). Nothing here
      stores a second copy of the answer. `hud.onDayNight` only ever fires on
      the dev server, where the switch still exists; throwing it takes the
      field off the clock until the sky itself changes its answer. */
-  let sky = timeOfDayFor()
-  field.setMode(sky, true)
+  const where = elliotPlace()
+  // The field takes the sun's actual height, so it passes through the golden
+  // hour on the way between day and night (see field.ts). On the dev server
+  // `?sun=<degrees>` pins it, for looking at that hour without waiting for it.
+  const pin = import.meta.env.DEV ? new URLSearchParams(location.search).get('sun') : null
+  const elevation = () => (pin ? Number(pin) : sunElevation(where))
+  let sky = timeOfDayFor(where)
+  if (pin) sky = Number(pin) > -4 ? 'day' : 'night'
+  field.setSun(elevation(), true)
   hud.setTimeOfDay(sky)
+  hud.setClock(elliotClock())
+  // thrown, the dev switch takes the field off the clock until the sky
+  // itself changes its answer
+  let offClock = false
   hud.onDayNight((mode) => {
+    offClock = true
     field.setMode(mode, REDUCED_MOTION)
     hud.setTimeOfDay(mode)
   })
-  setInterval(() => {
-    const next = timeOfDayFor()
-    if (next === sky) return
-    sky = next
-    field.setMode(sky, REDUCED_MOTION)
-    hud.setTimeOfDay(sky)
-  }, 60_000)
+  const tick = () => {
+    hud.setClock(elliotClock())
+    // a pinned sun stays pinned: the class on <html> follows the field
+    const next = pin ? sky : timeOfDayFor(where)
+    if (next !== sky) {
+      sky = next
+      offClock = false
+      hud.setTimeOfDay(sky)
+    }
+    if (!offClock) field.setSun(elevation(), REDUCED_MOTION)
+  }
+  // land the first tick on the minute, so the clock never shows a stale one
+  window.setTimeout(() => {
+    tick()
+    setInterval(tick, 60_000)
+  }, 60_000 - (Date.now() % 60_000))
 
   /* ---------------- the film sequence ----------------
    * The reversal that everything else in this file is arranged around: the
@@ -494,6 +517,30 @@ function boot() {
   let dwell = 0
   let near: Landmark | null = null
   const disarmed = new Set<string>()
+
+  /* Elliot stands off the path, but his radius reaches it: walked straight at
+     the projector you brush the edge of his zone, and for a few strides he is
+     the nearer of the two, so the line at the bottom swapped to him under
+     somebody who had not so much as glanced his way. So he only becomes the
+     thing you are near if you are ACTUALLY GOING TO HIM — your step points at
+     him, within a cone — or you are already close enough to touch him.
+     Once he has you, he keeps you until you leave his radius, so stopping in
+     front of him does not hand the line back to the projector. */
+  const lastPos = player.position.clone()
+  const stepped = new THREE.Vector3()
+  const toward = new THREE.Vector3()
+  /** how square-on a step has to be to count as walking to him: cos 40° */
+  const HEADING_COS = 0.77
+  function headedTo(l: Landmark, d: number, moved: boolean): boolean {
+    if (near === l) return true
+    if (d < (l.reachRadius ?? REACH)) return true
+    if (!moved) return false
+    toward.subVectors(l.anchor, player.position)
+    const len = Math.hypot(toward.x, toward.z)
+    const step = Math.hypot(stepped.x, stepped.z)
+    if (len < 1e-3 || step < 1e-6) return false
+    return (toward.x * stepped.x + toward.z * stepped.z) / (len * step) > HEADING_COS
+  }
 
   /**
    * A landmark that was clicked from outside its own radius: the figure is
@@ -986,7 +1033,7 @@ function boot() {
     for (const l of landmarks) l.setDaylight?.(field.daylight)
 
     player.update(dt, elapsed)
-    scenery.setDaylight(field.daylight)
+    scenery.setDaylight(field.daylight, field.dusk)
     scenery.update(dt, elapsed, player.position)
     vel.subVectors(player.position, last).divideScalar(Math.max(dt, 0.0001))
     last.copy(player.position)
@@ -1053,6 +1100,12 @@ function boot() {
      * in front of the machine. The film restarted, for ever. Nothing you do
      * during a cutscene is you leaving. */
     if (!filmActive && !talking) {
+      /* Which way the figure is going, from where it was last frame. Only a
+         real step counts: below a hair's width the heading is noise. */
+      stepped.subVectors(player.position, lastPos)
+      const moved = Math.hypot(stepped.x, stepped.z) > 0.002
+      lastPos.copy(player.position)
+
       let closest: Landmark | null = null
       let closestD = Infinity
       for (const l of landmarks) {
@@ -1061,7 +1114,7 @@ function boot() {
         // re-arm on the way out, with hysteresis so hovering on the boundary
         // can't flicker between armed and not
         if (d > l.radius * 1.25) disarmed.delete(l.id)
-        if (d < l.radius && d < closestD) {
+        if (d < l.radius && d < closestD && (l !== elliot || headedTo(l, d, moved))) {
           closest = l
           closestD = d
         }
@@ -1165,19 +1218,19 @@ function boot() {
      * machine, rename it here.
      */
     if (!filmActive && !talking) {
-      /* …EXCEPT ONCE THE FILM HAS BEEN WATCHED AND ELLIOT HAS NOT BEEN MET,
-         when the needle points at him instead. He is the second thing to do,
-         he is off the path, and after the film the projector is a place you
-         have already been. Once he has been talked to it goes back to naming
-         the projector, for the reason above. */
-      const target: Landmark = seenFilm && !talked ? elliot : projector
-      // the HUD swallows a label it is already showing, so this is free
-      hud.setCompassLabel(target === elliot ? 'Elliot' : 'Projector')
-      toTarget.subVectors(target.anchor, player.position)
-      const dist = Math.hypot(toTarget.x, toTarget.z)
-      hud.setCompass(Math.atan2(toTarget.x, -toTarget.z), dist)
+      /* The needle used to swing to Elliot once the film had been watched
+         and he had not been met. Now the compass is a strip with a marker
+         for each of them, so this one names the projector, always, and his
+         names him, always: two things to walk to, both said out loud from
+         the first frame, each sitting on the strip where it sits in the field. */
+      hud.setCompassLabel('Projector')
+      toTarget.subVectors(projector.anchor, player.position)
+      hud.setCompass(Math.atan2(toTarget.x, -toTarget.z), Math.hypot(toTarget.x, toTarget.z))
+      toTarget.subVectors(elliot.anchor, player.position)
+      hud.setCompassAside(Math.atan2(toTarget.x, -toTarget.z), Math.hypot(toTarget.x, toTarget.z))
     } else {
       hud.setCompass(null, 0)
+      hud.setCompassAside(null, 0)
     }
 
     renderer.render(scene, rig.camera)

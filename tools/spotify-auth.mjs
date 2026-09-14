@@ -29,7 +29,7 @@ if (!CLIENT_ID) {
 }
 const PORT = 8888
 const REDIRECT = `http://127.0.0.1:${PORT}/callback`
-const SCOPES = 'user-read-recently-played user-read-currently-playing'
+const SCOPES = 'user-read-recently-played user-read-currently-playing user-top-read'
 
 const b64url = (b) => b.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 const verifier = b64url(randomBytes(64))
@@ -90,7 +90,7 @@ const server = createServer(async (req, res) => {
   }
   set('SPOTIFY_CLIENT_ID', CLIENT_ID)
   set('SPOTIFY_REFRESH_TOKEN', tok.refresh_token)
-  writeFileSync(path, env)
+  writeFileSync(path, env, { mode: 0o600 })
 
   console.log('\nSaved to .env. Put the same two into Vercel → Settings → Environment Variables:\n')
   console.log(`SPOTIFY_CLIENT_ID=${CLIENT_ID}`)

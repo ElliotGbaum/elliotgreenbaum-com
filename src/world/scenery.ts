@@ -8,18 +8,25 @@
  * shape, a sky that is darker overhead than at the edge — rather than as a
  * plane with a texture on it.
  *
- * Five things live here, and each has the same two hooks the field itself
- * has: `setDaylight(k)` for the night→day crossfade and `update()` for the
- * frame. Nothing here reads the clock on its own.
+ * Seven things live here, and each has the same two hooks the field itself
+ * has: `setDaylight(k, dusk)` for the night→day crossfade (and how far into
+ * the golden hour it is) and `update()` for the frame. Nothing here reads
+ * the clock on its own.
  *
  *   sky      a dome with a vertical gradient and a moon, replacing the flat
  *            clear colour. Not fogged, not tone mapped — the horizon colour IS
  *            the field's `sky`, so the seam the field goes to such lengths to
- *            close stays closed.
+ *            close stays closed. By day it carries a thin sheet of cloud,
+ *            drifting downwind, and the cloud overhead is the same field the
+ *            ground reads its shadows from (see weather.ts) — so a shadow
+ *            crossing the grass has a cloud above it. At dusk the sun sits
+ *            low on the dome as a warm disc. At night, now and then, a
+ *            meteor: one streak, a second long, a minute or so apart.
  *   hills    a ring of low flat-shaded hills past the tree line, mostly
  *            swallowed by the night fog and plainly there by day.
  *   trees    a broken ring of dark broadleaf silhouettes between the field's
- *            edge and the hills.
+ *            edge and the hills. Their crowns lean downwind when a gust
+ *            reaches them.
  *   grass    BY DAY ONLY. Tens of thousands of instanced blades that follow the
  *            figure around: each blade's position is wrapped onto a square
  *            centred on you, so the patch is always underfoot but no blade
@@ -31,7 +38,17 @@
  *            round your legs in
  *            the dark felt like wading, and the ground under the lantern is
  *            better plain. The grass grows in with the daylight crossfade.
+ *            It parts around the figure's legs, darkens under a passing
+ *            cloud, and lies down in a gust — the gust is a front that rolls
+ *            downwind across the meadow, so the wind reads as a thing
+ *            crossing the field rather than a shimmer over all of it.
  *   fireflies a few dozen points drifting over the field at night, gone by day.
+ *   birds    BY DAY. A small flock crossing high behind the hills, every
+ *            couple of minutes, and gone. They keep to the side of the sky
+ *            behind you as you face the screen, so they are never in the shot
+ *            while the film plays.
+ *   mist     AT NIGHT. A few low, faint banks lying out toward the trees,
+ *            drifting downwind at nothing like a walking pace.
  *
  * Every number that describes an object's size is in the same units as the
  * figure, who is ~3.9 tall (see HEAD_Y in player.ts): grass to the shin, trees
@@ -44,10 +61,12 @@
 import * as THREE from 'three'
 import { PHONE, clamp, rand, reducedMotion } from '../core/contract'
 import { FIELD_RADIUS } from './field'
+import { WEATHER_GLSL, WIND, weatherUniforms } from './weather'
 
 export interface Scenery {
-  /** 0 = night, 1 = day — the field's crossfade value, pushed here once a frame */
-  setDaylight(k: number): void
+  /** `k`: 0 = night, 1 = day — the field's crossfade value, pushed here once a
+   *  frame. `dusk`: 0..1, how deep into the golden hour, on top of `k`. */
+  setDaylight(k: number, dusk?: number): void
   /** `focus` is the figure's position; the grass patch and the sky centre on it */
   update(dt: number, elapsed: number, focus: THREE.Vector3): void
   dispose(): void
@@ -79,9 +98,25 @@ const DAY = {
   hill: 0x7a9670,
   fireflies: 0,
 }
+/* The golden hour. Not a third state the field can be in, but a tint the
+   crossfade passes THROUGH: everything is first mixed night→day by `k`, then
+   pulled toward this by `dusk`. `horizon` must equal the field's DUSK.sky. */
+const DUSK = {
+  horizon: 0xe4b08c,
+  zenith: 0x5878ae,
+  moon: 0.2,
+  grass: 0xb2b06e,
+  tree: 0x3a4e3e,
+  trunk: 0x3a2e28,
+  hill: 0x686670,
+  fireflies: 0.45,
+}
 
 /** the moon sits where the field's directional light comes from */
 const MOON_DIR = new THREE.Vector3(-46, 62, 40).normalize()
+/** the dusk sun: the same bearing, a hand's width over the hills. The field
+ *  lowers its directional light to the same place as the sun goes down. */
+const SUN_DIR = new THREE.Vector3(-46, 16, 40).normalize()
 
 /* ------------------------------------------------------------------ *
  * A little value noise, for anything that needs a smooth random field
@@ -99,14 +134,33 @@ function noise1(x: number, seed: number): number {
 /* ================================================================== *
  * Sky
  * ================================================================== */
-function createSky(): { mesh: THREE.Mesh; mat: THREE.ShaderMaterial } {
+/** how high the cloud sheet hangs. Only its ratio to the drift speed shows:
+ *  higher is slower-looking and flatter toward the horizon. */
+const CLOUD_HEIGHT = 150
+/** seconds between one meteor and the next, and how long a streak lasts */
+const METEOR_EVERY = 52
+const METEOR_LIFE = 1.1
+function createSky(weather: ReturnType<typeof weatherUniforms>): {
+  mesh: THREE.Mesh
+  mat: THREE.ShaderMaterial
+} {
   const mat = new THREE.ShaderMaterial({
     uniforms: {
+      ...weather,
       uHorizon: { value: new THREE.Color(NIGHT.horizon) },
       uZenith: { value: new THREE.Color(NIGHT.zenith) },
       uMoonDir: { value: MOON_DIR.clone() },
       uMoonColor: { value: new THREE.Color(0xe4ecf2) },
       uMoon: { value: NIGHT.moon },
+      uSunDir: { value: SUN_DIR.clone() },
+      uSunColor: { value: new THREE.Color(0xffc48a) },
+      uSun: { value: 0 },
+      uCenter: { value: new THREE.Vector2(0, 0) },
+      uCloud: { value: 0 },
+      uCloudColor: { value: new THREE.Color(0xf3f6f8) },
+      uMeteorA: { value: new THREE.Vector3(0, 1, 0) },
+      uMeteorB: { value: new THREE.Vector3(0, 1, 0) },
+      uMeteor: { value: -1 },
     },
     vertexShader: /* glsl */ `
       varying vec3 vDir;
@@ -116,11 +170,21 @@ function createSky(): { mesh: THREE.Mesh; mat: THREE.ShaderMaterial } {
       }
     `,
     fragmentShader: /* glsl */ `
+      ${WEATHER_GLSL}
       uniform vec3 uHorizon;
       uniform vec3 uZenith;
       uniform vec3 uMoonDir;
       uniform vec3 uMoonColor;
       uniform float uMoon;
+      uniform vec3 uSunDir;
+      uniform vec3 uSunColor;
+      uniform float uSun;
+      uniform vec2 uCenter;
+      uniform float uCloud;
+      uniform vec3 uCloudColor;
+      uniform vec3 uMeteorA;
+      uniform vec3 uMeteorB;
+      uniform float uMeteor;
       varying vec3 vDir;
       void main() {
         vec3 d = normalize(vDir);
@@ -132,6 +196,40 @@ function createSky(): { mesh: THREE.Mesh; mat: THREE.ShaderMaterial } {
         float disc = pow(m, 2600.0);
         float halo = pow(m, 28.0) * 0.14 + pow(m, 6.0) * 0.035;
         col += uMoonColor * uMoon * (disc + halo);
+        // the dusk sun: a bigger, softer disc low over the hills, and a glow
+        // that warms the whole quarter of the sky it sits in
+        float sm = max(dot(d, uSunDir), 0.0);
+        float sdisc = pow(sm, 1400.0) * 1.6;
+        float shalo = pow(sm, 12.0) * 0.32 + pow(sm, 3.0) * 0.10;
+        col += uSunColor * uSun * (sdisc + shalo);
+        // cloud: the ground-plane field lifted to CLOUD_HEIGHT and looked at
+        // from below. Fades out into the horizon band, where the sheet would
+        // be edge-on and alias, and where the fog would have eaten it anyway.
+        if (d.y > 0.06 && uCloud > 0.001) {
+          vec2 over = uCenter + d.xz / d.y * ${CLOUD_HEIGHT.toFixed(1)};
+          float cover = cloudCover(over, uWeatherTime);
+          // the band starts well up from the horizon: nearer than that the
+          // sheet is edge-on and every cell is a streak
+          float band = smoothstep(0.06, 0.3, d.y);
+          // thinner in the middle of a cell than at its edge: the sheet has a
+          // little depth to it without a second noise
+          vec3 cloud = uCloudColor * (0.86 + 0.14 * (1.0 - cover));
+          col = mix(col, cloud, cover * band * uCloud * 0.8);
+        }
+        // a meteor: a short bright streak from A toward B, progress uMeteor
+        // in 0..1, with a tail that fades behind the head
+        if (uMeteor >= 0.0) {
+          vec3 ab = uMeteorB - uMeteorA;
+          float lo = max(0.0, uMeteor - 0.22);
+          float t = clamp(dot(d - uMeteorA, ab) / dot(ab, ab), lo, uMeteor);
+          vec3 q = normalize(uMeteorA + ab * t);
+          float dist = length(d - q);
+          float core = exp(-dist * dist / (0.0028 * 0.0028));
+          float glow = exp(-dist * dist / (0.011 * 0.011)) * 0.22;
+          float along = (t - lo) / max(uMeteor - lo, 1e-4);
+          float life = sin(uMeteor * 3.14159);
+          col += vec3(0.95, 0.97, 1.0) * (core + glow) * along * along * life * uMoon;
+        }
         // a hair of dither so a 16-bit gradient does not band across the sky
         float n = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
         col += (n - 0.5) / 255.0;
@@ -207,7 +305,7 @@ function createHills(): { mesh: THREE.Mesh; mat: THREE.MeshLambertMaterial } {
  * ================================================================== */
 const TREE_MIN = FIELD_RADIUS + 8
 const TREE_MAX = HILL_INNER + 6
-function createTrees(): {
+function createTrees(weather: ReturnType<typeof weatherUniforms>): {
   group: THREE.Group
   canopy: THREE.MeshLambertMaterial
   trunk: THREE.MeshLambertMaterial
@@ -218,6 +316,33 @@ function createTrees(): {
   const trunkGeo = new THREE.CylinderGeometry(0.18, 0.28, 1, 6)
   trunkGeo.translate(0, 0.5, 0)
   const canopy = new THREE.MeshLambertMaterial({ color: NIGHT.tree, flatShading: true })
+  // The crowns lean downwind as a gust reaches them — the top of the crown
+  // more than the bottom, so it is a lean and not a slide. The gust is read
+  // at the tree's foot (the instance's translation) so a whole crown moves
+  // as one; the world-space push is turned back into the crown's own axes
+  // through the instance matrix, whose columns are orthogonal, so the
+  // inverse is a couple of dots. Trunks do not move: a trunk that bends is
+  // a sapling, and these are three figures high.
+  canopy.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, weather)
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>\n${WEATHER_GLSL}`)
+      .replace(
+        '#include <begin_vertex>',
+        /* glsl */ `#include <begin_vertex>
+        {
+          mat3 im = mat3(instanceMatrix);
+          vec2 foot = instanceMatrix[3].xz;
+          float g = gust(foot, uWeatherTime);
+          // a slow sway of its own on top, so a lull is not a freeze
+          float idle = sin(uWeatherTime * 0.9 + foot.x * 0.13 + foot.y * 0.07) * 0.12 + 0.12;
+          vec2 push = uWind * (g * 0.9 + idle) * (0.45 + 0.55 * clamp(position.y + 0.5, 0.0, 1.0));
+          transformed.x += dot(push, im[0].xz) / dot(im[0], im[0]);
+          transformed.z += dot(push, im[2].xz) / dot(im[2], im[2]);
+        }`,
+      )
+  }
+  canopy.customProgramCacheKey = () => 'canopy-wind'
   const trunk = new THREE.MeshLambertMaterial({ color: NIGHT.trunk })
   const canopies = new THREE.InstancedMesh(canopyGeo, canopy, N)
   const lobes = new THREE.InstancedMesh(canopyGeo, canopy, N)
@@ -353,7 +478,12 @@ function bladeGeometry(): THREE.BufferGeometry {
   return geo
 }
 
-function createGrass(layer: GrassLayer, clearing: THREE.Vector3, seed: number): {
+function createGrass(
+  layer: GrassLayer,
+  clearing: THREE.Vector3,
+  seed: number,
+  weather: ReturnType<typeof weatherUniforms>,
+): {
   mesh: THREE.Mesh
   mat: THREE.MeshLambertMaterial
   uniforms: Record<string, THREE.IUniform>
@@ -384,6 +514,7 @@ function createGrass(layer: GrassLayer, clearing: THREE.Vector3, seed: number): 
   inst.setAttribute('aLean', new THREE.InstancedBufferAttribute(lean, 1))
 
   const uniforms: Record<string, THREE.IUniform> = {
+    ...weather,
     uCenter: { value: new THREE.Vector2(0, 0) },
     uSpan: { value: span },
     uFade: { value: new THREE.Vector4(...layer.fade) },
@@ -391,6 +522,10 @@ function createGrass(layer: GrassLayer, clearing: THREE.Vector3, seed: number): 
     uClear: { value: new THREE.Vector3(clearing.x, clearing.z, 7.5) },
     uTime: { value: 0 },
     uDay: { value: 0 },
+    /** where the figure's feet are (x, z) and how far the grass parts round them */
+    uFoot: { value: new THREE.Vector3(0, 0, 1.7) },
+    /** how much of the sun a cloud can take: 1 by day, less in the golden hour */
+    uCloudShade: { value: 0 },
   }
 
   const mat = new THREE.MeshLambertMaterial({ color: NIGHT.grass, side: THREE.DoubleSide })
@@ -400,6 +535,7 @@ function createGrass(layer: GrassLayer, clearing: THREE.Vector3, seed: number): 
       .replace(
         '#include <common>',
         /* glsl */ `#include <common>
+        ${WEATHER_GLSL}
         attribute vec4 aOffset;
         attribute float aLean;
         uniform vec2 uCenter;
@@ -409,7 +545,10 @@ function createGrass(layer: GrassLayer, clearing: THREE.Vector3, seed: number): 
         uniform vec3 uClear;
         uniform float uTime;
         uniform float uDay;
-        varying float vH;`,
+        uniform vec3 uFoot;
+        uniform float uCloudShade;
+        varying float vH;
+        varying float vShade;`,
       )
       .replace(
         '#include <begin_vertex>',
@@ -433,19 +572,39 @@ function createGrass(layer: GrassLayer, clearing: THREE.Vector3, seed: number): 
         float t = position.y;
         vH = t;
         vec3 p = position * vec3(s * uWidth, s, s);
+        // the wind: a gust front rolling downwind (weather.ts) sets how hard
+        // the blade shivers and how far it lies over
+        float g = gust(base, uWeatherTime);
         float sway = sin(uTime * 1.3 + base.x * 0.42 + base.y * 0.31) * 0.16
-                   + sin(uTime * 2.1 + base.x * 0.9 - base.y * 0.6) * 0.05;
-        p.x += (aLean + sway) * t * t * s * 1.4;
+                   + sin(uTime * 2.1 + base.x * 0.9 - base.y * 0.6) * 0.05
+                   + sin(uTime * 5.7 + base.x * 1.7 + base.y * 1.1) * 0.05 * g;
+        p.x += (aLean + sway * (0.6 + 0.75 * g)) * t * t * s * 1.4;
         float c = cos(aOffset.w), sn = sin(aOffset.w);
-        vec3 transformed = vec3(c * p.x - sn * p.z, p.y, sn * p.x + c * p.z) + vec3(base.x, 0.0, base.y);`,
+        vec3 transformed = vec3(c * p.x - sn * p.z, p.y, sn * p.x + c * p.z) + vec3(base.x, 0.0, base.y);
+        // lie over downwind by the gust, in world space so every blade in the
+        // front leans the same way whatever way it happens to face
+        float lay = g * g * 0.44 * t * t * s;
+        transformed.xz += uWind * lay;
+        transformed.y -= lay * 0.35;
+        // part round the figure's legs: bend away from the feet, the tip
+        // more than the root, and flatten a little, so the blades under and
+        // beside a foot are pressed down and the ring round it leans out
+        vec2 away = base - uFoot.xy;
+        float near = 1.0 - smoothstep(0.0, uFoot.z, length(away));
+        float press = near * near * (0.5 + 0.5 * uDay);
+        vec2 dir = away / max(length(away), 0.05);
+        transformed.xz += dir * press * t * t * s * 1.9;
+        transformed.y -= press * t * s * 0.55;
+        // the passing cloud
+        vShade = 1.0 - (1.0 - cloudShade(base, uWeatherTime)) * uCloudShade;`,
       )
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying float vH;')
+      .replace('#include <common>', '#include <common>\nvarying float vH;\nvarying float vShade;')
       // darker at the root, lighter at the tip — the one thing that makes a
       // field of identical quads read as blades
       .replace(
         '#include <color_fragment>',
-        '#include <color_fragment>\ndiffuseColor.rgb *= mix(0.42, 1.12, vH);',
+        '#include <color_fragment>\ndiffuseColor.rgb *= mix(0.42, 1.12, vH) * vShade;',
       )
       // a blade's normal is "up" whichever side you see; the default chunk
       // would flip it on the back face and turn half the field black
@@ -546,6 +705,175 @@ function createFireflies(): { points: THREE.Points; mat: THREE.ShaderMaterial } 
 }
 
 /* ================================================================== *
+ * Birds
+ *
+ * One flock, nine birds, each two triangles that flap. It crosses the sky
+ * behind the hills on a straight line every couple of minutes and is gone
+ * for the rest of it — the gap is the point; a sky with birds in it all the
+ * time is wallpaper. The line keeps to the +z half of the world, which is
+ * behind you when you face the screen, so the flock is never in the
+ * watching shot. It alternates direction crossing to crossing.
+ * ================================================================== */
+const FLOCK = 9
+/** seconds from one crossing's start to the next */
+const FLOCK_EVERY = 130
+/** seconds a crossing takes */
+const FLOCK_CROSS = 48
+function createBirds(): { mesh: THREE.Mesh; mat: THREE.ShaderMaterial } {
+  // two triangles per bird, body along z, tips out along x
+  const pos: number[] = []
+  const bird: number[] = []
+  for (let i = 0; i < FLOCK; i++) {
+    for (const side of [-1, 1]) {
+      pos.push(0, 0, 0.55, 0, 0, -0.35, side * 1.6, 0, 0.1)
+      bird.push(i, i, i)
+    }
+  }
+  const geo = new THREE.BufferGeometry()
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+  geo.setAttribute('aBird', new THREE.Float32BufferAttribute(bird, 1))
+
+  const mat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uA: { value: new THREE.Vector3() },
+      uB: { value: new THREE.Vector3() },
+      uProgress: { value: -1 },
+      uShow: { value: 0 },
+      uColor: { value: new THREE.Color(0x2a3236) },
+    },
+    vertexShader: /* glsl */ `
+      attribute float aBird;
+      uniform float uTime;
+      uniform vec3 uA;
+      uniform vec3 uB;
+      uniform float uProgress;
+      varying float vFar;
+      void main() {
+        // a loose V: the lead in front, the rest fanned back on both sides,
+        // each a little off its station and bobbing on its own beat
+        float k = aBird - ${((FLOCK - 1) / 2).toFixed(1)};
+        vec3 dir = normalize(uB - uA);
+        vec3 side = normalize(cross(dir, vec3(0.0, 1.0, 0.0)));
+        vec3 at = mix(uA, uB, uProgress)
+                + side * (k * 3.4 + sin(uTime * 0.7 + aBird * 2.1) * 0.6)
+                - dir * (abs(k) * 3.0 + sin(uTime * 0.5 + aBird * 1.3) * 1.2)
+                + vec3(0.0, sin(uTime * 1.1 + aBird * 0.9) * 0.8, 0.0);
+        // flap: the tips rise and fall, the body does not
+        float flap = sin(uTime * 9.0 + aBird * 1.7) * 0.9;
+        vec3 p = position;
+        p.y += abs(p.x) * flap;
+        // point the body along the line of flight
+        vec3 world = at + side * p.x + dir * p.z + vec3(0.0, p.y, 0.0);
+        vec4 mv = modelViewMatrix * vec4(world, 1.0);
+        vFar = exp(-pow(-mv.z * 0.0032, 2.0));
+        gl_Position = projectionMatrix * mv;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform vec3 uColor;
+      uniform float uShow;
+      varying float vFar;
+      void main() {
+        gl_FragColor = vec4(uColor, uShow * (0.35 + 0.65 * vFar));
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    fog: false,
+  })
+  const mesh = new THREE.Mesh(geo, mat)
+  mesh.frustumCulled = false
+  mesh.visible = false
+  mesh.name = 'birds'
+  return { mesh, mat }
+}
+
+/* ================================================================== *
+ * Mist
+ *
+ * A dozen faint banks lying low out toward the trees at night: sprites with
+ * a soft horizontal smear on them, a hand or two off the ground, drifting
+ * downwind slower than anything else in the world. They are opaque enough
+ * to notice from the spawn and not enough to read as an object; the fog
+ * takes the far ones. Gone by day, when the air is meant to be clear.
+ * ================================================================== */
+const MIST_N = PHONE ? 8 : 13
+/** how far a bank's bottom edge sits above the ground plane */
+const MIST_CLEAR = 0.05
+function mistTexture(): THREE.CanvasTexture {
+  const W = 256
+  const H = 64
+  const c = document.createElement('canvas')
+  c.width = W
+  c.height = H
+  const g = c.getContext('2d')!
+  const img = g.createImageData(W, H)
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const u = (x / W) * 2 - 1
+      const v = (y / H) * 2 - 1
+      // an ellipse with a soft edge and a ragged top, so it is a bank and
+      // not a pill
+      const rag = 0.85 + 0.15 * Math.sin(u * 9.3 + 1.1) * Math.sin(u * 4.1)
+      const r = Math.sqrt(u * u + (v * v) / (rag * rag))
+      const a = Math.pow(clamp(1 - r), 1.6)
+      const i = (y * W + x) * 4
+      img.data[i] = 255
+      img.data[i + 1] = 255
+      img.data[i + 2] = 255
+      img.data[i + 3] = Math.round(a * 255)
+    }
+  }
+  g.putImageData(img, 0, 0)
+  const tex = new THREE.CanvasTexture(c)
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
+}
+function createMist(): {
+  group: THREE.Group
+  mat: THREE.SpriteMaterial
+  banks: Array<{ sprite: THREE.Sprite; seed: number }>
+  dispose(): void
+} {
+  const tex = mistTexture()
+  const mat = new THREE.SpriteMaterial({
+    map: tex,
+    color: 0x8ea6b0,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    fog: true,
+  })
+  const group = new THREE.Group()
+  group.name = 'mist'
+  const banks: Array<{ sprite: THREE.Sprite; seed: number }> = []
+  for (let i = 0; i < MIST_N; i++) {
+    const sprite = new THREE.Sprite(mat)
+    const a = rand(i * 7 + 301) * Math.PI * 2
+    const r = 30 + rand(i * 7 + 302) * 65
+    const w = 12 + rand(i * 7 + 303) * 16
+    sprite.scale.set(w, w * 0.16, 1)
+    // seated on the ground, never in it: a bank taller than twice its centre
+    // height dipped below the plane and the ground clipped it flat — a dead
+    // straight line across the field, plainest from the low talking shot
+    sprite.position.set(Math.cos(a) * r, sprite.scale.y / 2 + MIST_CLEAR, Math.sin(a) * r)
+    group.add(sprite)
+    banks.push({ sprite, seed: rand(i * 7 + 305) * 100 })
+  }
+  return {
+    group,
+    mat,
+    banks,
+    dispose() {
+      tex.dispose()
+      mat.dispose()
+    },
+  }
+}
+
+/* ================================================================== *
  * Assembly
  * ================================================================== */
 export interface SceneryOptions {
@@ -554,64 +882,193 @@ export interface SceneryOptions {
 }
 
 export function createScenery(scene: THREE.Scene, opts: SceneryOptions): Scenery {
-  const sky = createSky()
+  // one set of weather uniforms, shared by value: every material that reads
+  // the wind or the clouds is handed these same objects, so one write a
+  // frame moves all of them together
+  const weather = weatherUniforms()
+  const sky = createSky(weather)
   const hills = createHills()
-  const trees = createTrees()
-  const grass = [createGrass(GRASS_NEAR, opts.clearing, 0), createGrass(GRASS_FAR, opts.clearing, 500000)]
+  const trees = createTrees(weather)
+  const grass = [
+    createGrass(GRASS_NEAR, opts.clearing, 0, weather),
+    createGrass(GRASS_FAR, opts.clearing, 500000, weather),
+  ]
   const flies = createFireflies()
+  const birds = createBirds()
+  const mist = createMist()
 
-  scene.add(sky.mesh, hills.mesh, trees.group, ...grass.map((g) => g.mesh), flies.points)
+  scene.add(
+    sky.mesh,
+    hills.mesh,
+    trees.group,
+    ...grass.map((g) => g.mesh),
+    flies.points,
+    birds.mesh,
+    mist.group,
+  )
 
   const cA = new THREE.Color()
   const cB = new THREE.Color()
-  const mix = (out: THREE.Color, a: number, b: number, t: number) => {
+  const cC = new THREE.Color()
+  /** night→day by k, then toward dusk by d */
+  const mix = (out: THREE.Color, a: number, b: number, c: number, k: number, d: number) => {
     cA.setHex(a)
     cB.setHex(b)
-    out.copy(cA).lerp(cB, t)
+    cC.setHex(c)
+    out.copy(cA).lerp(cB, k).lerp(cC, d)
   }
   const lerp = (a: number, b: number, t: number) => a + (b - a) * t
+  const blend = (a: number, b: number, c: number, k: number, d: number) => lerp(lerp(a, b, k), c, d)
 
   let daylight = 0
+  let dusk = 0
   let time = 0
   // the point size is in device pixels, so it has to know the ratio once
   flies.mat.uniforms.uScale.value = Math.min(window.devicePixelRatio || 1, 2) * 12
 
-  function apply(k: number) {
-    mix(sky.mat.uniforms.uHorizon.value, NIGHT.horizon, DAY.horizon, k)
-    mix(sky.mat.uniforms.uZenith.value, NIGHT.zenith, DAY.zenith, k)
-    sky.mat.uniforms.uMoon.value = lerp(NIGHT.moon, DAY.moon, k)
-    mix(hills.mat.color, NIGHT.hill, DAY.hill, k)
-    mix(trees.canopy.color, NIGHT.tree, DAY.tree, k)
-    mix(trees.trunk.color, NIGHT.trunk, DAY.trunk, k)
+  const cloudDay = new THREE.Color(0xf3f6f8)
+  const cloudDusk = new THREE.Color(0xf8cfae)
+
+  function apply(k: number, d: number) {
+    // the sky takes the whole of the golden hour, the things standing in
+    // the field half of it — same split as the field's own apply()
+    const dg = d * 0.5
+    const u = sky.mat.uniforms
+    mix(u.uHorizon.value, NIGHT.horizon, DAY.horizon, DUSK.horizon, k, d)
+    mix(u.uZenith.value, NIGHT.zenith, DAY.zenith, DUSK.zenith, k, d)
+    u.uMoon.value = blend(NIGHT.moon, DAY.moon, DUSK.moon, k, d)
+    u.uSun.value = d
+    // the cloud sheet belongs to the light: it is the day's, lit pink as the
+    // sun goes, and gone with the dark — at night the sky is its stars
+    u.uCloud.value = k * (1 - d * 0.7)
+    ;(u.uCloudColor.value as THREE.Color).copy(cloudDay).lerp(cloudDusk, d)
+    mix(hills.mat.color, NIGHT.hill, DAY.hill, DUSK.hill, k, dg)
+    mix(trees.canopy.color, NIGHT.tree, DAY.tree, DUSK.tree, k, dg)
+    mix(trees.trunk.color, NIGHT.trunk, DAY.trunk, DUSK.trunk, k, dg)
     for (const g of grass) {
-      mix(g.mat.color, NIGHT.grass, DAY.grass, k)
+      mix(g.mat.color, NIGHT.grass, DAY.grass, DUSK.grass, k, dg)
       g.uniforms.uDay.value = k
+      // cloud shadows need a sun to cast them: full by day, softer at dusk
+      g.uniforms.uCloudShade.value = k * (1 - d * 0.5)
       g.mesh.visible = k > 0.01
     }
-    flies.mat.uniforms.uNight.value = lerp(NIGHT.fireflies, DAY.fireflies, k)
+    flies.mat.uniforms.uNight.value = blend(NIGHT.fireflies, DAY.fireflies, DUSK.fireflies, k, d)
     flies.points.visible = flies.mat.uniforms.uNight.value > 0.01
+    // birds are the day's, and at dusk they are silhouettes, which is better
+    birds.mat.uniforms.uShow.value = Math.max(k, d * 0.9) * 0.85
+    // mist is the night's, and it lingers a little into the golden hour
+    mist.mat.opacity = (1 - k) * 0.2 + d * 0.04
+    mist.group.visible = mist.mat.opacity > 0.005
   }
-  apply(0)
+  apply(0, 0)
+
+  /* ---------------- the meteor clock ----------------
+     One streak every METEOR_EVERY seconds, give or take, each from a
+     different patch of sky. The start and end are drawn off rand() from the
+     event number, so the fourth meteor is always the fourth meteor. Only at
+     night: the shader multiplies by the moon. */
+  let meteorAt = METEOR_EVERY * 0.45
+  let meteorN = 0
+  const mA = sky.mat.uniforms.uMeteorA.value as THREE.Vector3
+  const mB = sky.mat.uniforms.uMeteorB.value as THREE.Vector3
+  function meteor() {
+    if (time < meteorAt) {
+      sky.mat.uniforms.uMeteor.value = -1
+      return
+    }
+    const p = (time - meteorAt) / METEOR_LIFE
+    if (p >= 1) {
+      meteorN++
+      meteorAt = time + METEOR_EVERY * (0.7 + rand(meteorN * 3 + 900) * 0.6)
+      sky.mat.uniforms.uMeteor.value = -1
+      return
+    }
+    if (p === 0 || sky.mat.uniforms.uMeteor.value < 0) {
+      // high in the sky, a short arc, falling
+      const az = rand(meteorN * 3 + 901) * Math.PI * 2
+      const el = 0.45 + rand(meteorN * 3 + 902) * 0.35
+      mA.set(Math.cos(az) * Math.cos(el), Math.sin(el), Math.sin(az) * Math.cos(el))
+      const az2 = az + (rand(meteorN * 3 + 903) - 0.5) * 0.5
+      const el2 = el - 0.16 - rand(meteorN * 3 + 904) * 0.12
+      mB.set(Math.cos(az2) * Math.cos(el2), Math.sin(el2), Math.sin(az2) * Math.cos(el2))
+    }
+    sky.mat.uniforms.uMeteor.value = p
+  }
+
+  /* ---------------- the flock clock ---------------- */
+  const fA = birds.mat.uniforms.uA.value as THREE.Vector3
+  const fB = birds.mat.uniforms.uB.value as THREE.Vector3
+  function flock() {
+    const n = Math.floor(time / FLOCK_EVERY)
+    const p = (time - n * FLOCK_EVERY) / FLOCK_CROSS
+    const show = p < 1 && birds.mat.uniforms.uShow.value > 0.01
+    birds.mesh.visible = show
+    if (!show) return
+    // a line across the +z half of the world, well past the hills and above
+    // them, one way or the other by turns
+    const flip = n % 2 === 0 ? 1 : -1
+    const z = 190 + rand(n * 5 + 700) * 60
+    const y = 58 + rand(n * 5 + 701) * 22
+    fA.set(-300 * flip, y, z - 30)
+    fB.set(300 * flip, y + 8, z + 30)
+    birds.mat.uniforms.uProgress.value = p
+    birds.mat.uniforms.uTime.value = time
+  }
+
+  /* ---------------- the mist drift ---------------- */
+  const MIST_WRAP = 105
+  function drift(dt: number) {
+    if (!mist.group.visible) return
+    for (const b of mist.banks) {
+      const s = b.sprite
+      s.position.x += WIND.x * 0.28 * dt
+      s.position.z += WIND.y * 0.28 * dt
+      // a slow breathing in the height and the width, each on its own beat —
+      // measured up from the bank's own bottom edge, so it never sinks into
+      // the ground and gets cut off flat (see createMist)
+      s.position.y = s.scale.y / 2 + MIST_CLEAR + 0.3 * (1 + Math.sin(time * 0.11 + b.seed))
+      s.scale.x = s.scale.y / 0.16 * (0.9 + 0.1 * Math.sin(time * 0.07 + b.seed * 2))
+      // wrap on a square, so a bank that leaves downwind comes back upwind
+      if (s.position.x > MIST_WRAP) s.position.x -= MIST_WRAP * 2
+      if (s.position.z > MIST_WRAP) s.position.z -= MIST_WRAP * 2
+    }
+  }
 
   return {
-    setDaylight(k) {
-      if (k === daylight) return
+    setDaylight(k, d = 0) {
+      if (k === daylight && d === dusk) return
       daylight = k
-      apply(clamp(k))
+      dusk = d
+      apply(clamp(k), clamp(d))
     },
     update(dt, _elapsed, focus) {
       // a settled frame for reduced motion: the grass still stands, it just
-      // does not move, and the fireflies hang where they are
+      // does not move, the fireflies hang where they are, the clouds stop,
+      // the wind drops, and no meteor ever comes
       if (!reducedMotion()) time += dt
+      weather.uWeatherTime.value = time
       for (const g of grass) {
         g.uniforms.uTime.value = time
         g.uniforms.uCenter.value.set(focus.x, focus.z)
+        ;(g.uniforms.uFoot.value as THREE.Vector3).set(focus.x, focus.z, 1.7)
       }
       flies.mat.uniforms.uTime.value = time
       sky.mesh.position.set(focus.x, 0, focus.z)
+      ;(sky.mat.uniforms.uCenter.value as THREE.Vector2).set(focus.x, focus.z)
+      if (!reducedMotion()) meteor()
+      flock()
+      drift(dt)
     },
     dispose() {
-      scene.remove(sky.mesh, hills.mesh, trees.group, ...grass.map((g) => g.mesh), flies.points)
+      scene.remove(
+        sky.mesh,
+        hills.mesh,
+        trees.group,
+        ...grass.map((g) => g.mesh),
+        flies.points,
+        birds.mesh,
+        mist.group,
+      )
       sky.mesh.geometry.dispose()
       sky.mat.dispose()
       hills.mesh.geometry.dispose()
@@ -620,6 +1077,9 @@ export function createScenery(scene: THREE.Scene, opts: SceneryOptions): Scenery
       for (const g of grass) g.dispose()
       flies.points.geometry.dispose()
       flies.mat.dispose()
+      birds.mesh.geometry.dispose()
+      birds.mat.dispose()
+      mist.dispose()
     },
   }
 }

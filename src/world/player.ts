@@ -177,8 +177,12 @@ export function createPlayer(scene: THREE.Scene): Player {
      below it: rotating a group rotates about the joint, which is the only
      way a knee bends rather than slides. */
 
+  const SKIN_NIGHT = new THREE.Color(0x4a5a5e)
+  // by day the grey-blue is the value of sunlit grass and the figure goes
+  // missing in its own field; it crosses to a pale cool tone instead
+  const SKIN_DAY = new THREE.Color(0xd6dfe2)
   const skin = new THREE.MeshStandardMaterial({
-    color: 0x4a5a5e,
+    color: SKIN_NIGHT,
     roughness: 0.82,
     metalness: 0.06,
   })
@@ -552,6 +556,9 @@ export function createPlayer(scene: THREE.Scene): Player {
     const flick =
       1 + Math.sin(elapsed * 11.3) * 0.045 + Math.sin(elapsed * 27.7) * 0.03 + amp * 0.08
     const lit = 1 - daylight
+    skin.color.lerpColors(SKIN_NIGHT, SKIN_DAY, daylight)
+    // no lantern in daylight: it is a thing you carry at night
+    swing.visible = lit > 0.5
     glow.scale.setScalar(GLOW_SIZE * flick * (0.3 + lit * 0.7))
     glowMat.opacity = lit * lit
     glow.visible = glowMat.opacity > 0.01

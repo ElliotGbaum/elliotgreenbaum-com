@@ -72,6 +72,13 @@ export interface LandmarkContext {
   /** show a transient line of text near the bottom of the screen */
   setPrompt(text: string | null): void
   /**
+   * Whether the film has been watched through once this visit. A landmark
+   * that keeps quiet until the one thing the field is for has been done —
+   * Elliot, who only lights up and shows his name after it — asks this
+   * rather than being told, so it is never a frame stale either.
+   */
+  filmSeen(): boolean
+  /**
    * Where the visitor's figure is standing, in world units — a LIVE reference
    * to the player's position, never a copy, so reading it costs nothing and
    * it is never a frame stale. It is here for a landmark that has to know
