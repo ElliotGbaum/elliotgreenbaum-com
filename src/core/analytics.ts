@@ -30,9 +30,21 @@
  * `?analytics=on` reverses it. `?analytics=debug` prints every event to the
  * console, key or no key.
  *
+ * WHERE A VISITOR CAME FROM. Every event carries `source`: the `?src=`
+ * (or `?ref=`, or `utm_source`) on the address they arrived by, else a
+ * classification of the referrer (linkedin, x, google, github, email…), else
+ * 'direct'. The first source this browser ever arrived by is kept as
+ * `first_source`, so a visitor who came from LinkedIn on Monday and typed the
+ * address on Thursday is still LinkedIn's. Referrers are weak on their own —
+ * the LinkedIn app and every PDF send none, so a résumé click and a typed
+ * address both read as 'direct' — which is why the address on the résumé
+ * should carry `?src=resume`, the one on the LinkedIn profile `?src=linkedin`,
+ * and so on; the README has the list. PostHog also stores `src` and `ref` as
+ * campaign parameters alongside the standard utm_* set.
+ *
  * THE EVENTS, in funnel order. Every one carries the context registered at
  * boot (lane, device, reduced motion, time of day, GPU, viewport, visit
- * number) so any of them can be cut by any of those.
+ * number, source) so any of them can be cut by any of those.
  *
  *   lane_shown            { lane: 'world' | 'card', reason }
  *   world_ready           { boot_ms }
@@ -98,6 +110,7 @@ const HOST = (import.meta.env.VITE_POSTHOG_HOST as string | undefined) || 'https
 const OPT_OUT_FLAG = 'eg:analytics-off'
 const VISITS_KEY = 'eg:visits'
 const FIRST_SEEN_KEY = 'eg:first-seen'
+const FIRST_SOURCE_KEY = 'eg:first-source'
 const PERF_EVERY_MS = 30_000
 
 const t0 = performance.now()
@@ -156,6 +169,42 @@ function visitNumber(): { visit_n: number; days_since_first: number } {
   return { visit_n: n, days_since_first: Math.floor((Date.now() - first) / 86_400_000) }
 }
 
+/**
+ * Where this visit came from. A tag on the address wins; the referrer is the
+ * fallback; the absence of both is 'direct', which is also what a PDF or the
+ * LinkedIn app sends, so tag the address wherever you can.
+ */
+function sourceOf(): { source: string; source_tagged: boolean; referrer_host: string | null; first_source: string } {
+  const q = new URLSearchParams(location.search)
+  const tag = (q.get('src') ?? q.get('ref') ?? q.get('utm_source') ?? '').trim().toLowerCase().slice(0, 40)
+  let host: string | null = null
+  try {
+    host = document.referrer ? new URL(document.referrer).hostname.replace(/^www\./, '') : null
+  } catch {
+    host = null
+  }
+  const own = host === location.hostname.replace(/^www\./, '')
+  let source = tag
+  if (!source) {
+    if (!host || own) source = 'direct'
+    else if (/(^|\.)linkedin\.com$|^lnkd\.in$/.test(host)) source = 'linkedin'
+    else if (/(^|\.)(x|twitter)\.com$|^t\.co$/.test(host)) source = 'x'
+    else if (/(^|\.)google\./.test(host)) source = 'google'
+    else if (/(^|\.)(bing|duckduckgo|yahoo|ecosia)\./.test(host)) source = 'search'
+    else if (/(^|\.)github\.com$/.test(host)) source = 'github'
+    else if (/mail\.google\.com|outlook\.|mail\.yahoo|superhuman|hey\.com/.test(host)) source = 'email'
+    else if (/(^|\.)(chatgpt|openai|claude|anthropic|perplexity)\./.test(host)) source = 'assistant'
+    else source = host
+  }
+  const s = storage()
+  let first = s?.getItem(FIRST_SOURCE_KEY) ?? ''
+  if (!first) {
+    first = source
+    s?.setItem(FIRST_SOURCE_KEY, first)
+  }
+  return { source, source_tagged: !!tag, referrer_host: own ? null : host, first_source: first }
+}
+
 async function load(): Promise<void> {
   if (ph || loading || disabled || !KEY) return
   loading = true
@@ -167,6 +216,7 @@ async function load(): Promise<void> {
       defaults: '2026-08-30',
       persistence: 'localStorage',
       respect_dnt: true,
+      custom_campaign_params: ['src', 'ref'],
       person_profiles: 'identified_only',
       autocapture: false,
       capture_heatmaps: false,
@@ -372,7 +422,9 @@ export const analytics = {
       lang: navigator.language,
       tz: Intl.DateTimeFormat().resolvedOptions().timeZone ?? null,
       ...visitNumber(),
+      ...sourceOf(),
     }
+    if (debug) console.debug('[analytics] context', JSON.stringify(context))
     send('lane_shown', { lane, reason: reason ?? null })
 
     // the first touch of anything, and the mix of inputs after it
