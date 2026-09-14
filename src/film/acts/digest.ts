@@ -149,7 +149,7 @@ const COLUMNS: Row[][] = C.columns.map((sections) => {
  */
 function digestFrame(w: number, h: number): Frame {
   const padX = Math.max(w * 0.045, 12)
-  const padTop = Math.max(h * 0.065, 14)
+  const padTop = Math.max(h * 0.05, 12)
   /* THE BOTTOM MATCHES THE TOP, ON PURPOSE. The projector stands between the
      viewer and the screen, and its head rises into the middle of the bottom
      edge, where the addresses sit — it clips the first letters of the
@@ -218,10 +218,10 @@ interface Sizes {
  * place height actually went away, and it had the most of it to give.
  */
 function sizesAt(S: TypeScale, k: number): Sizes {
-  const title = S.head * 0.44 * k
+  const title = S.head * 0.4 * k
   const head = S.micro * 0.82 * k
   const item = S.small * 0.62 * k
-  const sub = item * 0.87
+  const sub = item * 0.94
   return {
     title,
     head,
@@ -229,7 +229,7 @@ function sizesAt(S: TypeScale, k: number): Sizes {
     sub,
     itemLh: item * 1.24,
     subLh: sub * 1.24,
-    headLead: item * 1.34,
+    headLead: item * 1.15,
     headTrail: head * 0.7,
     /* THE PITCH BETWEEN BULLETS IS WIDER THAN THE LEADING INSIDE ONE, and
        by more than it used to be. At 0.38 a run of one-line bullets sat at
@@ -365,8 +365,8 @@ function measureFoot(ctx: CanvasRenderingContext2D, F: Frame, z: Sizes): Foot {
      ("Would love to hear from you!", act11.hear) is NOT on the card: the
      addresses are the last thing it says. */
   const headY = z.head * 1.45
-  const rolesY = headY + z.item * 1.5
-  const addrY = rolesY + addrSize * 1.85
+  const rolesY = headY + z.item * 1.4
+  const addrY = rolesY + addrSize * 1.7
 
   return {
     addrSize,
@@ -406,7 +406,7 @@ const FOOT_STEP = 0.16
 
 /** heading, rule, the taller column, and the foot — the whole card, top to toe */
 function totalHeight(z: Sizes, colH: number, foot: Foot): number {
-  return z.title + z.title * 0.4 + z.title * 0.5 + colH + z.item * 0.95 + foot.h
+  return z.title + z.title * 0.35 + z.title * 0.45 + colH + z.item * 0.95 + foot.h
 }
 
 function draw(c: ActRenderContext): void {
@@ -461,8 +461,8 @@ function draw(c: ActRenderContext): void {
 
   const top = F.y + Math.max(0, (F.h - blockH) / 2)
   const titleY = top + z.title
-  const ruleY = titleY + z.title * 0.4
-  const colTop = ruleY + z.title * 0.5
+  const ruleY = titleY + z.title * 0.35
+  const colTop = ruleY + z.title * 0.45
   const footRuleY = colTop + colH + z.item * 0.95
 
   /* ---- the heading ---- */
