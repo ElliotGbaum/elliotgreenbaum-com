@@ -335,6 +335,36 @@
     <span class="film-tldr__label">TLDR Version</span>
   </button>
 
+  <!-- THE CONVERSATION — the panel you talk to Elliot in.
+
+       He is a figure standing out in the field with a lantern and a nametag
+       (src/world/landmarks/elliot.ts); walk up, press E, and this comes up
+       (src/ui/chat.ts). The words in it are the only words on this site that
+       were not written in advance: an AI with Elliot's own notes about
+       himself answers, live. Which is why the panel says so, twice, before
+       anyone has typed — the tag beside the name and the note under it — and
+       why the nametag out in the world says it a third time.
+
+       Empty on purpose: the greeting, the questions and the note are all in
+       src/content/talk.json and are written in by chat.ts at boot, so the
+       copy lives with the rest of the site's words. Outside #hud, because the
+       HUD fades out while this is up, and it sits at the film bar's own layer
+       for the same reason the film bar does. -->
+  <section id="talk" hidden role="dialog" aria-label="Talk to Elliot" data-busy="false">
+    <header class="talk__head">
+      <h2 class="talk__name">Elliot<span class="talk__kind">AI stand-in</span></h2>
+      <button id="talk-close" type="button">Leave</button>
+    </header>
+    <p id="talk-note"></p>
+    <ol id="talk-log"></ol>
+    <div id="talk-asks" role="group" aria-label="Questions to ask"></div>
+    <form id="talk-form" autocomplete="off">
+      <input id="talk-input" type="text" name="q" aria-label="Your question" autocomplete="off" autocapitalize="sentences" enterkeyhint="send" />
+      <button id="talk-send" type="submit">Ask</button>
+    </form>
+    <p id="talk-status" role="status" aria-live="polite" aria-atomic="true"></p>
+  </section>
+
   <!-- The film's controls.
        The picture itself is NOT here — it is a texture on the projector
        screen out in the world, and you watch it from where you are standing.

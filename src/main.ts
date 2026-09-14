@@ -52,8 +52,10 @@ import { createScenery } from './world/scenery'
 import { createPlayer } from './world/player'
 import { createRig } from './world/camera'
 import { createProjector } from './world/landmarks/projector'
+import { createElliot } from './world/landmarks/elliot'
 import { createHud } from './ui/hud'
 import { createInteractPrompt } from './ui/interact'
+import { createChat } from './ui/chat'
 import { createFullscreen } from './ui/fullscreen'
 import { CANVAS_H, CANVAS_W, CHAPTERS, createFilm } from './film/film'
 import { createFilmControls } from './film/controls'
@@ -203,7 +205,14 @@ function boot() {
      badge, the raycast — iterates it rather than naming the projector, so
      putting a landmark back is one push and no other edit. */
   const projector = createProjector(film.canvas)
-  const landmarks: Landmark[] = [projector]
+  /* …and one more, since: Elliot himself, standing out to the left of the
+     path with a lantern and a nametag. He is the one thing out here that
+     talks back — an AI with his notes answers for him (see the header of
+     src/world/landmarks/elliot.ts). He is a landmark like the projector is:
+     walk up, press E, and the field hands you a panel. He never fires for
+     being walked past. */
+  const elliot = createElliot()
+  const landmarks: Landmark[] = [projector, elliot]
 
   // what is simply there: a horizon, a sky, fireflies, and by day a meadow —
   // bare under the machine
@@ -250,6 +259,12 @@ function boot() {
      and the shot re-frames itself on the way. */
   const fullscreen = createFullscreen()
 
+  /* …and the panel you talk to Elliot in. It is DOM, at the film bar's layer,
+     and it knows nothing about the world: `startTalk` below walks the figure
+     over, frames the pair, and only then opens it; closing it — the Leave
+     button or Escape — hands the field back through `finishTalk`. */
+  const chat = createChat()
+
   let suppressUntil = 0 // brief cooldown so leaving the film doesn't re-trigger it
   const now = () => performance.now() / 1000
 
@@ -275,7 +290,11 @@ function boot() {
        was worse in the one way that counts: it minified to `enterParkour(){}`
        in the shipped bundle, which is the name of a thing that is supposed to
        not exist. Not answering a door is how you say there is no door. */
+    talk() {
+      startTalk()
+    },
     setPrompt: say,
+    playerPosition: player.position,
   }
 
   /* ---------------- time of day ----------------
@@ -404,6 +423,60 @@ function boot() {
   film.onEnd(finishFilm)
   controls.onSkip(stopFilm)
 
+  /* ---------------- the conversation ----------------
+   * The same shape as the film sequence, smaller: your figure walks the last
+   * few units over to him and turns to face him, he turns to face you, the
+   * camera pulls round to a two-shot with the pair of you in the clear half
+   * of the frame, and the panel comes up. Everything about the world is
+   * suspended for as long as it is — proximity, the badge, the compass, the
+   * keys — and everything comes back when it goes.
+   *
+   * `talkSeq` is this sequence's own cancellation token, for the same reason
+   * the film has `seq`: Escape can land between any two awaits.
+   */
+  let talking = false
+  /** has a conversation been opened at least once this visit */
+  let talked = false
+  let talkSeq = 0
+
+  async function startTalk() {
+    if (talking || filmActive) return
+    talking = true
+    talked = true
+    const mine = ++talkSeq
+
+    player.setEnabled(false)
+    say(null)
+    hud.hide()
+    badge.update(rig.camera, null)
+
+    await player.walkTo(elliot.talkSpot)
+    if (mine !== talkSeq) return
+    player.faceTo(elliot.facePoint)
+    elliot.setEngaged(true)
+
+    const v = elliot.talkVantage(aspect())
+    await rig.cutTo(v.position, v.lookAt, REDUCED_MOTION ? 0.01 : 1.4, v.fov)
+    if (mine !== talkSeq) return
+
+    chat.open()
+  }
+
+  /** the one way out — the panel closing, whoever closed it */
+  function finishTalk() {
+    if (!talking) return
+    talking = false
+    talkSeq++
+    elliot.setEngaged(false)
+    rig.release()
+    player.cancelTravel()
+    player.setEnabled(true)
+    suppressUntil = now() + 1.4
+    hud.show()
+  }
+
+  chat.onClose(finishTalk)
+
   /* ---------------- proximity + dwell activation ---------------- */
   // Press E — or Enter, or Space — while standing at the thing, AND THAT IS
   // THE ONLY WAY INTO ANY OF IT. There is no tutorial: the badge that floats at
@@ -452,6 +525,15 @@ function boot() {
       stopFilm()
       return
     }
+    if (e.key === 'Escape' && talking) {
+      e.preventDefault()
+      // the panel may not be up yet — mid-walk, mid-cut — and finishTalk is
+      // the way out of every one of those states; closing the panel calls it
+      // too, so a panel that is up goes down and one that is not never opens
+      if (chat.isOpen) chat.close()
+      else finishTalk()
+      return
+    }
     /* E, because that is the key this genre reaches for and the badge floating
        at the switch says so. Enter and Space still work — they are what a
        keyboard visitor tabbing around will try, and they cost nothing. */
@@ -459,7 +541,7 @@ function boot() {
     if (!isE && e.key !== 'Enter' && e.key !== ' ') return
     // ⌘E, ⌃E and ⌥E belong to the browser, and a held key is one press
     if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return
-    if (filmActive || !near) return
+    if (filmActive || talking || !near) return
 
     /* Whose keypress is it. Enter and Space are how you press a FOCUSED
      * BUTTON, so if one has focus they belong to it and not to the world —
@@ -644,14 +726,14 @@ function boot() {
   function onPointerMove(e: PointerEvent) {
     if (dragging) {
       // the film taking the screen mid-drag ends the drag; it does not want the
-      // figure walking underneath it
-      if (filmActive) return endDrag()
+      // figure walking underneath it — and neither does a conversation
+      if (filmActive || talking) return endDrag()
       const ground = groundAt(e)
       if (ground) player.steerTo(ground)
       return
     }
     if (e.target !== canvas) return setPointing(false)
-    setPointing(filmActive ? !!linkAt(e) : !!landmarkAt(e))
+    setPointing(filmActive ? !!linkAt(e) : talking ? false : !!landmarkAt(e))
   }
   window.addEventListener('pointermove', onPointerMove, { passive: true })
 
@@ -676,7 +758,7 @@ function boot() {
        within arm's reach of the switch it is pinned to. On a keyboard the pin
        is `pointer-events: none` and none of this is reachable — see the
        `(hover: none)` block in src/ui/ui.css. */
-    if (!filmActive && near && (e.target as HTMLElement | null)?.closest('#interact')) {
+    if (!filmActive && !talking && near && (e.target as HTMLElement | null)?.closest('#interact')) {
       e.preventDefault()
       pending = null
       fire(near)
@@ -684,6 +766,10 @@ function boot() {
     }
 
     if (e.target !== canvas) return
+
+    /* a conversation is up: the panel takes the clicks and the field does not.
+       The way out is the panel's own button, or Escape. */
+    if (talking) return
 
     /* the film is up: the picture takes clicks and the field does not. Walking
        is not a thing you are doing right now, and the machine is mid-sentence. */
@@ -803,6 +889,12 @@ function boot() {
     if (watching) {
       vantage = projector.watchVantage(w / h)
       rig.snapTo(vantage.position, vantage.lookAt, vantage.fov)
+    }
+    // …and the two-shot is framed for one window shape too: a phone turned
+    // with the panel up needs the pair re-framed above it
+    if (talking && chat.isOpen) {
+      const v = elliot.talkVantage(w / h)
+      rig.snapTo(v.position, v.lookAt, v.fov)
     }
   }
 
@@ -960,7 +1052,7 @@ function boot() {
      * again a second and a half after the film ended, with the figure parked
      * in front of the machine. The film restarted, for ever. Nothing you do
      * during a cutscene is you leaving. */
-    if (!filmActive) {
+    if (!filmActive && !talking) {
       let closest: Landmark | null = null
       let closestD = Infinity
       for (const l of landmarks) {
@@ -998,14 +1090,22 @@ function boot() {
       // LEAD above), so closing the distance changes nothing on screen. What
       // does change it is state — having already done the thing, which is what
       // `again` is for.
+      // …with one addition since: the film having been watched, the standing
+      // line hands over to Elliot's own prompt, until he has been talked to.
+      // Same rule — it is HIS string, so closing the distance to him changes
+      // nothing on screen — and then the field goes quiet, as it did before.
       const armed = !!near && !disarmed.has(near.id)
       say(
         near
           ? armed
             ? near.prompt
             : near.again
-          : !seenFilm && elapsed > LEAD_DELAY
-            ? LEAD
+          : elapsed > LEAD_DELAY
+            ? !seenFilm
+              ? LEAD
+              : !talked
+                ? elliot.prompt
+                : null
             : null,
       )
 
@@ -1046,10 +1146,10 @@ function boot() {
         }
       }
     } else {
-      // the world is putting on a show and there is nothing to press. The HUD
-      // is fading out over the top of this anyway, but the badge is the one
-      // piece that would otherwise come back still lit, in the wrong place,
-      // on the frame the film ends.
+      // the world is putting on a show — or a conversation — and there is
+      // nothing to press. The HUD is fading out over the top of this anyway,
+      // but the badge is the one piece that would otherwise come back still
+      // lit, in the wrong place, on the frame the film ends.
       badge.update(rig.camera, null)
     }
 
@@ -1064,10 +1164,15 @@ function boot() {
      * is naming something you are about to walk up to and read. Rename the
      * machine, rename it here.
      */
-    if (!filmActive) {
-      const target: Landmark = projector
+    if (!filmActive && !talking) {
+      /* …EXCEPT ONCE THE FILM HAS BEEN WATCHED AND ELLIOT HAS NOT BEEN MET,
+         when the needle points at him instead. He is the second thing to do,
+         he is off the path, and after the film the projector is a place you
+         have already been. Once he has been talked to it goes back to naming
+         the projector, for the reason above. */
+      const target: Landmark = seenFilm && !talked ? elliot : projector
       // the HUD swallows a label it is already showing, so this is free
-      hud.setCompassLabel('Projector')
+      hud.setCompassLabel(target === elliot ? 'Elliot' : 'Projector')
       toTarget.subVectors(target.anchor, player.position)
       const dist = Math.hypot(toTarget.x, toTarget.z)
       hud.setCompass(Math.atan2(toTarget.x, -toTarget.z), dist)
@@ -1108,6 +1213,7 @@ function boot() {
       window.removeEventListener('blur', endDrag)
       badge.dispose()
       fullscreen.dispose()
+      chat.dispose()
       controls.dispose()
       player.dispose()
       stage.dispose()

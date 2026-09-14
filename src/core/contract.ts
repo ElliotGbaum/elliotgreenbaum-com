@@ -63,8 +63,22 @@ export interface LandmarkContext {
   enterParkour?(): void
   /** …and out the other side of the projector, into the trainyard run */
   enterSurf?(): void
+  /**
+   * Walk up to Elliot and start a conversation — the second thing the field
+   * offers, and the only one that talks back. See src/world/landmarks/elliot.ts
+   * for the figure and src/ui/chat.ts for the panel it opens.
+   */
+  talk(): void
   /** show a transient line of text near the bottom of the screen */
   setPrompt(text: string | null): void
+  /**
+   * Where the visitor's figure is standing, in world units — a LIVE reference
+   * to the player's position, never a copy, so reading it costs nothing and
+   * it is never a frame stale. It is here for a landmark that has to know
+   * where you are rather than merely how far away you are (`lit` in `update`
+   * is a distance): a figure that turns to face you has to know which way.
+   */
+  readonly playerPosition: THREE.Vector3
 }
 
 /**

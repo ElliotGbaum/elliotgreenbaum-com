@@ -1,0 +1,26 @@
+{
+  "_readme": "Every word the conversation panel says on its own, before the AI says anything. Edit the strings, reload, done — no code. What the AI itself knows about Elliot is NOT here: that is server/persona.ts, which is the only file the model ever reads, and it is kept off the client on purpose. 'greeting' is the first line in the log when the panel opens, and it is written rather than generated, because it is the one line that has to be exactly right every time: it says what this is. 'note' is the standing line under the header, and it says the same thing in the third person for anyone who skipped the greeting. 'questions' are the chips — classic interview questions, in the order they appear. Each one is sent to the AI verbatim as if the visitor had typed it, so they read as questions a person would actually ask, in the second person. 'fallback' is what Elliot says when the AI cannot be reached, by cause; none of those lines are generated either.",
+
+  "greeting": "Hi — I’m Elliot. Well, an AI version of him: he handed me his notes about himself and I answer for him, live. Nothing I say is scripted, so ask me what you’d actually ask him in an interview.",
+
+  "note": "Not a script. An AI with Elliot’s own notes writes every answer as you ask — so it can get things wrong. The real one is at elliotgreenbaum@gmail.com.",
+
+  "questions": [
+    "Tell me about yourself",
+    "Why are you interested in startups?",
+    "Why are you interested in AI?",
+    "What did you actually do at Cassidy?",
+    "What’s NewsGlide?",
+    "What are you looking for next?",
+    "What’s a weakness you’re working on?",
+    "What do you do outside of work?"
+  ],
+
+  "placeholder": "Or type your own question",
+
+  "fallback": {
+    "unconfigured": "I’ve lost my voice — the AI behind me isn’t switched on right now. The real Elliot is one email away: elliotgreenbaum@gmail.com.",
+    "busy": "Give me a moment — too many questions at once. Try that one again in a minute.",
+    "error": "Something went wrong on my end. Ask again, or email the real Elliot at elliotgreenbaum@gmail.com."
+  }
+}
