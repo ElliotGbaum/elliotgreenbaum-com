@@ -42,7 +42,9 @@
   "@type": "Person",
   "name": "Elliot Greenbaum",
   "url": "https://elliotgreenbaum.com/",
+  "description": "Product, deployment and solutions work at the edge of AI. Built NewsGlide.org, co-founded E&B Agentic Solutions, previously at Cassidy. Philosophy, Politics & Economics at Penn.",
   "email": "mailto:elliotgreenbaum@gmail.com",
+  "knowsAbout": ["AI agents and workflow automation", "product", "solutions and implementation", "chess", "guitar", "saxophone"],
   "image": "https://elliotgreenbaum.com/og.png",
   "sameAs": [
     "https://www.linkedin.com/in/elliot-greenbaum/",
@@ -123,6 +125,37 @@
     text-decoration:none;
   }
   .card .contact a:hover{text-decoration:underline;text-underline-offset:4px}
+
+  /* ---------- the film, in words ----------
+     One collapsed line under the addresses, and the whole film behind it —
+     for the visitor the world cannot serve, who until now got the least of
+     anyone, and for the machines: an assistant handed this address fetches
+     THIS page, and the film is a texture it will never see. Generated from
+     src/content/film.json by tools/agent-layer.ts, so it is the film's own
+     words and cannot drift from them. Collapsed rather than hidden: text a
+     page hides from people and shows to crawlers is a trick, and this is
+     not one — anyone can open it. */
+  .transcript{margin-top:22px;padding-top:18px;border-top:1px solid var(--rule);color:var(--ink-2)}
+  .transcript summary{
+    cursor:pointer;font-family:var(--font-mono);font-size:.74rem;letter-spacing:.06em;
+    color:var(--amber);min-height:44px;display:flex;align-items:center;
+  }
+  /* flex on the summary drops the browser's own triangle, so it is drawn back
+     by hand — a thing that opens has to look like it opens */
+  .transcript summary::before{
+    content:'';width:0;height:0;margin-right:10px;flex:none;
+    border-left:6px solid currentColor;border-top:4px solid transparent;border-bottom:4px solid transparent;
+    transition:transform .15s ease;
+  }
+  .transcript summary::-webkit-details-marker{display:none}
+  .transcript[open] summary::before{transform:rotate(90deg)}
+  .transcript summary:hover{text-decoration:underline;text-underline-offset:4px}
+  .transcript__note{margin:6px 0 18px;font-size:.86rem;color:var(--ink-3)}
+  .transcript h2{
+    margin:22px 0 4px;font-family:var(--font-mono);font-weight:500;font-size:.72rem;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);
+  }
+  .transcript p{margin:0;font-size:.98rem;color:var(--ink)}
 
   /* ---------- the world (shown only once WebGL is confirmed) ----------
      The class is set by the inline script below, before the body is parsed,
@@ -276,6 +309,12 @@
      If the film is ever unreachable the answer is to fix the film, not to
      grow this block back into a CV — it stays three lines.
 
+     Three lines AND the film itself, in words, folded under them: a
+     transcript is not a CV, it is the same story for a reader who cannot
+     run the picture — a locked-down laptop, a screen reader, or the
+     assistant somebody pasted this address into. It is generated from the
+     film's copy, so it can only ever say what the film says.
+
      Hidden the moment WebGL is confirmed (html.has-webgl .card).
      ===================================================================== -->
 <main class="card" id="card">
@@ -285,6 +324,9 @@
     <a href="https://www.linkedin.com/in/elliot-greenbaum/">LinkedIn</a>
     <a href="https://x.com/elliotgreenbaum">X</a>
   </p>
+  <!-- Replaced at build time (and on the dev server) with the film's words,
+       act by act, as a collapsed <details>. See tools/agent-layer.ts. -->
+  <!--@transcript-->
 </main>
 
 
