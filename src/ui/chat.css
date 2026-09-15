@@ -794,6 +794,17 @@ html.is-day .talk__fact[data-playing='true'] .talk__src svg {
 html.is-day #talk-send:hover:not(:disabled) {
   background: rgba(138, 90, 20, 0.08);
 }
+/* WHOOP's bands, deepened the way the amber is: the night values are
+   pastels for a dark veil, and yellow on buff simply disappears */
+html.is-day .talk__fact-body > .talk__band--green {
+  color: #2f7a3a;
+}
+html.is-day .talk__fact-body > .talk__band--yellow {
+  color: #7a5400;
+}
+html.is-day .talk__fact-body > .talk__band--red {
+  color: #b83a2a;
+}
 
 @media (prefers-reduced-motion: reduce) {
   #talk,
