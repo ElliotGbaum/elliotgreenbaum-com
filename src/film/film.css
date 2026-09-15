@@ -43,15 +43,15 @@
   --film-glow: #ffc46b;
   --film-amber: #e3a94a;
   --film-amber-lit: #f3c77e;
-  --film-rule: rgba(233, 228, 214, 0.22);
-  --film-rule-on: rgba(233, 228, 214, 0.36);
+  --film-rule: rgba(233, 228, 214, 0.34);
+  --film-rule-on: rgba(233, 228, 214, 0.5);
   --film-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   /* the words sit on live grass; this is what keeps them legible without a
      panel — the same pair the prompt line and the badge use */
   --film-shadow:
     0 1px 3px rgba(0, 0, 0, 0.92),
     0 0 14px rgba(0, 0, 0, 0.8);
-  --film-bar-h: 1px;
+  --film-bar-h: 3px;
 
   position: fixed;
   left: 0;
@@ -160,7 +160,7 @@
 
 .film-chaps {
   display: flex;
-  gap: 6px;
+  gap: 5px;
   height: var(--film-bar-h);
   transition: height 0.14s ease;
 }
@@ -168,7 +168,7 @@
 #film-scrub:hover .film-chaps,
 #film-scrub:focus-visible .film-chaps,
 #film-scrub[data-drag="true"] .film-chaps {
-  height: 3px;
+  height: 5px;
 }
 
 .film-chap {
@@ -176,6 +176,7 @@
   flex: 1 1 0;
   min-width: 2px;
   overflow: hidden;
+  border-radius: 1.5px;
   background: var(--film-rule);
 }
 
@@ -255,8 +256,8 @@
   gap: clamp(14px, 2.2vw, 26px);
   padding-top: 2px;
   font-family: var(--film-mono);
-  font-size: 11.5px;
-  font-weight: 500;
+  font-size: 12.5px;
+  font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   line-height: 1;
@@ -265,7 +266,7 @@
 
 #film-time {
   flex: 0 0 auto;
-  color: var(--film-sage);
+  color: rgba(233, 228, 214, 0.86);
   letter-spacing: 0.1em;
   font-variant-numeric: tabular-nums;
 }
@@ -310,7 +311,7 @@
   margin: 0;
   border: 0;
   background: transparent;
-  color: rgba(233, 228, 214, 0.92);
+  color: var(--film-ink);
   font: inherit;
   letter-spacing: inherit;
   text-transform: inherit;
@@ -349,7 +350,7 @@
   flex: 0 0 auto;
   padding: 0 4px;
   margin-right: -4px;
-  color: var(--film-sage);
+  color: rgba(233, 228, 214, 0.86);
 }
 
 #film-skip:hover {
@@ -375,7 +376,7 @@
 .film-rate {
   position: relative;
   padding: 0 clamp(7px, 0.9vw, 11px);
-  color: var(--film-ink-3);
+  color: rgba(233, 228, 214, 0.6);
   letter-spacing: 0.06em;
   font-variant-numeric: tabular-nums;
 }
@@ -605,7 +606,7 @@
     flex: 0 1 auto;
   }
   .film-rate {
-    font-size: 11px;
+    font-size: 12px;
   }
 }
 
@@ -632,11 +633,11 @@
   }
   .film-rate {
     padding: 0 7px;
-    font-size: 10.5px;
+    font-size: 11.5px;
     letter-spacing: 0.02em;
   }
   #film-skip {
-    font-size: 10.5px;
+    font-size: 11.5px;
   }
 }
 
