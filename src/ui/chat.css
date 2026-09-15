@@ -385,6 +385,10 @@
 #talk-form {
   flex: 0 0 auto;
 }
+/* down until the visitor has picked what the conversation is for */
+#talk-form[hidden] {
+  display: none;
+}
 .talk__line {
   display: grid;
   gap: 5px;
@@ -490,7 +494,8 @@
 #talk-asks::-webkit-scrollbar {
   display: none;
 }
-.talk__ask {
+.talk__ask,
+.talk__pick {
   --mark: 0px;
   position: relative;
   display: inline-flex;
@@ -515,7 +520,8 @@
     color 160ms ease,
     opacity 160ms ease;
 }
-.talk__ask::before {
+.talk__ask::before,
+.talk__pick::before {
   content: '';
   flex: 0 0 auto;
   width: 10px;
@@ -537,17 +543,43 @@
   animation-delay: 210ms;
 }
 .talk__ask:hover:not(:disabled),
-.talk__ask:focus-visible {
+.talk__ask:focus-visible,
+.talk__pick:hover:not(:disabled),
+.talk__pick:focus-visible {
   color: var(--talk-amber-lit);
 }
 .talk__ask:hover:not(:disabled)::before,
-.talk__ask:focus-visible::before {
+.talk__ask:focus-visible::before,
+.talk__pick:hover:not(:disabled)::before,
+.talk__pick:focus-visible::before {
   width: 18px;
   background: var(--talk-amber-lit);
 }
-.talk__ask:disabled {
+.talk__ask:disabled,
+.talk__pick:disabled {
   cursor: default;
   opacity: 0.45;
+}
+/* the opening choice: the two things you can do here, one under the other,
+   and the line to type stays down until one is picked */
+#talk-asks[data-picking='true'] {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px 0;
+  overflow: visible;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+.talk__pick {
+  font-size: 1.05rem;
+  min-height: 44px;
+}
+.talk__pick:nth-child(2) {
+  animation-delay: 70ms;
+}
+/* the chip that changes what the conversation is for sits apart from the questions */
+.talk__ask--switch {
+  opacity: 0.7;
 }
 /* asked — it folds away and chat.ts removes it when the fold ends */
 .talk__ask[data-asked='true'] {

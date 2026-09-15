@@ -118,7 +118,10 @@ STRAVA_CLIENT_ID=... STRAVA_CLIENT_SECRET=... node tools/strava-auth.mjs
 # two store values in .env so the dev server and the site share one token.
 WHOOP_CLIENT_ID=... WHOOP_CLIENT_SECRET=... node tools/whoop-auth.mjs
 
-# Calendly — the booking link, and with a token the next open slots.
+# Calendly — the booking link; with a token, the next open slots, and the figure
+# can book a call by conversation (Calendly's Scheduling API, paid plans only —
+# on a free plan it falls back to the link). The token needs the
+# scheduled_events:write scope.
 CALENDLY_URL=https://calendly.com/<you>/<event>
 CALENDLY_TOKEN=...               # optional: calendly.com → Integrations → API & Webhooks
 

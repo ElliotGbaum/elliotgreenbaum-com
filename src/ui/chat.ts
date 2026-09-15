@@ -1,26 +1,36 @@
 /**
  * The conversation panel — what opens when you talk to Elliot.
  *
- * A log, a row of questions to pick from, and a line to type your own. It is
- * the one piece of chrome on this site that talks back, and the one piece
- * where the words on screen were not written in advance: every reply is
- * generated, live, by a model that has been given Elliot's notes about
- * himself (server/persona.ts). The model says so itself if anyone asks;
- * the panel does not announce it. It used to be
- * said three times, with a greeting, with a badge and a standing note, and the panel read
- * like a product with a warning label rather than a person; a visitor who
- * has walked up to a figure in a field and pressed E knows what this is.
- * The strings live in src/content/talk.json.
+ * It opens on a choice — ask Elliot about his work, or book a call with
+ * him — and nothing can be typed until one is made. Then a log, a row of
+ * chips, and a line to type your own. It is the one piece of chrome on this
+ * site that talks back, and the one piece where the words on screen were
+ * not written in advance: every reply is generated, live, by a model that
+ * has been given a brief — Elliot's notes about himself for the first
+ * choice (server/persona.ts), a booking script with two tools for the second
+ * (server/book.ts). The model says what it is if anyone asks; the panel does
+ * not announce it. It used to be said three times, with a greeting, with a
+ * badge and a standing note, and the panel read like a product with a
+ * warning label rather than a person; a visitor who has walked up to a
+ * figure in a field and pressed E knows what this is. The strings live in
+ * src/content/talk.json.
+ *
+ * THE TWO MODES are two conversations. Each keeps its own transcript for
+ * the visit, and one chip in each switches to the other; switching redraws
+ * that mode's log rather than starting over. The server is told which brief
+ * a transcript belongs to and signs its replies for that brief only.
  *
  * WHAT IT IS NOT: an owner of the world. It knows nothing about the camera,
  * the figure or the field; main.ts opens it once the figure has walked over
  * and the shot has settled, and closes it on Escape or the Leave button, and
  * puts the world back. This file owns the transcript and the wire.
  *
- * THE WIRE is POST /api/chat with the transcript so far, answered as a plain
- * text stream that is typed into the log as it arrives. The transcript is
- * kept for the length of the visit, so leaving and coming back continues the
- * conversation rather than starting it over. It is never stored anywhere.
+ * THE WIRE is POST /api/chat with the mode, the transcript so far and the
+ * visitor's timezone (so a booking's times are said in it), answered as a
+ * plain text stream that is typed into the log as it arrives. The
+ * transcripts are kept for the length of the visit, so leaving and coming
+ * back continues the conversation rather than starting it over. They are
+ * never stored anywhere.
  *
  * WHEN THE WIRE IS DOWN — no key on the server, a rate limit, a network that
  * is not there — Elliot says so, in a line that was written rather than
@@ -49,6 +59,9 @@ export interface Chat {
 /** `sig` is the server's signature on its own reply (see server/chat.ts); it
  *  goes back with the turn, and a turn without it is refused. */
 type Turn = { role: 'user' | 'assistant'; content: string; sig?: string }
+
+/** the two briefs the server knows — see the header */
+type Mode = 'talk' | 'book'
 
 /** the unit separator that ends every streamed reply: `\u001f<signature>` */
 const SIG_MARK = '\u001f'
@@ -130,10 +143,26 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
   input.placeholder = copy.placeholder
   input.maxLength = MAX_CHARS
 
-  /* ---------------- the transcript ----------------
-     What is sent to the model. The API wants the visitor to speak first,
-     so the log starts empty. */
-  const turns: Turn[] = []
+  /* ---------------- the transcripts ----------------
+     What is sent to the model, one per mode. The API wants the visitor to
+     speak first, so each log starts empty; the booking one is opened by the
+     visitor's own choice, sent as their first line. `mode` is null until the
+     visitor has picked, and nothing can be typed until then. */
+  const transcripts: Record<Mode, Turn[]> = { talk: [], book: [] }
+  /* …and what each one showed, line by line. The log is kept as elements
+     rather than rebuilt from the transcript, because a written fallback line
+     is on screen without being in the transcript (see `ask`), and coming
+     back should find the conversation exactly as it was left. */
+  const shownLines: Record<Mode, HTMLElement[]> = { talk: [], book: [] }
+  let mode: Mode | null = null
+  const turnsOf = () => transcripts[mode ?? 'talk']
+  const zone = (() => {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone
+    } catch {
+      return undefined
+    }
+  })()
   let busy = false
   let open = false
   let inflight: AbortController | null = null
@@ -150,6 +179,7 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
     body.className = 'talk__text'
     li.append(who, body)
     log.append(li)
+    if (mode) shownLines[mode].push(li)
     write(body, text)
     return body
   }
@@ -190,6 +220,12 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
     input.disabled = on
     panel.dataset.busy = on ? 'true' : 'false'
     for (const b of asks.querySelectorAll('button')) b.disabled = on
+  }
+
+  /** what the log shows: this mode's lines, as they were left */
+  function redraw(): void {
+    log.replaceChildren(...shownLines[mode ?? 'talk'])
+    scrollDown()
   }
 
   /* ---------------- what is true right now ----------------
@@ -396,33 +432,92 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
   /* ---------------- the chips ----------------
      A few at a time, not the whole list: CHIPS_SHOWN are on screen, and when
      one is asked it leaves and the next in the queue takes its place. The
-     row stays short and keeps changing, which is what a conversation does. */
+     row stays short and keeps changing, which is what a conversation does.
+     One more chip, set apart, switches to the other mode. */
   const queue = copy.questions.slice()
-  function chip(q: string): HTMLButtonElement {
+  function chip(text: string, onPick: () => void, kind: 'ask' | 'switch' = 'ask'): HTMLButtonElement {
     const b = document.createElement('button')
     b.type = 'button'
-    b.className = 'talk__ask'
-    b.textContent = q
+    b.className = kind === 'switch' ? 'talk__ask talk__ask--switch' : 'talk__ask'
+    b.textContent = text
     b.addEventListener('click', () => {
       if (busy) return
-      b.dataset.asked = 'true'
-      b.addEventListener('animationend', () => b.remove(), { once: true })
-      setTimeout(() => b.remove(), 400)
-      const next = queue.shift()
-      if (next) asks.append(chip(next))
-      void ask(q)
+      onPick()
+      if (kind === 'ask') {
+        b.dataset.asked = 'true'
+        b.addEventListener('animationend', () => b.remove(), { once: true })
+        setTimeout(() => b.remove(), 400)
+        const next = queue.shift()
+        if (next) asks.insertBefore(chip(next, () => void ask(next)), asks.querySelector('.talk__ask--switch'))
+      }
     })
     return b
   }
-  for (let i = 0; i < CHIPS_SHOWN; i++) {
-    const q = queue.shift()
-    if (q) asks.append(chip(q))
+
+  /** the row under the log, for the current mode */
+  function drawAsks(): void {
+    asks.replaceChildren()
+    asks.dataset.picking = mode ? 'false' : 'true'
+    if (!mode) {
+      asks.setAttribute('aria-label', copy.pick.label)
+      const pick = (m: Mode, text: string) => {
+        const b = document.createElement('button')
+        b.type = 'button'
+        b.className = 'talk__pick'
+        b.dataset.mode = m
+        b.textContent = text
+        b.addEventListener('click', () => choose(m))
+        return b
+      }
+      asks.append(pick('talk', copy.pick.talk), pick('book', copy.pick.book))
+      return
+    }
+    asks.setAttribute('aria-label', 'Questions to ask')
+    if (mode === 'talk') {
+      // the chips already asked have left the queue; what is shown is the next few
+      for (let i = 0; i < CHIPS_SHOWN; i++) {
+        const q = queue[i]
+        if (q) asks.append(chip(q, () => void ask(q)))
+      }
+      queue.splice(0, Math.min(CHIPS_SHOWN, queue.length))
+      asks.append(chip(copy.pick.toBook, () => choose('book'), 'switch'))
+    } else {
+      asks.append(chip(copy.pick.toTalk, () => choose('talk'), 'switch'))
+    }
   }
+
+  /** the visitor has said what this conversation is for */
+  function choose(m: Mode): void {
+    if (busy) return
+    if (mode === 'talk') {
+      // put the chips on screen back at the head of the queue, so they show again
+      const shown = [...asks.querySelectorAll<HTMLButtonElement>('.talk__ask:not(.talk__ask--switch)')].map((b) => b.textContent ?? '')
+      queue.unshift(...shown.filter(Boolean))
+    }
+    mode = m
+    panel.dataset.mode = m
+    form.hidden = false
+    input.placeholder = m === 'book' ? copy.placeholderBook : copy.placeholder
+    redraw()
+    drawAsks()
+    if (m === 'book' && transcripts.book.length === 0) {
+      // choosing the call is the visitor's first line, the way a chip is
+      void ask(copy.pick.bookOpener)
+    } else if (open && window.matchMedia('(hover: hover)').matches) {
+      input.focus({ preventScroll: true })
+    }
+  }
+
+  form.hidden = true
+  panel.dataset.mode = 'none'
+  drawAsks()
 
   /* ---------------- asking ---------------- */
   async function ask(text: string): Promise<void> {
     const q = text.trim().slice(0, MAX_CHARS)
-    if (!q || busy) return
+    if (!q || busy || !mode) return
+    const asked = mode
+    const turns = turnsOf()
     setBusy(true)
     input.value = ''
     turns.push({ role: 'user', content: q })
@@ -441,7 +536,7 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ messages: turns }),
+        body: JSON.stringify({ mode: asked, messages: turns, zone }),
         signal: ctl.signal,
       })
       if (!res.ok || !res.body) {
@@ -498,6 +593,7 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
 
   form.addEventListener('submit', (e) => {
     e.preventDefault()
+    if (!mode) return
     void ask(input.value)
   })
 
@@ -538,7 +634,8 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
       // frame; the visitor can tap the line or a chip, both of which are in
       // reach. A keyboard gets the cursor, because the next thing it does is
       // type.
-      if (window.matchMedia('(hover: hover)').matches) input.focus({ preventScroll: true })
+      if (mode && window.matchMedia('(hover: hover)').matches) input.focus({ preventScroll: true })
+      else if (!mode) asks.querySelector<HTMLButtonElement>('.talk__pick')?.focus({ preventScroll: true })
     },
 
     close,
