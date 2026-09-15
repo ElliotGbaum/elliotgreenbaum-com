@@ -1,23 +1,35 @@
-import { agentLayer } from './tools/agent-layer'
-import { defineConfig, loadEnv, type Plugin, type ViteDevServer, type PreviewServer } from 'vite'
-import type { IncomingMessage, ServerResponse } from 'node:http'
-import { readFileSync } from 'node:fs'
+import { agentLayer } from "./tools/agent-layer";
+import {
+  defineConfig,
+  loadEnv,
+  type Plugin,
+  type ViteDevServer,
+  type PreviewServer,
+} from "vite";
+import type { IncomingMessage, ServerResponse } from "node:http";
+import { readFileSync } from "node:fs";
 
 /**
  * The production security headers (vercel.json), put on every preview
  * response too — so `npm run verify`, which drives the preview server, runs
  * under the same Content-Security-Policy the deploy will. A CSP that broke
  * the world would go red here rather than on elliotgreenbaum.com.
+ *
+ * About those headers (vercel.json cannot carry a comment: Vercel rejects
+ * any key it does not know, and a `_` note there broke the deploy on
+ * 2026-09-15): Security headers for every response. The CSP hash is the SHA-256 of the inline <script> in index.html (the WebGL probe, which has to stay inline to run before first paint): change one character of that script and the hash has to change with it — tools/csp-hash.mjs prints the current one, and verify goes red if they disagree. img-src allows Spotify's image host for the album art in the panel. The two posthog.com hosts are analytics (src/core/analytics.ts): events go to us.i.posthog.com, and the library lazy-loads its recorder and web-vitals modules from us-assets.i.posthog.com; without both, a key in Vercel would send nothing and fill the console with CSP errors. The same headers are put on the preview server by vite.config.ts, so the gate runs under them.
  */
 function productionHeaders(): Record<string, string> {
   try {
-    const cfg = JSON.parse(readFileSync(new URL('./vercel.json', import.meta.url), 'utf8')) as {
-      headers?: { source: string; headers: { key: string; value: string }[] }[]
-    }
-    const all = cfg.headers?.find((h) => h.source === '/(.*)')?.headers ?? []
-    return Object.fromEntries(all.map((h) => [h.key, h.value]))
+    const cfg = JSON.parse(
+      readFileSync(new URL("./vercel.json", import.meta.url), "utf8"),
+    ) as {
+      headers?: { source: string; headers: { key: string; value: string }[] }[];
+    };
+    const all = cfg.headers?.find((h) => h.source === "/(.*)")?.headers ?? [];
+    return Object.fromEntries(all.map((h) => [h.key, h.value]));
   } catch {
-    return {}
+    return {};
   }
 }
 
@@ -43,83 +55,102 @@ function productionHeaders(): Record<string, string> {
  * already set in the shell.
  */
 function chatApi(): Plugin {
-  type Handler = (req: Request) => Promise<Response>
+  type Handler = (req: Request) => Promise<Response>;
   const mount = (
     server: ViteDevServer | PreviewServer,
     path: string,
     load: () => Promise<Handler>,
   ) => {
-    server.middlewares.use(path, async (req: IncomingMessage, res: ServerResponse) => {
-      try {
-        const handle = await load()
-        const headers = new Headers()
-        for (const [k, v] of Object.entries(req.headers)) {
-          if (typeof v === 'string') headers.set(k, v)
-          else if (Array.isArray(v)) headers.set(k, v.join(', '))
+    server.middlewares.use(
+      path,
+      async (req: IncomingMessage, res: ServerResponse) => {
+        try {
+          const handle = await load();
+          const headers = new Headers();
+          for (const [k, v] of Object.entries(req.headers)) {
+            if (typeof v === "string") headers.set(k, v);
+            else if (Array.isArray(v)) headers.set(k, v.join(", "));
+          }
+          const chunks: Buffer[] = [];
+          for await (const c of req) chunks.push(c as Buffer);
+          const method = req.method ?? "GET";
+          const request = new Request(`http://localhost${req.url ?? "/"}`, {
+            method,
+            headers,
+            body:
+              method === "GET" || method === "HEAD"
+                ? undefined
+                : Buffer.concat(chunks),
+          });
+          const response = await handle(request);
+          res.statusCode = response.status;
+          response.headers.forEach((v, k) => res.setHeader(k, v));
+          if (!response.body) return res.end();
+          const reader = response.body.getReader();
+          for (;;) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            res.write(value);
+          }
+          res.end();
+        } catch (err) {
+          console.error("[api]", path, err);
+          if (!res.headersSent) res.statusCode = 500;
+          res.end();
         }
-        const chunks: Buffer[] = []
-        for await (const c of req) chunks.push(c as Buffer)
-        const method = req.method ?? 'GET'
-        const request = new Request(`http://localhost${req.url ?? '/'}`, {
-          method,
-          headers,
-          body: method === 'GET' || method === 'HEAD' ? undefined : Buffer.concat(chunks),
-        })
-        const response = await handle(request)
-        res.statusCode = response.status
-        response.headers.forEach((v, k) => res.setHeader(k, v))
-        if (!response.body) return res.end()
-        const reader = response.body.getReader()
-        for (;;) {
-          const { value, done } = await reader.read()
-          if (done) break
-          res.write(value)
-        }
-        res.end()
-      } catch (err) {
-        console.error('[api]', path, err)
-        if (!res.headersSent) res.statusCode = 500
-        res.end()
-      }
-    })
-  }
+      },
+    );
+  };
   return {
-    name: 'elliot-chat-api',
+    name: "elliot-chat-api",
     config(_, { mode }) {
-      const env = loadEnv(mode, process.cwd(), '')
-      for (const [k, v] of Object.entries(env)) if (process.env[k] === undefined) process.env[k] = v
+      const env = loadEnv(mode, process.cwd(), "");
+      for (const [k, v] of Object.entries(env))
+        if (process.env[k] === undefined) process.env[k] = v;
     },
     configureServer(server) {
       const dev = (file: string, name: string) => async () =>
-        (await server.ssrLoadModule(file))[name] as Handler
-      mount(server, '/api/chat', dev('/server/chat.ts', 'handleChat'))
-      mount(server, '/api/spotify', dev('/server/spotify.ts', 'handleSpotify'))
-      mount(server, '/api/live', dev('/server/live.ts', 'handleLive'))
+        (await server.ssrLoadModule(file))[name] as Handler;
+      mount(server, "/api/chat", dev("/server/chat.ts", "handleChat"));
+      mount(server, "/api/spotify", dev("/server/spotify.ts", "handleSpotify"));
+      mount(server, "/api/live", dev("/server/live.ts", "handleLive"));
     },
     configurePreviewServer(server) {
-      mount(server, '/api/chat', async () => (await import('./server/chat')).handleChat)
-      mount(server, '/api/spotify', async () => (await import('./server/spotify')).handleSpotify)
-      mount(server, '/api/live', async () => (await import('./server/live')).handleLive)
+      mount(
+        server,
+        "/api/chat",
+        async () => (await import("./server/chat")).handleChat,
+      );
+      mount(
+        server,
+        "/api/spotify",
+        async () => (await import("./server/spotify")).handleSpotify,
+      );
+      mount(
+        server,
+        "/api/live",
+        async () => (await import("./server/live")).handleLive,
+      );
     },
-  }
+  };
 }
 
 export default defineConfig({
   // the film in words, in the served HTML and at /llms.txt — see tools/agent-layer.ts
   plugins: [chatApi(), agentLayer()],
   build: {
-    target: 'es2022',
+    target: "es2022",
     // three is the only heavy dependency; keeping it in its own chunk means
     // the card in index.html is never blocked behind it.
     rollupOptions: {
       output: {
         manualChunks(id: string) {
-          if (id.includes('node_modules/three')) return 'three'
-          return undefined
+          if (id.includes("node_modules/three")) return "three";
+          return undefined;
         },
       },
     },
   },
   server: { host: true },
   preview: { headers: productionHeaders() },
-})
+});
