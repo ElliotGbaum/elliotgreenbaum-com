@@ -34,6 +34,9 @@ import copy from '../content/talk.json'
 
 export interface Chat {
   readonly isOpen: boolean
+  /** start fetching the live lines now, so they are on screen the moment
+   *  the panel opens — called when the visitor turns toward Elliot */
+  warm(): void
   /** put the panel up and focus the line */
   open(): void
   /** take the panel down. `onClose` fires, whichever side asked. */
@@ -81,7 +84,7 @@ function ago(iso: string): string {
 const MAX_CHARS = 500
 
 function noopChat(): Chat {
-  return { isOpen: false, open() {}, close() {}, onClose() {}, dispose() {} }
+  return { isOpen: false, warm() {}, open() {}, close() {}, onClose() {}, dispose() {} }
 }
 
 export function createChat(): Chat {
@@ -190,15 +193,23 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
   }
 
   /* ---------------- what is true right now ----------------
-     GET /api/live, once per opening of the panel: what he is playing on
-     Spotify, what he last pushed to GitHub, how far he has run this month on
-     Strava, this morning's WHOOP recovery, and where to book time with him — each one
-     read from his own account as the panel opens, each one a short line
-     under the header that names where it came from, and each one absent
-     when there is nothing to show. The same facts are handed to the model
-     server-side, so the lines and the answers agree. The Spotify line opens
-     into the last few tracks and the month's top artists on a tap; nothing
-     else expands. Links only ever go to the service the line came from. */
+     GET /api/live: what he is playing on Spotify, what he last pushed to
+     GitHub, how far he has run this month on Strava, this morning's WHOOP
+     recovery, and where to book time with him — each one read from his own
+     account, each one a short line under the header that names where it
+     came from, and each one absent when there is nothing to show. The same
+     facts are handed to the model server-side, so the lines and the answers
+     agree. Links only ever go to the service the line came from.
+
+     WHEN IT IS FETCHED: before the panel opens, not as it opens. The walk
+     over and the camera move take a second and a half, which is longer than
+     the round trip, so `warm()` — called by main.ts as the visitor turns
+     toward Elliot and again on the press — starts the request early and the
+     rows are drawn on the first frame of the panel rather than arriving a
+     beat after the questions. The answer is kept for a minute (the server's
+     own cache-control) in memory and in sessionStorage, so reopening the
+     panel, and a reload within the minute, draw from what is already here
+     and only refetch when it is stale. */
   type Track = { title: string; artists: string; url: string; at: string; playing: boolean }
   type Live = {
     track: Track | null
@@ -208,10 +219,45 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
     booking: { url: string; next: string[]; minutes: number | null } | null
     zone: string
   }
-  type Detail = {
-    recent: Track[]
-    topArtists: { name: string; url: string }[]
-    topTracks: Track[]
+
+  const LIVE_TTL_MS = 60_000
+  const LIVE_KEY = 'talk-live'
+  let liveCache: { at: number; live: Live } | null = null
+  try {
+    const raw = sessionStorage.getItem(LIVE_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw) as { at: number; live: Live }
+      if (parsed && typeof parsed.at === 'number' && parsed.live) liveCache = parsed
+    }
+  } catch {
+    /* storage is a convenience; without it the wire is asked each time */
+  }
+  let liveFetch: Promise<Live | null> | null = null
+  function fresh(): boolean {
+    return !!liveCache && Date.now() - liveCache.at < LIVE_TTL_MS
+  }
+  /** the live facts: from the cache while it is fresh, else one request
+   *  shared by everyone who asks while it is in flight */
+  function warmLive(): Promise<Live | null> {
+    if (fresh()) return Promise.resolve(liveCache!.live)
+    if (liveFetch) return liveFetch
+    liveFetch = fetch('/api/live', { priority: 'high' } as RequestInit)
+      .then(async (res) => {
+        if (!res.ok) return null
+        const live = (await res.json()) as Live
+        liveCache = { at: Date.now(), live }
+        try {
+          sessionStorage.setItem(LIVE_KEY, JSON.stringify(liveCache))
+        } catch {
+          /* see above */
+        }
+        return live
+      })
+      .catch(() => null /* the feeds are a nicety; their absence is silent */)
+      .finally(() => {
+        liveFetch = null
+      })
+    return liveFetch
   }
 
   /* the source of a line, as a glyph: one stroke each, in the world's ink,
@@ -265,18 +311,14 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
     return span
   }
 
-  let liveShown = false
-  async function showLive(): Promise<void> {
-    if (!now || liveShown) return
-    liveShown = true
-    let live: Live
-    try {
-      const res = await fetch('/api/live')
-      if (!res.ok) return
-      live = (await res.json()) as Live
-    } catch {
-      return /* the feeds are a nicety; their absence is silent */
-    }
+  /** what is on screen, as JSON, so the same facts are not redrawn (and
+   *  re-animated) when the panel is opened a second time */
+  let liveDrawn = ''
+  function render(live: Live): void {
+    if (!now) return
+    const key = JSON.stringify(live)
+    if (key === liveDrawn) return
+    liveDrawn = key
     const rows: HTMLElement[] = []
     const L = copy.live
 
@@ -286,51 +328,6 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
       r.id = 'talk-now-track'
       r.dataset.playing = t.playing ? 'true' : 'false'
       body.append(link(t.url, `${t.title} — ${t.artists}`))
-      const more = document.createElement('button')
-      more.type = 'button'
-      more.className = 'talk__more'
-      more.textContent = L.more
-      more.setAttribute('aria-expanded', 'false')
-      const detail = document.createElement('div')
-      detail.className = 'talk__detail'
-      detail.hidden = true
-      let loaded = false
-      more.addEventListener('click', async () => {
-        const opening = detail.hidden
-        detail.hidden = !opening
-        more.setAttribute('aria-expanded', opening ? 'true' : 'false')
-        more.textContent = opening ? L.less : L.more
-        if (!opening || loaded) return
-        loaded = true
-        try {
-          const res = await fetch('/api/spotify?detail')
-          if (!res.ok) throw new Error(String(res.status))
-          const { detail: d } = (await res.json()) as { detail: Detail | null }
-          if (!d) throw new Error('none')
-          const section = (title: string, items: HTMLElement[]) => {
-            if (!items.length) return
-            const box = document.createElement('div')
-            const h = document.createElement('h3')
-            h.textContent = title
-            const ul = document.createElement('ul')
-            for (const it of items) {
-              const li = document.createElement('li')
-              li.append(it)
-              ul.append(li)
-            }
-            box.append(h, ul)
-            detail.append(box)
-          }
-          section(L.recent, d.recent.map((x) => link(x.url, `${x.title} — ${x.artists}`)))
-          section(L.topArtists, d.topArtists.map((a) => link(a.url, a.name)))
-          section(L.topTracks, d.topTracks.map((x) => link(x.url, `${x.title} — ${x.artists}`)))
-          if (!detail.children.length) detail.append(plain(L.nothingMore))
-        } catch {
-          detail.append(plain(L.nothingMore))
-        }
-      })
-      body.append(more)
-      r.append(detail)
       rows.push(r)
     }
 
@@ -354,9 +351,13 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
     if (live.recovery) {
       const { li: r, body } = row('whoop', L.whoop, L.recovery)
       const s = live.recovery.score
-      // WHOOP's own bands, in words rather than its colours: one palette
-      const read = s >= 67 ? L.green : s >= 34 ? L.yellow : L.red
-      body.append(plain(`${s}% · ${read} ${L.rested}`))
+      // WHOOP's own bands, and its colours: the number is the whole line,
+      // and green, yellow or red is what it means
+      const band = s >= 67 ? 'green' : s >= 34 ? 'yellow' : 'red'
+      const score = plain(`${s}%`)
+      score.className = `talk__band talk__band--${band}`
+      score.setAttribute('aria-label', `${s}%, ${band}`)
+      body.append(score)
       rows.push(r)
     }
 
@@ -382,6 +383,14 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
     now.replaceChildren(...rows)
     now.hidden = false
     scrollDown()
+  }
+
+  /** draw what is already here at once, then whatever the wire says */
+  async function showLive(): Promise<void> {
+    if (!now) return
+    if (liveCache) render(liveCache.live)
+    const live = await warmLive()
+    if (live && open) render(live)
   }
 
   /* ---------------- the chips ----------------
@@ -513,6 +522,10 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
   return {
     get isOpen() {
       return open
+    },
+
+    warm() {
+      void warmLive()
     },
 
     open() {

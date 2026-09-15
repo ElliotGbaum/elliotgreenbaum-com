@@ -468,6 +468,9 @@ function boot() {
     talked = true
     const mine = ++talkSeq
 
+    // the live lines go on the wire now, so they are drawn when the panel
+    // opens rather than a beat after it (usually already here: see below)
+    chat.warm()
     player.setEnabled(false)
     say(null)
     hud.hide()
@@ -1123,6 +1126,10 @@ function boot() {
       if (closest !== near) {
         near = closest
         dwell = 0
+        // turning toward Elliot is the earliest sign of a conversation, and
+        // the panel's live lines are fetched on it (a minute's cache, so a
+        // visitor who wanders in and out does not fetch again and again)
+        if (near === elliot) chat.warm()
       }
 
       /* …and the other end of a click on something across the field: the
