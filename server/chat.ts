@@ -236,7 +236,7 @@ export async function handleChat(req: Request): Promise<Response> {
         link: process.env.CALENDLY_URL || null,
         zone,
         today,
-        wired: canBook(),
+        wired: await canBook(),
         // the slot length, so the read-back does not have to guess it
         minutes: (await booking())?.minutes ?? null,
       }),

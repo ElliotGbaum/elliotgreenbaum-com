@@ -160,7 +160,7 @@ export async function runBookTool(
   ctx: ToolContext,
 ): Promise<{ result: string; isError: boolean }> {
   const args = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>
-  if (!canBook()) return { result: 'Booking is not available right now. Offer the alternative.', isError: true }
+  if (!(await canBook())) return { result: 'Booking is not available right now. Offer the alternative.', isError: true }
 
   if (name === 'open_slots') {
     const from = typeof args.from_day === 'string' ? args.from_day : ''
@@ -189,28 +189,35 @@ export async function runBookTool(
     const start = typeof args.start_time === 'string' ? args.start_time.trim() : ''
     const nm = typeof args.name === 'string' ? args.name.trim().replace(/\s+/g, ' ') : ''
     const email = typeof args.email === 'string' ? args.email.trim() : ''
+    // every refusal is logged by its reason and nothing else: a guard that
+    // fires in production is otherwise invisible, and none of these lines
+    // carries the name, the address or the time
+    const refuse = (why: string, result: string) => {
+      console.warn('[book] refused:', why)
+      return { result, isError: true }
+    }
 
     if (!nm || nm.length > 80 || !saidByVisitor(ctx.turns, nm))
-      return { result: 'The name must be exactly what the visitor typed. Ask for their name and use it as given.', isError: true }
+      return refuse('name not typed by the visitor', 'The name must be exactly what the visitor typed. Ask for their name and use it as given.')
     if (!EMAIL.test(email) || email.length > 254 || !saidByVisitor(ctx.turns, email))
-      return { result: 'The email must be a valid address exactly as the visitor typed it. Ask for it and use it as given.', isError: true }
+      return refuse('email not typed by the visitor', 'The email must be a valid address exactly as the visitor typed it. Ask for it and use it as given.')
 
     // the previous reply — the server's own, since it is signed — must be the read-back
     const readBack = ctx.turns.length >= 2 ? ctx.turns[ctx.turns.length - 2]! : null
     if (!readBack || readBack.role !== 'assistant' || !readBack.content.toLowerCase().includes(email.toLowerCase()))
-      return {
-        result: 'Not yet: read the full details back to the visitor first (day, time in their timezone, length, name, email) and ask them to confirm. Book only after they say yes.',
-        isError: true,
-      }
+      return refuse(
+        'no read-back in the previous reply',
+        'Not yet: read the full details back to the visitor first (day, time in their timezone, length, name, email) and ask them to confirm. Book only after they say yes.',
+      )
 
     const slots = await openSlots()
     if (!slots.includes(start))
-      return { result: 'That start time is not one of the open slots any more. Call open_slots and offer what is open now.', isError: true }
+      return refuse('start time not an open slot', 'That start time is not one of the open slots any more. Call open_slots and offer what is open now.')
 
     // the day's ceilings — counted on the attempt, so a refused one still costs a try
     const [mine, all] = await Promise.all([count(`book:${ctx.who}`, DAY_MS), count('book:site', DAY_MS)])
     if (mine > PER_ADDRESS || all > PER_SITE)
-      return { result: 'Booking through this conversation is not possible right now. Offer the alternative.', isError: true }
+      return refuse(`day ceiling (${mine}/${PER_ADDRESS} for the address, ${all}/${PER_SITE} for the site)`, 'Booking through this conversation is not possible right now. Offer the alternative.')
 
     const booked = await bookSlot(start, nm, email, ctx.zone)
     if (booked.ok) {
@@ -220,8 +227,8 @@ export async function runBookTool(
         isError: false,
       }
     }
-    if (booked.code === 'taken') return { result: 'That time was just taken. Call open_slots and offer another.', isError: true }
-    return { result: 'Booking through this conversation is not possible right now. Offer the alternative.', isError: true }
+    if (booked.code === 'taken') return refuse('slot taken', 'That time was just taken. Call open_slots and offer another.')
+    return refuse(`calendly said ${booked.code}`, 'Booking through this conversation is not possible right now. Offer the alternative.')
   }
 
   return { result: `Unknown tool ${name}.`, isError: true }

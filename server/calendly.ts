@@ -4,18 +4,19 @@
  * Two levels, and each one works without the next:
  *
  *   CALENDLY_URL    the public booking link, e.g. https://calendly.com/elliot/30min.
- *                   With only this set, the panel shows "Book a time" and the
- *                   chat knows where to send people.
+ *                   With only this set, the chat knows where to send people.
  *   CALENDLY_TOKEN  a personal access token (calendly.com → Integrations →
  *                   API & Webhooks). With this too, the next few open slots
- *                   are read live, so the line can say "next free: Tue 2pm".
+ *                   are read live, so the booking conversation can offer them.
  *
  * WHAT IT READS with the token: the current user, the active event type whose
  * scheduling link matches CALENDLY_URL (or the first active one), and that
  * type's available start times — the same list the public booking page
  * shows. Nothing about existing bookings, invitees or the calendar behind it
  * is ever read: the token could, and this module does not, which is the
- * whole of why it is safe to expose the result.
+ * whole of why it is safe to expose the result. Once a day it also reads
+ * the account's plan stage (`canBook`), when the token has the
+ * `organizations:read` scope — see there.
  *
  * WHAT IT WRITES with the token: one thing. `bookSlot` creates a booking on
  * that event type for a named visitor at one of the open times, through
@@ -134,9 +135,53 @@ export const BOOK_DAYS = 14
 const SLOTS_TTL_MS = 60_000
 let slotsCache: { at: number; slots: string[] } | null = null
 
-/** true when the token is set, i.e. the slots can be read and a booking attempted */
-export function canBook(): boolean {
-  return !!(process.env.CALENDLY_URL && process.env.CALENDLY_TOKEN)
+/**
+ * Whether a booking can be made through the wire: the token is set AND the
+ * account is on a plan Calendly lets book by API. The plan is the part that
+ * changes without a deploy — a subscription lapses and every booking would
+ * fail on its last step, after the visitor has handed over a name and an
+ * address — so it is checked once a day and remembered:
+ *
+ *   - by reading the organization's `stage` (free / trial / paid). That
+ *     needs the `organizations:read` scope on the token; without it Calendly
+ *     answers 403 and the answer is "unknown", which is taken as bookable.
+ *   - and by the booking itself: a 403 from POST /invitees is Calendly
+ *     saying the plan is free, and `bookSlot` records that for the rest of
+ *     the day so the next visitor is handed the link up front.
+ *
+ * Both are per instance, which is enough: an instance probes once a day,
+ * and the worst case without the scope is one visitor per instance per day
+ * who reaches the read-back before the link.
+ */
+const PLAN_TTL_MS = 24 * 60 * 60_000
+let planCache: { at: number; bookable: boolean } | null = null
+
+export async function canBook(): Promise<boolean> {
+  const url = process.env.CALENDLY_URL
+  const token = process.env.CALENDLY_TOKEN
+  if (!url || !token) return false
+  if (planCache && Date.now() - planCache.at < PLAN_TTL_MS) return planCache.bookable
+  let bookable = true
+  try {
+    const me = await get<{ resource: { current_organization?: string } }>('/users/me', token)
+    const orgUri = me?.resource.current_organization
+    if (orgUri?.startsWith(API + '/')) {
+      const org = await get<{ resource: { stage?: string; plan?: string } }>(orgUri.slice(API.length), token)
+      // a 403 here is the missing scope, and `get` has returned null: unknown, so assume yes
+      if (org) bookable = org.resource.stage !== 'free' && org.resource.plan !== 'basic'
+    }
+  } catch (err) {
+    console.error('[calendly] plan', err)
+  }
+  planCache = { at: Date.now(), bookable }
+  if (!bookable) console.warn('[calendly] free plan: bookings go to the link until tomorrow')
+  return bookable
+}
+
+/** the account cannot book by API today — remembered until the daily check runs again */
+function notBookableToday(): void {
+  planCache = { at: Date.now(), bookable: false }
+  console.warn('[calendly] booking refused for the plan: the link is offered until tomorrow')
 }
 
 /** the open slots over the next BOOK_DAYS days, ISO, soonest first; [] without a token */
@@ -222,7 +267,10 @@ export async function bookSlot(start: string, name: string, email: string, timez
   }
   const detail = (await r.text().catch(() => '')).slice(0, 300)
   console.error('[calendly] book', r.status, detail)
-  if (r.status === 403) return { ok: false, code: 'plan', detail }
+  if (r.status === 403) {
+    notBookableToday()
+    return { ok: false, code: 'plan', detail }
+  }
   if (r.status === 400 || r.status === 409 || r.status === 422) {
     // Calendly names the field; a start_time it will not take is a slot that went
     return { ok: false, code: /start_time|available|already/i.test(detail) ? 'taken' : 'error', detail }
