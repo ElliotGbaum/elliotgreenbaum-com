@@ -12,7 +12,8 @@
     "flow": "node tools/flow.mjs",
     "film": "node tools/film.mjs",
     "filmstrip": "node tools/shoot.mjs \"http://localhost:5173/filmstrip.html?samples=10\" shots/filmstrip --only desktop --full",
-    "sketch": "node tools/sketch.mjs"
+    "sketch": "node tools/sketch.mjs",
+    "og": "node tools/og.mjs"
   },
   "_shelvedScripts": {
     "_": "The two minigames are shelved — see the note at the top of src/main.ts. Their harnesses are still in tools/ and unchanged, but they are not runnable as things stand: every one of them reaches the games through the ?unlock / ?parkour / ?surf query strings, and those came out with the wiring. Restore the entries below along with the games.",
@@ -25,6 +26,7 @@
   "type": "module",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",
+    "posthog-js": "^1.433.3",
     "three": "^0.185.1"
   },
   "devDependencies": {

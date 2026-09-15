@@ -74,13 +74,27 @@ console.log('\n1. Served HTML (no JS executed)')
   ok('contact links present', /mailto:/.test(html) && /linkedin\.com/i.test(html))
   // comments, CSS and the probe script all talk ABOUT the résumé that used to
   // be here — which is the point of them. What must not come back is markup.
+  // The transcript is the one block allowed to say what the film says (it IS
+  // the film, generated from its copy), so it is lifted out and checked on
+  // its own terms below: present, the film's words, and no shape of its own.
+  const transcript = html.match(/<details id="transcript"[\s\S]*?<\/details>/)?.[0] ?? ''
   const markup = html
+    .replace(/<details id="transcript"[\s\S]*?<\/details>/, '')
     .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/<style[\s\S]*?<\/style>/gi, '')
     .replace(/<script[\s\S]*?<\/script>/gi, '')
   ok('no résumé anywhere in the markup', !/resume|résumé/i.test(markup))
   ok('no experience bullets', !/AI Solutions Consultant|Summer Analyst/i.test(markup))
   ok('no dated entries', !/<time[\s>]/i.test(markup))
+
+  // the film, in words — for the reader with no WebGL and for the machines
+  ok('the film is in the markup, in words', /Hi, I’m Elliot/.test(transcript) && /Cassidy/.test(transcript))
+  ok('the transcript is a transcript, not a CV', !/<(ul|ol|li|time|a)[\s>]/i.test(transcript))
+  ok('the transcript is folded, not hidden', /<details/.test(transcript) && !/hidden|aria-hidden/.test(transcript))
+  const llms = await fetch(`${base}/llms.txt`)
+  const llmsText = llms.ok ? await llms.text() : ''
+  ok('llms.txt is served', llms.ok && /^# Elliot Greenbaum/.test(llmsText), String(llms.status))
+  ok('llms.txt carries the film and the addresses', /Cassidy/.test(llmsText) && /mailto:|elliotgreenbaum@gmail\.com/.test(llmsText) && /linkedin\.com/.test(llmsText))
 
   // What matters is not where the script tag sits but whether it blocks the
   // parser. `type="module"` is deferred by default, so a module script in

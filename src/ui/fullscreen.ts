@@ -29,6 +29,8 @@
  * time-of-day switch can move out of the corner it has just taken.
  */
 
+import { analytics } from '../core/analytics'
+
 /* The prefixed halves. Safari's are not in lib.dom, and they are what an iPad
    answers to — the standard names arrived on the iPhone years after the
    feature did. */
@@ -83,6 +85,7 @@ export function createFullscreen(): Fullscreen {
 
   const onClick = (e: Event) => {
     e.preventDefault()
+    analytics.fullscreen(!isFull())
     try {
       /* A browser is allowed to say no — a permissions policy, a phone that
          only does this for video, a gesture it did not believe. The promise

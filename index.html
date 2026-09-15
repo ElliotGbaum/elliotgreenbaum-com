@@ -5,12 +5,54 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Elliot Greenbaum</title>
 <meta name="description" content="Elliot Greenbaum — product, deployment and AI solutions. Philosophy, Politics and Economics at Penn. elliotgreenbaum@gmail.com" />
+<link rel="canonical" href="https://elliotgreenbaum.com/" />
+<meta name="theme-color" content="#0a1418" />
 <meta name="color-scheme" content="dark" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 
+<!-- THE LINK PREVIEW. What the site looks like pasted into Slack, iMessage,
+     LinkedIn or a tweet: the picture is a frame of the world with the film
+     up, rendered by `npm run og` (tools/og.mjs) into public/og.png. Absolute
+     URLs on purpose — every crawler wants them — so a preview build on a
+     Vercel branch URL still points at the real picture. 1200×630 is the one
+     size every network accepts without cropping. -->
 <meta property="og:title" content="Elliot Greenbaum" />
 <meta property="og:description" content="Elliot Greenbaum — product, deployment and AI solutions. Philosophy, Politics and Economics at Penn. elliotgreenbaum@gmail.com" />
 <meta property="og:type" content="website" />
+<meta property="og:url" content="https://elliotgreenbaum.com/" />
+<meta property="og:site_name" content="Elliot Greenbaum" />
+<meta property="og:image" content="https://elliotgreenbaum.com/og.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="A dark field at night. A projector throws the words “Hi, I’m Elliot” onto a screen." />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:site" content="@elliotgreenbaum" />
+<meta name="twitter:creator" content="@elliotgreenbaum" />
+<meta name="twitter:title" content="Elliot Greenbaum" />
+<meta name="twitter:description" content="Elliot Greenbaum — product, deployment and solutions work at the edge of AI. Built NewsGlide.org, co-founded E&amp;B Agentic Solutions, previously at Cassidy. Philosophy, Politics &amp; Economics at Penn." />
+<meta name="twitter:image" content="https://elliotgreenbaum.com/og.png" />
+
+<!-- Who this page is about, for the machines that ask: search engines, and
+     increasingly the assistants a recruiter pastes a URL into. Plain facts,
+     the same three addresses the card carries, and nothing the film does not
+     already say. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Person",
+  "name": "Elliot Greenbaum",
+  "url": "https://elliotgreenbaum.com/",
+  "description": "product, deployment and AI solutions. Philosophy, Politics and Economics at Penn. elliotgreenbaum@gmail.com",
+  "email": "mailto:elliotgreenbaum@gmail.com",
+  "knowsAbout": ["AI agents and workflow automation", "product", "solutions and implementation", "chess", "guitar", "saxophone"],
+  "image": "https://elliotgreenbaum.com/og.png",
+  "sameAs": [
+    "https://www.linkedin.com/in/elliot-greenbaum/",
+    "https://x.com/elliotgreenbaum"
+  ],
+  "alumniOf": { "@type": "CollegeOrUniversity", "name": "University of Pennsylvania" }
+}
+</script>
 
 <style>
   /* ------------------------------------------------------------------
@@ -83,6 +125,37 @@
     text-decoration:none;
   }
   .card .contact a:hover{text-decoration:underline;text-underline-offset:4px}
+
+  /* ---------- the film, in words ----------
+     One collapsed line under the addresses, and the whole film behind it —
+     for the visitor the world cannot serve, who until now got the least of
+     anyone, and for the machines: an assistant handed this address fetches
+     THIS page, and the film is a texture it will never see. Generated from
+     src/content/film.json by tools/agent-layer.ts, so it is the film's own
+     words and cannot drift from them. Collapsed rather than hidden: text a
+     page hides from people and shows to crawlers is a trick, and this is
+     not one — anyone can open it. */
+  .transcript{margin-top:22px;padding-top:18px;border-top:1px solid var(--rule);color:var(--ink-2)}
+  .transcript summary{
+    cursor:pointer;font-family:var(--font-mono);font-size:.74rem;letter-spacing:.06em;
+    color:var(--amber);min-height:44px;display:flex;align-items:center;
+  }
+  /* flex on the summary drops the browser's own triangle, so it is drawn back
+     by hand — a thing that opens has to look like it opens */
+  .transcript summary::before{
+    content:'';width:0;height:0;margin-right:10px;flex:none;
+    border-left:6px solid currentColor;border-top:4px solid transparent;border-bottom:4px solid transparent;
+    transition:transform .15s ease;
+  }
+  .transcript summary::-webkit-details-marker{display:none}
+  .transcript[open] summary::before{transform:rotate(90deg)}
+  .transcript summary:hover{text-decoration:underline;text-underline-offset:4px}
+  .transcript__note{margin:6px 0 18px;font-size:.86rem;color:var(--ink-3)}
+  .transcript h2{
+    margin:22px 0 4px;font-family:var(--font-mono);font-weight:500;font-size:.72rem;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);
+  }
+  .transcript p{margin:0;font-size:.98rem;color:var(--ink)}
 
   /* ---------- the world (shown only once WebGL is confirmed) ----------
      The class is set by the inline script below, before the body is parsed,
@@ -236,6 +309,12 @@
      If the film is ever unreachable the answer is to fix the film, not to
      grow this block back into a CV — it stays three lines.
 
+     Three lines AND the film itself, in words, folded under them: a
+     transcript is not a CV, it is the same story for a reader who cannot
+     run the picture — a locked-down laptop, a screen reader, or the
+     assistant somebody pasted this address into. It is generated from the
+     film's copy, so it can only ever say what the film says.
+
      Hidden the moment WebGL is confirmed (html.has-webgl .card).
      ===================================================================== -->
 <main class="card" id="card">
@@ -245,6 +324,9 @@
     <a href="https://www.linkedin.com/in/elliot-greenbaum/">LinkedIn</a>
     <a href="https://x.com/elliotgreenbaum">X</a>
   </p>
+  <!-- Replaced at build time (and on the dev server) with the film's words,
+       act by act, as a collapsed <details>. See tools/agent-layer.ts. -->
+  <!--@transcript-->
 </main>
 
 
