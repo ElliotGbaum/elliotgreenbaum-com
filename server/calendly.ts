@@ -203,7 +203,7 @@ export async function bookSlot(start: string, name: string, email: string, timez
       start_time: start,
       invitee: { name, email, timezone },
       ...(location ? { location } : {}),
-      tracking: { utm_source: 'elliotgreenbaum.com', utm_medium: 'chat' },
+      // no `tracking`: Calendly rejects the object unless every field is present
     }),
   })
   // the slot list is stale the moment a booking is attempted, either way
