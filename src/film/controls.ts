@@ -597,7 +597,10 @@ export function createFilmControls(film: Film): FilmControls {
     // the fills: only the current chapter is ever partial, so touch three
     // elements at most rather than all six
     const t = s.time
-    if (Math.abs(t - shownTime) >= 0.05 || shownTime < 0) {
+    // …or when the second on the clock changes by less than that: the park
+    // at the end of the reel is a thousandth short of RUNTIME (film.ts
+    // `seek`), and skipped, it left the clock a second under the total
+    if (Math.abs(t - shownTime) >= 0.05 || shownTime < 0 || timecode(t) !== timecode(shownTime)) {
       shownTime = t
       for (let i = 0; i < CHAPTERS.length; i++) {
         const c = CHAPTERS[i]

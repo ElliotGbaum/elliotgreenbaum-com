@@ -440,13 +440,20 @@
   font-style: italic;
 }
 
-/* thinking: three dots, breathing, in place of the reply that is coming */
+/* thinking: three dots, breathing, in place of the reply that is coming —
+   or, while the wire is reading or writing the calendar, a word on which */
 .talk__line[data-thinking='true'] .talk__text::before {
   content: '·  ·  ·';
   display: block;
   color: var(--talk-amber);
   letter-spacing: 0.1em;
   animation: talk-think 1.2s ease-in-out infinite;
+}
+.talk__line[data-thinking='true'] .talk__text[data-status]::before {
+  content: attr(data-status);
+  letter-spacing: 0.01em;
+  font-style: italic;
+  opacity: 0.85;
 }
 @keyframes talk-think {
   0%,

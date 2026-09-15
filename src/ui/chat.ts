@@ -84,6 +84,9 @@ type Mode = 'talk' | 'book'
 
 /** the unit separator that ends every streamed reply: `\u001f<signature>` */
 const SIG_MARK = '\u001f'
+/** the record separator: a line starting with it is a status ("Checking his
+ *  calendar…") to show in place of the dots, not a word Elliot said */
+const STATUS_MARK = '\u001e'
 
 /** links from the live feeds are only ever to the services they came from */
 const LINK_HOSTS = ['open.spotify.com', 'github.com', 'www.strava.com', 'notion.so', 'calendly.com']
@@ -222,10 +225,18 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
     })
   }
 
-  /** the reply as it should be shown: everything before the signature mark */
+  /** the reply as it should be shown: everything before the signature mark,
+   *  minus the status lines (which `statusOf` reads) */
   function shown(text: string): string {
     const mark = text.indexOf(SIG_MARK)
-    return mark >= 0 ? text.slice(0, mark) : text
+    return (mark >= 0 ? text.slice(0, mark) : text).replace(/\u001e[^\n]*(\n|$)/g, '')
+  }
+  /** the latest status line in the stream, if a tool is running */
+  function statusOf(text: string): string | null {
+    const at = text.lastIndexOf(STATUS_MARK)
+    if (at < 0) return null
+    const end = text.indexOf('\n', at)
+    return text.slice(at + 1, end < 0 ? undefined : end).trim() || null
   }
 
   // the ledger and the log scroll together, so the facts read as the
@@ -277,6 +288,8 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
     recovery: { score: number; at: string } | null
     interest: { text: string; since: string; link: string | null } | null
     booking: { url: string; next: string[]; minutes: number | null } | null
+    /** the booking's first reply, signed by the server — see server/live.ts */
+    greeting: { text: string; sig: string } | null
     zone: string
   }
 
@@ -318,6 +331,18 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
         liveFetch = null
       })
     return liveFetch
+  }
+
+  /* The conversation's own function, booted once so the first message does
+     not pay its cold start: a GET does nothing there but load the module
+     (api/chat.ts). Once a visit is enough; it is the instance that warms. */
+  let chatWarmed = false
+  function warmChat(): void {
+    if (chatWarmed) return
+    chatWarmed = true
+    fetch('/api/chat', { method: 'GET', priority: 'low' } as RequestInit).catch(() => {
+      /* a warm-up that fails costs nothing */
+    })
   }
 
   /* the source of a line, as a glyph: one stroke each, in the world's ink,
@@ -550,7 +575,7 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
     drawAsks()
     if (m === 'book' && transcripts.book.length === 0) {
       // choosing the call is the visitor's first line, the way a chip is
-      void ask(copy.pick.bookOpener)
+      void openBooking()
     } else if (open && window.matchMedia('(hover: hover)').matches) {
       input.focus({ preventScroll: true })
     }
@@ -559,6 +584,62 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
   form.hidden = true
   panel.dataset.mode = 'none'
   drawAsks()
+
+  /* ---------------- the booking's first exchange ----------------
+     The visitor's first line is fixed, and so is the answer to it: "what
+     days suit you?" The server signs that answer once (it comes with the
+     live facts, warmed as the panel opens), so it goes on screen the moment
+     the call is chosen — typed out like a reply, but with nothing waited
+     for — and the transcript the model later sees is exactly what it would
+     have been. Without the signed line (the model not configured, the live
+     fetch lost) the wire is asked as before and says what is wrong. */
+  async function openBooking(): Promise<void> {
+    const live = await warmLive()
+    const greeting = live?.greeting
+    if (!greeting || mode !== 'book' || transcripts.book.length) {
+      if (mode === 'book' && !transcripts.book.length) void ask(copy.pick.bookOpener)
+      return
+    }
+    const turns = transcripts.book
+    turns.push({ role: 'user', content: copy.pick.bookOpener })
+    line('user', copy.pick.bookOpener)
+    const reply = line('assistant', '')
+    turns.push({ role: 'assistant', content: greeting.text, sig: greeting.sig })
+    scrollDown()
+    await typeOut(reply, greeting.text)
+    if (status) status.textContent = `Elliot: ${greeting.text}`
+    if (open && window.matchMedia('(hover: hover)').matches) input.focus({ preventScroll: true })
+  }
+
+  /** a line already in hand, written out at the reply's own pace */
+  function typeOut(el: HTMLElement, text: string): Promise<void> {
+    const instant = window.matchMedia('(prefers-reduced-motion: reduce)').matches || document.hidden
+    if (instant) {
+      write(el, text)
+      scrollDown()
+      return Promise.resolve()
+    }
+    return new Promise((done) => {
+      let shownTo = 0
+      let carry = 0
+      let last = 0
+      const tick = (now: number): void => {
+        const dt = last ? Math.min(now - last, 100) : 16
+        last = now
+        carry += (dt / 1000) * 110
+        const step = Math.min(text.length - shownTo, Math.floor(carry))
+        if (step > 0) {
+          carry -= step
+          shownTo += step
+          write(el, text.slice(0, shownTo))
+          scrollDown()
+        }
+        if (shownTo < text.length) requestAnimationFrame(tick)
+        else done()
+      }
+      requestAnimationFrame(tick)
+    })
+  }
 
   /* ---------------- asking ---------------- */
   async function ask(text: string): Promise<void> {
@@ -649,6 +730,9 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
           const { value, done } = await reader.read()
           if (done) break
           answer += decoder.decode(value, { stream: true })
+          // a tool is running: say which, where the dots are
+          const st = statusOf(answer)
+          if (st) reply.dataset.status = st
           schedule()
         }
         answer += decoder.decode()
@@ -677,6 +761,7 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
     }
 
     reply.parentElement!.dataset.thinking = 'false'
+    delete reply.dataset.status
     if (failed) {
       // a written line, not a generated one — and it does NOT go into the
       // transcript, or the model would be handed a sentence it never said
@@ -723,6 +808,7 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
 
     warm() {
       void warmLive()
+      warmChat()
     },
 
     open() {

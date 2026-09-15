@@ -63,20 +63,25 @@ const C = copy.act1
    long), and the pen's window closed by six tenths to match: a shorter drawing
    at the same pace. Everything after the pen moved earlier by the same six
    tenths, so every hold is exactly what it was. */
-const DURATION = 11.7
+/* 10.4, down from 11.7 (2026-09-15, Elliot: "a bit shorter"). Three tenths
+   off the pen, four off the chess line's stay, and six off the held frame at
+   the end. Nothing arrives faster than it did — the caption's lines are still
+   four tenths apart and the close's halves half a second — the act just does
+   not sit on either of them as long. */
+const DURATION = 10.4
 
 const SCENE = prepare(CHESS)
 
 /** the pen runs across these seconds — two dozen strokes is a long draw */
 const SKETCH_A = 0.5
-const SKETCH_B = 3.7
+const SKETCH_B = 3.4
 
 /** the caption under the picture, and then the line that replaces it */
-const CHESS_A = 2.4
+const CHESS_A = 2.2
 /** its own wrapped lines arrive this far apart */
 const CHESS_STEP = 0.4
-const CHESS_OUT = 6.8
-const CLOSE_A = 7.1
+const CHESS_OUT = 6.2
+const CLOSE_A = 6.5
 /** how far apart the two wrapped halves of the closing line arrive */
 const CLOSE_STEP = 0.5
 

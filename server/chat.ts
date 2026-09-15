@@ -17,12 +17,16 @@
  *   talk  Elliot's notes about himself (server/persona.ts), answering the
  *         visitor's questions. Words only.
  *   book  getting a call onto his calendar (server/book.ts). This one has
- *         tools — read the open times, book one — and so the reply is a
- *         loop: the model asks for a tool, the server runs it, the result
- *         goes back, the model speaks. The visitor sees only the words; the
- *         tool calls happen inside one request and are not kept between
- *         requests, which is why the brief tells the model to re-read the
- *         slots before booking.
+ *         tools — read the open times, book one — and so the reply can be
+ *         a loop: the model asks for a tool, the server runs it, the result
+ *         goes back, the model speaks. The open times are read before the
+ *         model is asked and handed to it in the brief, so the usual turn
+ *         is one model call and the loop only runs for the booking itself
+ *         (or a day the list does not show). While a tool runs the stream
+ *         carries a status line (`\u001e…`, see server/sign.ts) the panel
+ *         shows in place of the dots; it is not speech and is not signed.
+ *         The tool calls happen inside one request and are not kept between
+ *         requests; book_slot checks its time against a fresh read itself.
  *
  * WHAT IT REFUSES, because the key behind it is real money and the endpoint
  * is public: anything that is not a POST from this site (the browser's own
@@ -55,12 +59,12 @@
  */
 
 import Anthropic from '@anthropic-ai/sdk'
-import { createHmac, createHash, timingSafeEqual } from 'node:crypto'
 import { persona } from './persona.js'
 import { liveFacts, ZONE } from './live.js'
 import { count } from './limits.js'
-import { BOOK_TOOLS, bookingSystem, runBookTool, safeZone } from './book.js'
+import { BOOK_TOOLS, bookingSystem, runBookTool, safeZone, slotList, statusFor } from './book.js'
 import { booking, canBook, openSlots } from './calendly.js'
+import { SIG_MARK, STATUS_MARK, sign, signed, hashAddress as hash, type Mode } from './sign.js'
 
 /**
  * The model. Sonnet 5 by default: a short reply about one person's CV, or a
@@ -97,8 +101,7 @@ const DAY_MS = 24 * 60 * 60_000
 const PER_ADDRESS_DAY = 60
 const PER_SITE_DAY = 600
 
-/** the two briefs — see the header */
-export type Mode = 'talk' | 'book'
+export type { Mode }
 /** how many times round the tool loop one request may go */
 const MAX_ROUNDS = 5
 
@@ -110,32 +113,6 @@ function json(body: unknown, status: number): Response {
 }
 
 type Turn = { role: 'user' | 'assistant'; content: string }
-
-/**
- * The signature on an assistant turn: a keyed hash of the text, the key
- * being derived from the API key (which the server has and nobody else
- * does). Sent to the client on the last line of each streamed reply as
- * `\u001f<hex>`, and required back on every assistant turn it replays. The
- * character is the ASCII unit separator, which no model writes.
- */
-export const SIG_MARK = '\u001f'
-
-function signingKey(): Buffer {
-  return createHash('sha256')
-    .update('elliot-chat-sign:' + (process.env.CHAT_SIGNING_SECRET || process.env.ANTHROPIC_API_KEY || ''))
-    .digest()
-}
-
-export function sign(mode: Mode, text: string): string {
-  return createHmac('sha256', signingKey()).update(`${mode}\n${text}`).digest('hex')
-}
-
-function signed(mode: Mode, text: string, sig: unknown): boolean {
-  if (typeof sig !== 'string' || !/^[0-9a-f]{64}$/.test(sig)) return false
-  const a = Buffer.from(sig, 'hex')
-  const b = Buffer.from(sign(mode, text), 'hex')
-  return a.length === b.length && timingSafeEqual(a, b)
-}
 
 /**
  * The transcript, checked. The client builds it, but the client is the
@@ -183,12 +160,15 @@ export async function handleChat(req: Request): Promise<Response> {
   const forwarded = req.headers.get('x-forwarded-for')?.split(',').map((s) => s.trim()).filter(Boolean)
   const ip = req.headers.get('x-real-ip') || forwarded?.at(-1) || 'local'
   const who = ip === 'local' ? 'local' : hash(ip)
-  const [minute, day, site] = await Promise.all([
+  /* The three counters are one round trip to the shared store each, and
+     the booking brief has three reads of Calendly of its own: all of them
+     are started here and awaited together below, so the wait before the
+     model is the slowest one of them rather than the sum. */
+  const counted = Promise.all([
     count(`chat:${who}`, RATE_WINDOW_MS),
     count(`chatday:${who}`, DAY_MS),
     count('chatday:site', DAY_MS),
   ])
-  if (minute > RATE_LIMIT || day > PER_ADDRESS_DAY || site > PER_SITE_DAY) return json({ error: 'busy' }, 429)
 
   let body: unknown
   try {
@@ -203,6 +183,10 @@ export async function handleChat(req: Request): Promise<Response> {
   if (!turns) return json({ error: 'messages' }, 400)
   // the visitor's timezone, from their browser — every time the booking says is in it
   const zone = safeZone((body as { zone?: unknown }).zone, ZONE)
+  // the reads the booking needs, started before the counters are back
+  const calendly = mode === 'book' ? Promise.all([canBook(), booking().then((b) => b?.minutes ?? null), openSlots()]) : null
+  const [minute, day, site] = await counted
+  if (minute > RATE_LIMIT || day > PER_ADDRESS_DAY || site > PER_SITE_DAY) return json({ error: 'busy' }, 429)
 
   if (!process.env.ANTHROPIC_API_KEY) return json({ error: 'unconfigured' }, 503)
   const PERSONA = persona()
@@ -231,26 +215,30 @@ export async function handleChat(req: Request): Promise<Response> {
       })
     }
   } else {
-    /* Three reads of Calendly before the model is asked anything, and none
-       waits on another: the plan check, the slot length, and the open-slot
-       list itself. The list is not needed yet — the model asks for it with
-       open_slots, a round later — but it is cached for a minute once read,
-       so starting it now means the tool round finds it warm instead of
-       spending a second and a half on four calls in a row. */
-    void openSlots()
-    const [wired, minutes] = await Promise.all([canBook(), booking().then((b) => b?.minutes ?? null)])
+    /* The brief is in two blocks. The first is the same on every request —
+       the job, the rules — and carries the cache mark, so it is what the
+       API reuses. The second is what is true right now: the date, the
+       visitor's zone, whether the wire can book, how long the call is, and
+       THE OPEN SLOTS THEMSELVES. Handing the model the list up front is the
+       single biggest saving in the conversation: without it the turn that
+       offers times is two model calls with a calendar read between them,
+       and the visitor watches the dots for the length of both. With it the
+       model reads the list and speaks. The open_slots tool stays for when
+       the list has gone stale or the visitor wants a day it does not show;
+       book_slot checks the time against a fresh read regardless. */
+    const [wired, minutes, slots] = await calendly!
     const today = new Intl.DateTimeFormat('en-US', { timeZone: zone, weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).format(new Date())
-    system.push({
-      type: 'text',
-      text: bookingSystem({
-        link: process.env.CALENDLY_URL || null,
-        zone,
-        today,
-        wired,
-        // the slot length, so the read-back does not have to guess it
-        minutes,
-      }),
+    const brief = bookingSystem({
+      link: process.env.CALENDLY_URL || null,
+      zone,
+      today,
+      wired,
+      // the slot length, so the read-back does not have to guess it
+      minutes,
+      slots: wired ? slotList(slots, zone) : null,
     })
+    system.push({ type: 'text', text: brief.fixed, cache_control: { type: 'ephemeral' } })
+    system.push({ type: 'text', text: brief.now })
     tools = BOOK_TOOLS
   }
 
@@ -318,6 +306,9 @@ export async function handleChat(req: Request): Promise<Response> {
              says after joins it as a new paragraph. */
           const results: Anthropic.Beta.BetaToolResultBlockParam[] = []
           for (const call of calls) {
+            // what is happening, for the panel to show while it does — not
+            // speech, so it goes straight out and never into `said`
+            controller.enqueue(encoder.encode(`${STATUS_MARK}${statusFor(call.name)}\n`))
             const { result, isError } = await runBookTool(call.name, call.input, { turns, zone, who })
             results.push({ type: 'tool_result', tool_use_id: call.id, content: result, is_error: isError })
           }
@@ -372,13 +363,3 @@ function failure(err: unknown): Response {
 
 /** what comes back when the model has nothing it is willing to say */
 const SILENT = "That one I'd rather the real Elliot answered — he's at elliotgreenbaum@gmail.com."
-
-/**
- * A stable id for an address, for the rate-limit key and for the API's
- * `metadata.user_id` field (abuse detection on its side). Keyed with the
- * same server-only secret as the signatures, so it is not a plain hash of
- * the address that a table of every IPv4 could reverse.
- */
-function hash(s: string): string {
-  return 'v' + createHmac('sha256', signingKey()).update(s).digest('hex').slice(0, 24)
-}

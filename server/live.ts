@@ -23,6 +23,8 @@ import { ranThisMonth, describeRan, type Ran } from './strava.js'
 import { recoveryToday, describeRecovery, type Recovery } from './whoop.js'
 import { booking, describeBooking, type Booking } from './calendly.js'
 import { interest, describeInterest, type Interest } from './now.js'
+import { sign } from './sign.js'
+import talk from '../src/content/talk.json' with { type: 'json' }
 
 export const ZONE = process.env.ELLIOT_ZONE || 'America/New_York'
 
@@ -34,6 +36,23 @@ export interface Live {
   /** what he is into this week: the one line with no account behind it */
   interest: Interest | null
   booking: Booking | null
+  /**
+   * The booking conversation's first reply, signed, so the panel can put it
+   * on screen the moment the visitor chooses the call instead of asking the
+   * model for a line that is the same every time — the model's answer to
+   * "I'd like to book a call" is always "what days suit you?", and it was
+   * costing the visitor two to four seconds of dots before the conversation
+   * had begun. Absent when the model is not configured, so the panel asks
+   * the wire as before and gets the honest 503.
+   */
+  greeting: { text: string; sig: string } | null
+}
+
+/** the opening line of the booking, signed as the server's own — see `Live.greeting` */
+export function bookGreeting(): Live['greeting'] {
+  if (!process.env.ANTHROPIC_API_KEY) return null
+  const text = talk.pick.bookGreeting.trim()
+  return { text, sig: sign('book', text) }
 }
 
 export async function live(): Promise<Live> {
@@ -44,7 +63,7 @@ export async function live(): Promise<Live> {
     recoveryToday(),
     booking(),
   ])
-  return { track, shipped, ran, recovery, interest: interest(), booking: book }
+  return { track, shipped, ran, recovery, interest: interest(), booking: book, greeting: bookGreeting() }
 }
 
 /** the facts as lines for the model, or null when there are none */

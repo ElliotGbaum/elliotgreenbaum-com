@@ -130,8 +130,9 @@ export const ACTS: readonly Act[] = [
   act11,
 ]
 
-/** Total runtime in seconds. */
-export const RUNTIME = ACTS.reduce((n, a) => n + a.duration, 0)
+/** Total runtime in seconds, to the hundredth: the acts are given in tenths
+ *  and a float sum of tenths can land a hair off the value written down. */
+export const RUNTIME = Math.round(ACTS.reduce((n, a) => n + a.duration, 0) * 100) / 100
 
 /**
  * Which chapter is the closing card. Derived rather than written down, because
@@ -296,9 +297,11 @@ export function chapterAt(t: number): number {
   return 0
 }
 
-/** 0:00 / 1:34 — the only time format anywhere */
+/** 0:00 / 1:34 — the only time format anywhere. Rounded to the hundredth
+ *  before the floor: the reel parks a thousandth short of RUNTIME at the end
+ *  (see `seek`), and a whole-second runtime read one second low there. */
 export function timecode(seconds: number): string {
-  const s = Math.max(0, Math.floor(seconds))
+  const s = Math.max(0, Math.floor(Math.round(seconds * 100) / 100))
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 

@@ -20,3 +20,11 @@ import { handleChat } from '../server/chat.js'
 export function POST(req: Request): Promise<Response> {
   return handleChat(req)
 }
+
+// A GET does nothing — but it boots this function, which is the point: the
+// panel sends one as it opens, so the visitor's first real message lands on
+// a warm instance instead of paying the cold start (a second or two, on top
+// of the model) at the moment they are watching the dots.
+export function GET(): Response {
+  return new Response(null, { status: 204, headers: { 'cache-control': 'no-store' } })
+}
