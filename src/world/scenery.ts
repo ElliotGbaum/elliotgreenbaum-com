@@ -111,7 +111,7 @@ const DUSK = {
   horizon: 0xe4b08c,
   zenith: 0x5878ae,
   moon: 0.2,
-  grass: 0xb2b06e,
+  grass: 0xa9c86e,
   tree: 0x3a4e3e,
   trunk: 0x3a2e28,
   hill: 0x686670,

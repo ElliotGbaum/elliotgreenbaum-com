@@ -163,15 +163,18 @@ const DAY: Look = {
 
 /* The golden hour. Authored as where the day→night mix goes when the sun is
    on the horizon: the air goes warm and a little thicker, the light comes in
-   low and orange, the ground loses its green. The sky here must equal the
-   scenery's DUSK.horizon — same trick as the other two. */
+   low and orange. The ground keeps its green: the first pass let it go to
+   khaki and Elliot read the meadow as a swamp (2026-09-15), so the ground,
+   the blades (scenery's DUSK.grass) and the bounce light under them stay a
+   warm yellow-green. The sky here must equal the scenery's DUSK.horizon —
+   same trick as the other two. */
 const DUSK: Look = {
   sky: 0xe4b08c,
   haze: 0xe8c0a4,
   fogDensity: 0.0054,
-  ground: 0xbcb07c,
+  ground: 0xc4cf8e,
   hemiSky: 0xdcb49c,
-  hemiGround: 0x4a4038,
+  hemiGround: 0x5e6448,
   hemiIntensity: 1.6,
   fillColor: 0xdcb89e,
   fillIntensity: 0.48,
