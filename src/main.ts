@@ -308,6 +308,7 @@ function boot() {
     setPrompt: say,
     playerPosition: player.position,
     filmSeen: () => seenFilm,
+    filmOn: () => filmActive,
   }
 
   /* ---------------- time of day ----------------
@@ -432,7 +433,7 @@ function boot() {
        him. Behind the lens is where the visitor found him nowhere at all,
        and the standing line was naming a person who was not on screen. He
        stays there; see `comeToWatch` in src/world/landmarks/elliot.ts. */
-    elliot.comeToWatch()
+    elliot.comeToWatch(aspect())
     await stepped
     if (mine !== seq) return
 

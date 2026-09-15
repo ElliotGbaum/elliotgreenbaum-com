@@ -53,6 +53,11 @@
  * `reveal` below), and once the film has been watched, which is the moment
  * the standing line starts naming him.
  *
+ * That is where he stands UNTIL THE FILM IS SWITCHED ON. Once the picture is
+ * up he crosses to a spot off the screen's left and watches from there, so
+ * that when the film ends he is in the shot — see WHERE HE STANDS ONCE THE
+ * FILM IS ON, over `WATCH_DESK` below.
+ *
  * Off the centre line for the reason the signs are (see the long note in
  * gate.ts): the film's watching shot is a cone out of a camera at z = 50 and
  * nothing may stand in it. At x = 13, z = 25 he is 27° off that shot's axis
@@ -61,22 +66,54 @@
  */
 
 import * as THREE from 'three'
-import { PALETTE, clamp, angleDelta, type Landmark, type LandmarkContext } from '../../core/contract'
+import { PALETTE, PHONE, clamp, angleDelta, type Landmark, type LandmarkContext } from '../../core/contract'
 
-/* Where he stands — see WHERE HE STANDS in the header */
+/* Where he stands, until the film is switched on — see WHERE HE STANDS in
+   the header */
 const EX = 13
 const EZ = 25
+
+/**
+ * WHERE HE STANDS ONCE THE FILM IS ON: off the screen's left, twenty-odd
+ * units from where the visitor watches, facing the screen like the rest of
+ * the audience. He moves there the moment the film's camera has cut to the
+ * screen (`comeToWatch`, called from `startFilm` in main.ts) and stays.
+ *
+ * Why he moves at all. The path-side spot is south-east of the watching
+ * spot, and the follow cam sits due south of the figure, so when the film
+ * ended he was BEHIND THE LENS: the standing line said "walk over to
+ * Elliot" over a field with nobody in it. Nowhere in the film's own shot is
+ * also visible from the follow cam's, so he cannot simply be put somewhere
+ * both can see; he goes while the picture is up, which is the one stretch
+ * where the field off the screen's cone is unseen.
+ *
+ * Where, exactly, is two constraints. He must be OUTSIDE the watching shot,
+ * for the replay: the desktop shot is a 22° lens at (3.5, 50) aimed at the
+ * screen, 19° to the half-frame at 16:9 and 24° at 21:9, so at z = −5 that
+ * needs x < −24. He must be INSIDE the follow shot from the watching spot
+ * (−6, 5) — the camera at (−6, 15, 31) — and far enough off not to be a
+ * surprise when the shot swings home: at (−27, −5) he is 30° left of that
+ * axis against a 40° half-frame, twenty-three units from the visitor,
+ * about two-thirds the visitor's height.
+ *
+ * A phone is two answers, by how it is held, because its watching shot is
+ * measured to the screen rather than composed (see phoneVantage in
+ * projector.ts). Upright, the picture is 11° to the half-frame and the
+ * follow frame is narrow too, so he stands close to the centre line — at
+ * (−12, −10) he is a few units clear of the picture and well inside the
+ * exit shot; at −16 he was cut in half by the left edge. Sideways, the
+ * picture is 21° to the half-frame and the follow frame is wide, so he
+ * stands further out, past the desktop's line. Chosen when he moves, from
+ * how the phone is held then; turning it during the film is the one case
+ * this does not cover, and it costs a figure beside the screen, not on it.
+ */
+const WATCH_DESK = [-27, -5] as const
+const WATCH_PHONE_UP = [-12, -10] as const
+const WATCH_PHONE_WIDE = [-26, -8] as const
 
 /** where the visitor's figure starts, so Elliot can face it before anyone arrives */
 const SPAWN_Z = 46
 
-/**
- * The way he faces the path — toward the spawn — which is where his anchor
- * and his approach are, so you meet his front coming up the path.
- */
-const FACE_Y = Math.atan2(-EX, SPAWN_Z - EZ)
-/** his facing as a vector, for putting his anchor in front of him */
-const FACE = new THREE.Vector3(Math.sin(FACE_Y), 0, Math.cos(FACE_Y))
 /** the screen, so his resting look can be turned part-way toward it */
 const SCREEN_Z = -30
 /**
@@ -84,7 +121,7 @@ const SCREEN_Z = -30
  * anyone else out here — not square at the path like a greeter waiting on
  * you. He still turns to you when you come close.
  */
-const REST_Y = Math.atan2(-EX, SCREEN_Z - EZ)
+const restYawAt = (x: number, z: number) => Math.atan2(-x, SCREEN_Z - z)
 /**
  * How far off you have to be for him to be at rest, and how close before he
  * is fully up: between the two the lantern comes up and the name fades in.
@@ -273,6 +310,13 @@ export interface Elliot extends Landmark {
   /** the point the visitor's figure turns to face once it is there */
   readonly facePoint: THREE.Vector3
   /**
+   * The film has been switched on and the camera is on the screen: he
+   * crosses to his watching spot, unseen, so he is in the shot when the film
+   * ends. Once; a replay finds him already there. `aspect` is the
+   * viewport's width over its height, which on a phone decides the spot.
+   */
+  comeToWatch(aspect: number): void
+  /**
    * He is being talked to: keep facing the talking spot rather than tracking
    * the figure, and let the lantern hang still. Off again when the panel
    * closes.
@@ -290,7 +334,7 @@ export interface Elliot extends Landmark {
 export function createElliot(): Elliot {
   const group = new THREE.Group()
   group.position.set(EX, 0, EZ)
-  group.rotation.y = REST_Y
+  group.rotation.y = restYawAt(EX, EZ)
 
   const owned: Array<{ dispose(): void }> = []
   const keep = <T extends { dispose(): void }>(g: T): T => {
@@ -460,22 +504,46 @@ export function createElliot(): Elliot {
   /* ---------------- state ---------------- */
   let daylight = 0
   let engaged = false
-  let yaw = REST_Y
-  let yawTarget = REST_Y
+  let restY = restYawAt(EX, EZ)
+  let yaw = restY
+  let yawTarget = restY
   /** 0 at rest, 1 fully up; eased over time so he never pops */
   let reveal = 0
   /** the nametag: 1 while he is somebody to walk to, 0 while you are talking */
   let tagUp = 1
 
+  /* Where he is, and the points main.ts holds by reference that hang off
+     it. All of them are UPDATED IN PLACE by `standAt`, never replaced, so
+     the compass, the badge and the walk-to-talk keep pointing at him after
+     he has moved. */
   const origin = new THREE.Vector3(EX, 0, EZ)
-  const talkSpot = origin.clone().addScaledVector(TALK_FACE, 3.6)
-  const anchor = origin.clone().addScaledVector(FACE, 5.5)
-  const facePoint = new THREE.Vector3(EX, 0, EZ)
+  const talkSpot = new THREE.Vector3()
+  const anchor = new THREE.Vector3()
+  const facePoint = new THREE.Vector3()
+  const reach = new THREE.Vector3()
+  /** scratch: from him toward the spawn, which is the side you approach on */
+  const approach = new THREE.Vector3()
+
+  function standAt(x: number, z: number): void {
+    origin.set(x, 0, z)
+    group.position.copy(origin)
+    facePoint.copy(origin)
+    talkSpot.copy(origin).addScaledVector(TALK_FACE, 3.6)
+    /* the anchor is 5.5 in front of him on the side the path arrives from —
+       toward the spawn — so the radius reaches the way you come */
+    approach.set(-x, 0, SPAWN_Z - z).normalize()
+    anchor.copy(origin).addScaledVector(approach, 5.5)
+    // the badge hangs at his hips — see `reach` below
+    reach.set(x, HIP_Y - 0.4, z)
+    restY = restYawAt(x, z)
+  }
+  standAt(EX, EZ)
+  let watching = false
 
   /** turned to face a point on the ground, the long way round never */
   function lookToward(p: THREE.Vector3): void {
-    const dx = p.x - EX
-    const dz = p.z - EZ
+    const dx = p.x - origin.x
+    const dz = p.z - origin.z
     if (Math.hypot(dx, dz) < 0.5) return
     yawTarget = Math.atan2(dx, dz)
   }
@@ -505,7 +573,7 @@ export function createElliot(): Elliot {
        slightly down — a badge hanging UP from the shoulders climbed straight
        into the invitation line. Hanging up from the hips it tops out at his
        chest, well clear of the tag, and still points at the person. */
-    reach: new THREE.Vector3(EX, HIP_Y - 0.4, EZ),
+    reach,
     reachRadius: 8,
     /* the whole figure, and the tag: you point at a person, not at an arm,
        and the name over his head is the most likely thing to be pointed at */
@@ -535,6 +603,17 @@ export function createElliot(): Elliot {
       return { position, lookAt, fov: 33 + k * 19 }
     },
 
+    comeToWatch(aspect: number) {
+      if (watching) return
+      watching = true
+      const [x, z] = !PHONE ? WATCH_DESK : aspect < 1 ? WATCH_PHONE_UP : WATCH_PHONE_WIDE
+      standAt(x, z)
+      /* nobody can see him cross, so he need not turn either: he arrives
+         already looking at the screen, as he would have been for a while */
+      yaw = yawTarget = restY
+      group.rotation.y = yaw
+    },
+
     setEngaged(on: boolean) {
       engaged = on
       if (on) lookToward(talkSpot)
@@ -555,9 +634,9 @@ export function createElliot(): Elliot {
       if (engaged) lookToward(talkSpot)
       else {
         const p = ctx.playerPosition
-        const d = Math.hypot(p.x - EX, p.z - EZ)
+        const d = Math.hypot(p.x - origin.x, p.z - origin.z)
         if (d < 12 + 2) lookToward(p)
-        else if (d > 12 * 1.6) yawTarget = REST_Y
+        else if (d > 12 * 1.6) yawTarget = restY
       }
       yaw += angleDelta(yaw, yawTarget) * Math.min(1, TURN_RATE * dt)
       group.rotation.y = yaw
@@ -581,7 +660,7 @@ export function createElliot(): Elliot {
          people to him. Eased, so the lantern is raised, not switched. */
       {
         const p = ctx.playerPosition
-        const d = Math.hypot(p.x - EX, p.z - EZ)
+        const d = Math.hypot(p.x - origin.x, p.z - origin.z)
         const byDistance = clamp((REVEAL_FAR - d) / (REVEAL_FAR - REVEAL_NEAR))
         const target = engaged || ctx.filmSeen() ? 1 : byDistance
         reveal += (target - reveal) * Math.min(1, 2.2 * dt)
@@ -603,7 +682,11 @@ export function createElliot(): Elliot {
       // hands over to its twin in the pill. A little dimmer at rest, full
       // once he is up, and out while the panel is open: the invitation has
       // been taken up, and the panel carries his name.
-      tagUp += ((engaged ? 0 : 1) - tagUp) * Math.min(1, 4 * dt)
+      /* …and down for the length of the film: on a phone held upright his
+         watching spot is close enough to the picture that the tag's edge
+         reached into it, and an invitation over a stranger's head is not
+         part of the show anyway. It comes up as the shot swings home. */
+      tagUp += ((engaged || ctx.filmOn() ? 0 : 1) - tagUp) * Math.min(1, 4 * dt)
       tagMat.opacity = night * (0.78 + 0.22 * reveal) * tagUp
       tagDayMat.opacity = daylight * tagUp
       tag.visible = tagDay.sprite.visible = tagUp > 0.01

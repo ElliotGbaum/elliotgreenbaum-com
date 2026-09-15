@@ -78,6 +78,8 @@ export interface LandmarkContext {
    * rather than being told, so it is never a frame stale either.
    */
   filmSeen(): boolean
+  /** the film is on right now: the world is a cinema, and nothing in it should ask for attention */
+  filmOn(): boolean
   /**
    * Where the visitor's figure is standing, in world units — a LIVE reference
    * to the player's position, never a copy, so reading it costs nothing and
