@@ -49,7 +49,8 @@
  * arrived yet cannot be clicked.
  */
 
-import { PALETTE, clamp, ease, easeOut, range } from '../../core/contract'
+import { clamp, ease, easeOut, range } from '../../core/contract'
+import { INK } from '../palette'
 import type { Act, ActRenderContext } from '../../core/contract'
 import {
   balanceText,
@@ -296,13 +297,13 @@ function draw(c: ActRenderContext): void {
 
     lift(ctx, cardX, cardY, cardW, cardH, Math.max(1.5, F.s * 0.009), 0.6 * cardK)
     const g = ctx.createLinearGradient(cardX, cardY, cardX, cardY + cardH)
-    g.addColorStop(0, withAlpha(PALETTE.buffCss, 0.09 * cardK))
-    g.addColorStop(1, withAlpha(PALETTE.buffCss, 0.025 * cardK))
+    g.addColorStop(0, withAlpha(INK.text, 0.09 * cardK))
+    g.addColorStop(1, withAlpha(INK.text, 0.025 * cardK))
     ctx.fillStyle = g
     ctx.fillRect(cardX, cardY, cardW, cardH)
-    ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.2 * cardK)
+    ctx.fillStyle = withAlpha(INK.text, 0.2 * cardK)
     ctx.fillRect(cardX, cardY, cardW, hw)
-    ctx.fillStyle = withAlpha(PALETTE.amberCss, 0.6 * cardK)
+    ctx.fillStyle = withAlpha(INK.amber, 0.6 * cardK)
     ctx.fillRect(cardX, cardY, hw * 2.6, cardH)
 
     const tx = cardX + pad * 1.5
@@ -312,7 +313,7 @@ function draw(c: ActRenderContext): void {
     const nameA = ease(range(t, NAME_A, NAME_A + 0.5))
     if (nameA > 0.004) {
       fitText(ctx, C.project.name, inner, nameSize, 'display', 400)
-      ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.96 * nameA)
+      ctx.fillStyle = withAlpha(INK.text, 0.96 * nameA)
       ctx.fillText(C.project.name, tx, ty)
     }
 
@@ -320,7 +321,7 @@ function draw(c: ActRenderContext): void {
     const tagA = tag ? ease(range(t, TAG_A, TAG_A + 0.5)) : 0
     if (tagA > 0.004) {
       fitText(ctx, tag, inner, tagSize, 'display', 400)
-      ctx.fillStyle = withAlpha(PALETTE.sageCss, 0.9 * tagA)
+      ctx.fillStyle = withAlpha(INK.muted, 0.9 * tagA)
       ctx.fillText(tag, tx, ty)
     }
 
@@ -333,10 +334,10 @@ function draw(c: ActRenderContext): void {
       const a = ease(range(t, FEAT_A + fi * FEAT_STEP, FEAT_A + 0.5 + fi * FEAT_STEP))
       fi++
       if (a <= 0.004) continue
-      ctx.fillStyle = withAlpha(PALETTE.amberCss, 0.7 * a)
+      ctx.fillStyle = withAlpha(INK.amber, 0.7 * a)
       disc(ctx, tx + featSize * 0.3, ty - featSize * 0.3, hw * 1.4)
       setFont(ctx, featSize, 'mono', 400)
-      ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.82 * a)
+      ctx.fillStyle = withAlpha(INK.text, 0.82 * a)
       drawTracked(ctx, feat, tx + featSize * 1.3, ty, featSize * 0.12, 'left')
     }
 
@@ -350,12 +351,12 @@ function draw(c: ActRenderContext): void {
         setFont(ctx, linkSize, 'mono', 400)
         const track = linkSize * 0.04
         const width = trackedWidth(ctx, label, track)
-        halo(ctx, PALETTE.glowCss, linkSize * 0.9, 0.3 * linkA, () => {
-          ctx.fillStyle = withAlpha(PALETTE.amberLitCss, 0.96 * linkA)
+        halo(ctx, INK.glow, linkSize * 0.9, 0.3 * linkA, () => {
+          ctx.fillStyle = withAlpha(INK.amberLit, 0.96 * linkA)
           drawTracked(ctx, label, tx, ty, track, 'left')
         })
         const uK = easeOut(range(t, LINK_A + 0.25, LINK_A + 0.95))
-        ctx.fillStyle = withAlpha(PALETTE.amberCss, 0.5 * linkA)
+        ctx.fillStyle = withAlpha(INK.amber, 0.5 * linkA)
         ctx.fillRect(tx, ty + linkSize * 0.42, width * uK, hw)
 
         publishLink({
@@ -414,7 +415,7 @@ function draw(c: ActRenderContext): void {
 
     if (!run) {
       ctx.textAlign = 'center'
-      ctx.fillStyle = withAlpha(stat ? PALETTE.amberLitCss : PALETTE.buffCss, 0.92 * a)
+      ctx.fillStyle = withAlpha(stat ? INK.amberLit : INK.text, 0.92 * a)
       drawLines(ctx, [line], F.cx, y, lh, 'center')
       continue
     }
@@ -423,18 +424,18 @@ function draw(c: ActRenderContext): void {
        three pieces sit exactly where the centred line would have put them. */
     const i = line.indexOf(C.linkWord)
     ctx.textAlign = 'left'
-    ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.92 * a)
+    ctx.fillStyle = withAlpha(INK.text, 0.92 * a)
     ctx.fillText(line.slice(0, i), run.x - ctx.measureText(line.slice(0, i)).width, y)
     ctx.fillText(line.slice(i + C.linkWord.length), run.x + run.w, y)
 
-    halo(ctx, PALETTE.glowCss, S.body * 0.75, 0.28 * a, () => {
-      ctx.fillStyle = withAlpha(PALETTE.amberLitCss, 0.96 * a)
+    halo(ctx, INK.glow, S.body * 0.75, 0.28 * a, () => {
+      ctx.fillStyle = withAlpha(INK.amberLit, 0.96 * a)
       ctx.fillText(C.linkWord, run.x, y)
     })
     /* the rule under it, drawn in as the line settles — the one mark that says
        this word is pressable rather than merely coloured */
     const uK = easeOut(range(t, from + RAMP * 0.5, from + RAMP + 0.4))
-    ctx.fillStyle = withAlpha(PALETTE.amberCss, 0.55 * a)
+    ctx.fillStyle = withAlpha(INK.amber, 0.55 * a)
     ctx.fillRect(run.x, y + S.body * 0.26, run.w * uK, hw)
 
     publishLink({

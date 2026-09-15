@@ -36,7 +36,8 @@
  * row has shoulders.
  */
 
-import { PALETTE, ease, easeOut, range } from '../../core/contract'
+import { ease, easeOut, range } from '../../core/contract'
+import { INK } from '../palette'
 import type { Act, ActRenderContext } from '../../core/contract'
 import {
   RAMP,
@@ -137,7 +138,7 @@ function draw(c: ActRenderContext): void {
   /* ---------------- the ground ---------------- */
   const groundK = easeOut(range(t, GROUND_A, GROUND_A + 1.1))
   if (groundK > 0.004) {
-    ctx.fillStyle = withAlpha(PALETTE.sageCss, 0.24)
+    ctx.fillStyle = withAlpha(INK.muted, 0.24)
     ctx.fillRect(gx, bot, gw * groundK, hw)
   }
 
@@ -163,15 +164,15 @@ function draw(c: ActRenderContext): void {
     const y = bot - bh
 
     // the two lit faces, then the front — the front last, so it sits over them
-    block(ctx, b.x, y, b.w, bh, d * k, PALETTE.amberCss, 0.3)
+    block(ctx, b.x, y, b.w, bh, d * k, INK.amber, 0.3)
 
     const g = ctx.createLinearGradient(b.x, y, b.x, bot)
-    g.addColorStop(0, withAlpha(PALETTE.buffCss, 0.1))
-    g.addColorStop(1, withAlpha(PALETTE.buffCss, 0.03))
+    g.addColorStop(0, withAlpha(INK.text, 0.1))
+    g.addColorStop(1, withAlpha(INK.text, 0.03))
     ctx.fillStyle = g
     ctx.fillRect(b.x, y, b.w, bh)
 
-    ctx.strokeStyle = withAlpha(PALETTE.buffCss, 0.42)
+    ctx.strokeStyle = withAlpha(INK.text, 0.42)
     ctx.lineWidth = hw
     ctx.strokeRect(b.x, y, b.w, bh)
   }
@@ -206,7 +207,7 @@ function draw(c: ActRenderContext): void {
         if ((r * COLS + cc + i) % 5 === 4) continue
         const x = b.x + cc * cw + (cw - sq) / 2
         const y = b.y + r * rh + (rh - sq) / 2
-        ctx.fillStyle = withAlpha(PALETTE.amberLitCss, 0.72 * k)
+        ctx.fillStyle = withAlpha(INK.amberLit, 0.72 * k)
         ctx.fillRect(x, y, sq, sq)
       }
     }
@@ -222,14 +223,14 @@ function draw(c: ActRenderContext): void {
     const o = faceOffset(d)
     const rx = tallest.x + tallest.w / 2 + o.x / 2
     const ry = tallest.y + o.y / 2 - S.body * 0.7 * roofK
-    softDot(ctx, rx, ry, F.s * 0.07 * roofK, PALETTE.glowCss, 0.34 * roofK)
-    ctx.strokeStyle = withAlpha(PALETTE.amberCss, 0.5 * roofK)
+    softDot(ctx, rx, ry, F.s * 0.07 * roofK, INK.glow, 0.34 * roofK)
+    ctx.strokeStyle = withAlpha(INK.amber, 0.5 * roofK)
     ctx.lineWidth = hw
     ctx.beginPath()
     ctx.moveTo(rx, tallest.y + o.y / 2)
     ctx.lineTo(rx, ry)
     ctx.stroke()
-    ctx.fillStyle = withAlpha(PALETTE.amberLitCss, 0.95 * roofK)
+    ctx.fillStyle = withAlpha(INK.amberLit, 0.95 * roofK)
     disc(ctx, rx, ry, Math.max(2, F.s * 0.011) * roofK)
   }
 
@@ -242,8 +243,8 @@ function draw(c: ActRenderContext): void {
   const learnA = C.learn ? ease(range(t, LEARN_A, LEARN_A + RAMP)) : 0
   if (learnA > 0.004) {
     const size = fitText(ctx, C.learn, F.w * 0.96, S.body * 1.2, 'display', 400)
-    halo(ctx, PALETTE.glowCss, size * 0.5, 0.18 * learnA, () => {
-      ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.94 * learnA)
+    halo(ctx, INK.glow, size * 0.5, 0.18 * learnA, () => {
+      ctx.fillStyle = withAlpha(INK.text, 0.94 * learnA)
       ctx.fillText(C.learn, F.cx, footY)
     })
   }

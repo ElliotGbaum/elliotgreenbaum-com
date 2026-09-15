@@ -37,7 +37,8 @@
  * act 5 with it; act 6 opens on senior year and takes the weight.
  */
 
-import { PALETTE, ease, easeOut, rand, range } from '../../core/contract'
+import { ease, easeOut, rand, range } from '../../core/contract'
+import { INK } from '../palette'
 import type { Act, ActRenderContext } from '../../core/contract'
 import type { Frame, TypeScale } from '../timeline'
 import {
@@ -130,7 +131,7 @@ function beatModel(
      Horizontals sweep right, verticals drop down, staggered — a grid that
      fades in as one is a texture, a grid that RULES ITSELF is somebody
      setting up a sheet. */
-  ctx.fillStyle = withAlpha(PALETTE.sageCss, 0.22 * a)
+  ctx.fillStyle = withAlpha(INK.muted, 0.22 * a)
   for (let r = 0; r <= ROWS; r++) {
     const k = easeOut(range(t, RULE_A + r * 0.06, RULE_A + RULE_RUN * 0.55 + r * 0.06))
     if (k <= 0.004) continue
@@ -151,7 +152,7 @@ function beatModel(
     const k = ease(range(t, HEAD_A + c * 0.07, HEAD_A + 0.45 + c * 0.07))
     if (k <= 0.004) continue
     const dw = cw * 0.34
-    ctx.fillStyle = withAlpha(PALETTE.amberCss, 0.7 * k * a)
+    ctx.fillStyle = withAlpha(INK.amber, 0.7 * k * a)
     ctx.fillRect(gx + (c + 1) * cw - dw - cw * 0.16, gy + ch * 0.55, dw, Math.max(1, hw * 1.6))
   }
 
@@ -168,7 +169,7 @@ function beatModel(
       const wide = cw * (0.3 + rand(n * 3 + 7) * 0.42)
       const right = gx + (c + 1) * cw - cw * 0.16
       const y = bodyTop + r * ch + ch * 0.52
-      ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.5 * k * a)
+      ctx.fillStyle = withAlpha(INK.text, 0.5 * k * a)
       ctx.fillRect(right - wide * k, y, wide * k, Math.max(1, hw * 1.5))
     }
   }
@@ -178,7 +179,7 @@ function beatModel(
   if (totalK > 0.004) {
     // the double rule above a total, which is the one piece of spreadsheet
     // grammar everybody knows
-    ctx.fillStyle = withAlpha(PALETTE.amberCss, 0.55 * totalK * a)
+    ctx.fillStyle = withAlpha(INK.amber, 0.55 * totalK * a)
     ctx.fillRect(gx, totalY - hw * 2.4, gw * totalK, hw)
     ctx.fillRect(gx, totalY - hw * 0.6, gw * totalK, hw)
 
@@ -187,7 +188,7 @@ function beatModel(
       if (k <= 0.004) continue
       const wide = cw * (0.4 + rand(c * 5 + 31) * 0.3)
       const right = gx + (c + 1) * cw - cw * 0.16
-      ctx.fillStyle = withAlpha(PALETTE.amberLitCss, 0.85 * k * a)
+      ctx.fillStyle = withAlpha(INK.amberLit, 0.85 * k * a)
       ctx.fillRect(right - wide, totalY + ch * 0.42, wide, Math.max(1.5, hw * 2.2))
     }
   }
@@ -199,7 +200,7 @@ function beatModel(
     const y0 = totalY - ch * 0.5
     const y1 = totalY + ch * 0.9
     const tick = F.w * 0.014
-    ctx.strokeStyle = withAlpha(PALETTE.amberCss, 0.6 * numK * a)
+    ctx.strokeStyle = withAlpha(INK.amber, 0.6 * numK * a)
     ctx.lineWidth = hw
     ctx.beginPath()
     ctx.moveTo(bx + tick, y0)
@@ -209,8 +210,8 @@ function beatModel(
     ctx.stroke()
 
     const nx = Math.min(F.x + F.w - F.s * 0.02, bx + F.w * 0.05)
-    softDot(ctx, nx, (y0 + y1) / 2, F.s * 0.055 * numK, PALETTE.glowCss, 0.35 * numK * a)
-    ctx.fillStyle = withAlpha(PALETTE.amberLitCss, 0.95 * numK * a)
+    softDot(ctx, nx, (y0 + y1) / 2, F.s * 0.055 * numK, INK.glow, 0.35 * numK * a)
+    ctx.fillStyle = withAlpha(INK.amberLit, 0.95 * numK * a)
     disc(ctx, nx, (y0 + y1) / 2, Math.max(2, F.s * 0.011) * numK)
   }
 
@@ -249,8 +250,8 @@ function draw(c: ActRenderContext): void {
     : 0
   if (learnA > 0.004) {
     const size = fitText(ctx, C.learn, F.w * 0.96, S.body * 1.2, 'display', 400)
-    halo(ctx, PALETTE.glowCss, size * 0.5, 0.18 * learnA, () => {
-      ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.94 * learnA)
+    halo(ctx, INK.glow, size * 0.5, 0.18 * learnA, () => {
+      ctx.fillStyle = withAlpha(INK.text, 0.94 * learnA)
       ctx.fillText(C.learn, F.cx, footY)
     })
   }
@@ -258,7 +259,7 @@ function draw(c: ActRenderContext): void {
   const turnA = C.turn ? ease(range(t, TURN_A, TURN_A + RAMP)) : 0
   if (turnA > 0.004) {
     fitText(ctx, C.turn, F.w * 0.96, S.body, 'display', 400)
-    ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.94 * turnA)
+    ctx.fillStyle = withAlpha(INK.text, 0.94 * turnA)
     ctx.fillText(C.turn, F.cx, footY)
   }
 

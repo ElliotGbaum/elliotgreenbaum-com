@@ -7,7 +7,8 @@
  * Sequencing and playback live in src/film/film.ts.
  */
 
-import { PALETTE, PHONE, clamp, ease, rand, range } from '../core/contract'
+import { PHONE, clamp, ease, rand, range } from '../core/contract'
+import { INK } from './palette'
 
 /* ==================================================================== *
  * The drawing kit
@@ -185,7 +186,7 @@ export function fitTracked(
   return { size: next, track: next * em }
 }
 
-/** '#RRGGBB' + alpha → rgba(). PALETTE is the only source of the hex. */
+/** '#RRGGBB' + alpha → rgba(). INK and PALETTE are the only sources of the hex. */
 export function withAlpha(css: string, a: number): string {
   const n = parseInt(css.slice(1), 16)
   const r = (n >> 16) & 255
@@ -250,9 +251,9 @@ export function flick(t: number, amt = 0.3, hz = 18): number {
 export function wash(ctx: CanvasRenderingContext2D, w: number, h: number, k: number): void {
   if (k <= 0.002) return
   const g = ctx.createRadialGradient(w * 0.5, h * 0.44, 0, w * 0.5, h * 0.44, Math.max(w, h) * 0.75)
-  g.addColorStop(0, withAlpha(PALETTE.horizonCss, 0.85 * k))
-  g.addColorStop(0.5, withAlpha(PALETTE.horizonCss, 0.34 * k))
-  g.addColorStop(1, withAlpha(PALETTE.horizonCss, 0))
+  g.addColorStop(0, withAlpha(INK.wash, 0.85 * k))
+  g.addColorStop(0.5, withAlpha(INK.wash, 0.34 * k))
+  g.addColorStop(1, withAlpha(INK.wash, 0))
   ctx.fillStyle = g
   ctx.fillRect(0, 0, w, h)
 }
@@ -623,7 +624,7 @@ export function floorGrid(
 
   ctx.save()
   ctx.lineWidth = hw
-  ctx.strokeStyle = withAlpha(PALETTE.buffCss, 0.055 * a)
+  ctx.strokeStyle = withAlpha(INK.text, 0.055 * a)
 
   // rails, converging on the vanishing point
   const RAILS = 9
@@ -643,7 +644,7 @@ export function floorGrid(
     const k = u * u * u
     const y = horizonY + depth * k
     const spread = 0.06 + (1.15 - 0.06) * k
-    ctx.strokeStyle = withAlpha(PALETTE.buffCss, 0.075 * a * (0.25 + 0.75 * k))
+    ctx.strokeStyle = withAlpha(INK.text, 0.075 * a * (0.25 + 0.75 * k))
     ctx.beginPath()
     ctx.moveTo(vx - F.w * spread, y)
     ctx.lineTo(vx + F.w * spread, y)
@@ -771,11 +772,11 @@ export function header(
   ctx.textBaseline = 'alphabetic'
   ctx.textAlign = 'left'
   setFont(ctx, S.micro, 'mono', 500)
-  ctx.fillStyle = withAlpha(PALETTE.amberCss, 0.8 * a)
+  ctx.fillStyle = withAlpha(INK.amber, 0.8 * a)
   drawTracked(ctx, index, F.x, iy, S.micro * 0.26, 'left')
 
   setFont(ctx, size, 'display', 400)
-  ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.94 * a)
+  ctx.fillStyle = withAlpha(INK.text, 0.94 * a)
   drawLines(ctx, lines, F.x, first, lh, 'left')
   return last
 }
@@ -811,7 +812,7 @@ export function subhead(
   hy: number,
   text: string,
   a: number,
-  css: string = PALETTE.amberCss,
+  css: string = INK.amber,
 ): number {
   const size = S.small
   const y = hy + size * 2.2

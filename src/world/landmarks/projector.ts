@@ -662,10 +662,12 @@ export function createProjector(picture: HTMLCanvasElement): Projector {
       // toneMapped:false, so this multiplies the texture straight through.
       screenMat.opacity = f
       // A screen has to out-punch whatever is falling on it. The picture is
-      // toneMapped:false, so this gain goes straight through — and in daylight
-      // it has to go further, or the film reads as a poster rather than a
-      // projection.
-      screenMat.color.setScalar(f * (1.3 + daylight * 0.35) * flick)
+      // toneMapped:false, so this gain goes straight through. It used to be
+      // 1.3 rising to 1.65 by day, when the picture was dusk-blue and needed
+      // the lift; since the picture became the cream the screen already is
+      // (src/film/palette.ts), anything over 1 clips it to pure white and
+      // loses the ink's warmth, so it sits at 1 and the flicker does the rest.
+      screenMat.color.setScalar(f * (1 + daylight * 0.04) * flick)
       screen.visible = screenMat.opacity > 0.004
       bounce.intensity = f * 190 * flick * (1 - daylight * 0.72)
       // the pilot lamp and the ember in the lens: on while dormant at night,

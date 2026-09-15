@@ -40,7 +40,8 @@
  * size and fractions all land on top of one another.
  */
 
-import { PALETTE, clamp, ease, easeOut, range } from '../../core/contract'
+import { clamp, ease, easeOut, range } from '../../core/contract'
+import { INK } from '../palette'
 import type { Act, ActRenderContext } from '../../core/contract'
 import type { Frame, TypeScale } from '../timeline'
 import {
@@ -147,7 +148,7 @@ function beatStart(
   const ruleK = easeOut(range(t, RULE_A, RULE_A + 0.9))
   if (ruleK > 0.004) {
     const half = Math.min(F.w * 0.09, F.s * 0.09) * ruleK
-    ctx.fillStyle = withAlpha(PALETTE.amberCss, 0.5 * a)
+    ctx.fillStyle = withAlpha(INK.amber, 0.5 * a)
     ctx.fillRect(F.cx - half, top - size * 2.0, half * 2, hw)
   }
 
@@ -163,7 +164,7 @@ function beatStart(
     li++
     if (k <= 0.004) continue
     setFont(ctx, size, 'display', 400)
-    ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.94 * k)
+    ctx.fillStyle = withAlpha(INK.text, 0.94 * k)
     ctx.fillText(line, F.cx, y + rise)
   }
   ctx.textAlign = 'left'
@@ -199,7 +200,7 @@ function beatProjects(
   const leadY = headBot + S.body * 1.1
   if (leadA > 0.004) {
     fitText(ctx, C.lead, F.w * 0.96, S.body, 'display', 400)
-    ctx.fillStyle = withAlpha(PALETTE.sageCss, 0.9 * leadA)
+    ctx.fillStyle = withAlpha(INK.muted, 0.9 * leadA)
     ctx.fillText(C.lead, F.x, leadY)
   }
 
@@ -240,13 +241,13 @@ function beatProjects(
     /* the plate: a shadow, a wash, and one lit edge along the top */
     lift(ctx, cardX, cy, colW, h, Math.max(1.5, F.s * 0.008), 0.55 * ka)
     const g = ctx.createLinearGradient(cardX, cy, cardX, cy + h)
-    g.addColorStop(0, withAlpha(PALETTE.buffCss, 0.075 * ka))
-    g.addColorStop(1, withAlpha(PALETTE.buffCss, 0.022 * ka))
+    g.addColorStop(0, withAlpha(INK.text, 0.075 * ka))
+    g.addColorStop(1, withAlpha(INK.text, 0.022 * ka))
     ctx.fillStyle = g
     ctx.fillRect(cardX, cy, colW, h)
-    ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.18 * ka)
+    ctx.fillStyle = withAlpha(INK.text, 0.18 * ka)
     ctx.fillRect(cardX, cy, colW, hw)
-    ctx.fillStyle = withAlpha(PALETTE.amberCss, 0.55 * ka)
+    ctx.fillStyle = withAlpha(INK.amber, 0.55 * ka)
     ctx.fillRect(cardX, cy, hw * 2.4, h)
 
     const x = cardX + m.pad * 1.6
@@ -254,7 +255,7 @@ function beatProjects(
     let ty = cy + m.pad + m.nameSize
 
     fitText(ctx, card.name, inner, m.nameSize, 'display', 400)
-    ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.95 * ka)
+    ctx.fillStyle = withAlpha(INK.text, 0.95 * ka)
     ctx.fillText(card.name, x, ty)
 
     if (card.label) {
@@ -264,12 +265,12 @@ function beatProjects(
         setFont(ctx, m.linkSize, 'mono', 400)
         const track = m.linkSize * 0.04
         const width = trackedWidth(ctx, card.label, track)
-        halo(ctx, PALETTE.glowCss, m.linkSize * 0.9, 0.3 * linkA, () => {
-          ctx.fillStyle = withAlpha(PALETTE.amberLitCss, 0.96 * linkA)
+        halo(ctx, INK.glow, m.linkSize * 0.9, 0.3 * linkA, () => {
+          ctx.fillStyle = withAlpha(INK.amberLit, 0.96 * linkA)
           drawTracked(ctx, card.label, x, ty, track, 'left')
         })
         const uK = easeOut(range(t, startAt + 0.55, startAt + 1.25))
-        ctx.fillStyle = withAlpha(PALETTE.amberCss, 0.5 * linkA)
+        ctx.fillStyle = withAlpha(INK.amber, 0.5 * linkA)
         ctx.fillRect(x, ty + m.linkSize * 0.42, width * uK, hw)
 
         // the hit box is the type's own box, opened up to something a person

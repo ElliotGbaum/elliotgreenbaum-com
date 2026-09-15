@@ -38,7 +38,8 @@
  * with their alpha, into the registry in src/film/links.ts.
  */
 
-import { PALETTE, clamp, ease, easeOut, range } from '../../core/contract'
+import { clamp, ease, easeOut, range } from '../../core/contract'
+import { INK } from '../palette'
 import type { Act, ActRenderContext } from '../../core/contract'
 import {
   balanceText,
@@ -469,8 +470,8 @@ function draw(c: ActRenderContext): void {
   const titleA = easeOut(range(t, TITLE_A, TITLE_A + 0.7))
   if (titleA > 0.004) {
     const size = fitText(ctx, C.title, F.w * 0.7, z.title, 'display', 400)
-    halo(ctx, PALETTE.glowCss, size * 0.4, 0.2 * titleA, () => {
-      ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.96 * titleA)
+    halo(ctx, INK.glow, size * 0.4, 0.2 * titleA, () => {
+      ctx.fillStyle = withAlpha(INK.text, 0.96 * titleA)
       ctx.fillText(C.title, F.x, titleY)
     })
   }
@@ -478,7 +479,7 @@ function draw(c: ActRenderContext): void {
   /* ---- and its rule, opening across the whole card ---- */
   const ruleK = easeOut(range(t, RULE_A, RULE_A + 0.85))
   if (ruleK > 0.004) {
-    ctx.fillStyle = withAlpha(PALETTE.amberCss, 0.45)
+    ctx.fillStyle = withAlpha(INK.amber, 0.45)
     ctx.fillRect(F.x, ruleY, F.w * ruleK, hw)
   }
 
@@ -501,7 +502,7 @@ function draw(c: ActRenderContext): void {
            linear in size, so one correction fits it exactly. */
         const label = p.lines[0] ?? ''
         const fit = fitTracked(ctx, label, colW, p.size, HEAD_TRACK, 'mono', 500)
-        ctx.fillStyle = withAlpha(PALETTE.amberCss, 0.9 * a)
+        ctx.fillStyle = withAlpha(INK.amber, 0.9 * a)
         drawTracked(ctx, label, cx, y, fit.track, 'left')
         continue
       }
@@ -512,13 +513,13 @@ function draw(c: ActRenderContext): void {
       if (sub) {
         // a short rule where a bullet would be — the run under a bullet is a
         // list of parts, not a second list of things
-        ctx.fillStyle = withAlpha(PALETTE.sageCss, 0.5 * a)
+        ctx.fillStyle = withAlpha(INK.muted, 0.5 * a)
         ctx.fillRect(cx + p.x - p.size * 0.85, y - p.size * 0.3, p.size * 0.45, hw)
-        ctx.fillStyle = withAlpha(PALETTE.sageCss, 0.88 * a)
+        ctx.fillStyle = withAlpha(INK.muted, 0.88 * a)
       } else {
-        ctx.fillStyle = withAlpha(PALETTE.amberCss, 0.62 * a)
+        ctx.fillStyle = withAlpha(INK.amber, 0.62 * a)
         disc(ctx, cx + p.x - p.size * 0.66, y - p.size * 0.3, Math.max(1.1, p.size * 0.11))
-        ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.94 * a)
+        ctx.fillStyle = withAlpha(INK.text, 0.94 * a)
       }
 
       if (!p.row.linkWord) {
@@ -543,7 +544,7 @@ function draw(c: ActRenderContext): void {
         const lx = cx + p.x
         const i = line.indexOf(p.row.linkWord)
         if (i < 0) {
-          ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.94 * a)
+          ctx.fillStyle = withAlpha(INK.text, 0.94 * a)
           ctx.fillText(line, lx, ly)
           return
         }
@@ -551,13 +552,13 @@ function draw(c: ActRenderContext): void {
         const after = line.slice(i + p.row.linkWord.length)
         const bx = lx + ctx.measureText(before).width
         const lw = ctx.measureText(p.row.linkWord).width
-        ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.94 * a)
+        ctx.fillStyle = withAlpha(INK.text, 0.94 * a)
         ctx.fillText(before, lx, ly)
         ctx.fillText(after, bx + lw, ly)
 
-        ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.94 * a)
+        ctx.fillStyle = withAlpha(INK.text, 0.94 * a)
         ctx.fillText(p.row.linkWord, bx, ly)
-        ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.55 * a)
+        ctx.fillStyle = withAlpha(INK.text, 0.55 * a)
         // close under the baseline, not down in the air the next row needs
         ctx.fillRect(bx, ly + p.size * 0.18, lw, hw)
 
@@ -579,7 +580,7 @@ function draw(c: ActRenderContext): void {
   /* ---- the foot rule ---- */
   const footK = easeOut(range(t, footA, footA + 0.7))
   if (footK > 0.004) {
-    ctx.fillStyle = withAlpha(PALETTE.amberCss, 0.32)
+    ctx.fillStyle = withAlpha(INK.amber, 0.32)
     ctx.fillRect(F.x, footRuleY, F.w * footK, hw)
   }
 
@@ -587,7 +588,7 @@ function draw(c: ActRenderContext): void {
   const headA = ease(range(t, footA + FOOT_STEP, footA + FOOT_STEP + ROW_RAMP))
   if (headA > 0.004) {
     setFont(ctx, z.head, 'mono', 500)
-    ctx.fillStyle = withAlpha(PALETTE.amberCss, 0.9 * headA)
+    ctx.fillStyle = withAlpha(INK.amber, 0.9 * headA)
     drawTracked(ctx, C.next.toUpperCase(), F.x, footRuleY + foot.headY, z.head * HEAD_TRACK, 'left')
   }
 
@@ -596,17 +597,17 @@ function draw(c: ActRenderContext): void {
   if (rolesA > 0.004) {
     const y = footRuleY + foot.rolesY
     setFont(ctx, z.item, 'display', 400)
-    ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.92 * rolesA)
+    ctx.fillStyle = withAlpha(INK.text, 0.92 * rolesA)
     ctx.fillText(CARD.looking, F.x, y)
 
     setFont(ctx, foot.roleSize, 'mono', 500)
     let rx = F.x + foot.lookW
     CARD.roles.forEach((role, i) => {
       const rw = foot.roleW[i] ?? 0
-      ctx.fillStyle = withAlpha(PALETTE.amberLitCss, 0.92 * rolesA)
+      ctx.fillStyle = withAlpha(INK.amberLit, 0.92 * rolesA)
       drawTracked(ctx, role, rx, y, foot.roleTrack, 'left')
       if (i < CARD.roles.length - 1) {
-        ctx.fillStyle = withAlpha(PALETTE.amberCss, 0.5 * rolesA)
+        ctx.fillStyle = withAlpha(INK.amber, 0.5 * rolesA)
         disc(ctx, rx + rw + foot.roleSep / 2, y - foot.roleSize * 0.3, hw * 1.1)
       }
       rx += rw + foot.roleSep
@@ -618,8 +619,8 @@ function draw(c: ActRenderContext): void {
      card at the end of the film, because they are the same three things and a
      viewer who has seen one should recognise the other. */
   const addrA = ease(range(t, footA + FOOT_STEP * 3, footA + FOOT_STEP * 3 + ROW_RAMP))
-  const LINK = PALETTE.mintCss
-  const LINK_LIT = '#8FE3C6'
+  const LINK = INK.link
+  const LINK_LIT = INK.linkLit
   {
     const y = footRuleY + foot.addrY
     const rowsIn = [
@@ -639,7 +640,7 @@ function draw(c: ActRenderContext): void {
         ctx.fillRect(ax, y + foot.addrSize * 0.45, width, hw)
 
         if (i < rowsIn.length - 1) {
-          ctx.fillStyle = withAlpha(PALETTE.sageCss, 0.4 * addrA)
+          ctx.fillStyle = withAlpha(INK.muted, 0.4 * addrA)
           disc(ctx, ax + width + foot.addrSep / 2, y - foot.addrSize * 0.3, hw * 1.1)
         }
 

@@ -31,8 +31,9 @@
  * │           the buttons, the subtitle. The picture's own grain and     │
  * │           vignette are drawn here, in `finish()`, because the        │
  * │           picture is a texture on a screen in the world now and CSS  │
- * │           can't reach it. Colour comes from PALETTE in               │
- * │           src/core/contract.ts and nowhere else.                     │
+ * │           can't reach it. Colour comes from INK in                   │
+ * │           src/film/palette.ts and nowhere else: ink on the cream     │
+ * │           the screen already is, not the world's dusk-blue.          │
  * └──────────────────────────────────────────────────────────────────────┘
  *
  * WHERE IT ENDS UP: nowhere near the DOM. This module owns an offscreen
@@ -65,9 +66,10 @@
 
 /// <reference types="vite/client" />
 
-import { PALETTE, REDUCED_MOTION, clamp, ease, easeOut, rand } from '../core/contract'
+import { REDUCED_MOTION, clamp, ease, easeOut, rand } from '../core/contract'
+import { INK } from './palette'
 import type { Act, ActRenderContext } from '../core/contract'
-import { reset } from './timeline'
+import { reset, withAlpha } from './timeline'
 import { clearLinks } from './links'
 
 import { act0 } from './acts/act0'
@@ -429,7 +431,9 @@ export function createFilm(): Film {
   // The projected rectangle falls off at its edges; cached because the buffer
   // never resizes. Kept light on purpose — the projector throws no visible
   // beam any more (see world/landmarks/projector.ts for why), so nothing is
-  // lifting the middle of the picture to compensate for dark corners.
+  // lifting the middle of the picture to compensate for dark corners. Lighter
+  // still since the picture went cream (see palette.ts): on a pale screen the
+  // same falloff that read as a lamp's edge on a dark one reads as dirt.
   const vignette = ctx.createRadialGradient(
     CANVAS_W * 0.5,
     CANVAS_H * 0.47,
@@ -439,8 +443,8 @@ export function createFilm(): Film {
     CANVAS_W * 0.72,
   )
   vignette.addColorStop(0, 'rgba(0,0,0,0)')
-  vignette.addColorStop(0.62, 'rgba(0,0,0,0.13)')
-  vignette.addColorStop(1, 'rgba(0,0,0,0.42)')
+  vignette.addColorStop(0.62, 'rgba(0,0,0,0.05)')
+  vignette.addColorStop(1, 'rgba(0,0,0,0.18)')
 
   const ends: Array<() => void> = []
 
@@ -524,7 +528,7 @@ export function createFilm(): Film {
     // downstream of here draws in design pixels
     ctx.setTransform(scale, 0, 0, scale, 0, 0)
     reset(ctx)
-    ctx.fillStyle = PALETTE.nightCss
+    ctx.fillStyle = INK.screen
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H)
 
     const frame: ActRenderContext = {
@@ -556,7 +560,7 @@ export function createFilm(): Film {
       const black = out ? ease(clamp(rushT / RUSH_OUT)) : 1 - ease(clamp((rushT - RUSH_OUT) / RUSH_IN))
       if (black > 0.002) {
         reset(ctx)
-        ctx.fillStyle = `rgba(0,0,0,${black.toFixed(3)})`
+        ctx.fillStyle = withAlpha(INK.screen, black)
         ctx.fillRect(0, 0, CANVAS_W, CANVAS_H)
       }
       /* …and nothing on a picture that is fading is clickable. The acts
@@ -573,13 +577,13 @@ export function createFilm(): Film {
     dirty = false
   }
 
-  /** dark, so the screen has something to be before the first frame lands */
+  /** the bare screen, so it has something to be before the first frame lands */
   function blank(): void {
     // the one place the buffer's real size is allowed to matter: everything
     // downstream of here draws in design pixels
     ctx.setTransform(scale, 0, 0, scale, 0, 0)
     reset(ctx)
-    ctx.fillStyle = PALETTE.nightCss
+    ctx.fillStyle = INK.screen
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H)
   }
   blank()

@@ -67,7 +67,8 @@
  * the frame on a short, wide window.
  */
 
-import { PALETTE, clamp, ease, easeOut, range } from '../../core/contract'
+import { clamp, ease, easeOut, range } from '../../core/contract'
+import { INK } from '../palette'
 import type { Act, ActRenderContext } from '../../core/contract'
 import {
   RAMP,
@@ -351,9 +352,9 @@ function draw(c: ActRenderContext): void {
   const nameA = named ? easeOut(range(t, -0.3, 0.7)) : 0
   if (nameA > 0.004) {
     setFont(ctx, nameSize, 'display', 400)
-    softDot(ctx, x + nameSize * 0.2, nameY - nameSize * 0.3, nameSize * 3, PALETTE.glowCss, 0.05 * nameA)
-    halo(ctx, PALETTE.glowCss, nameSize * 0.42, 0.22 * nameA, () => {
-      ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.96 * nameA)
+    softDot(ctx, x + nameSize * 0.2, nameY - nameSize * 0.3, nameSize * 3, INK.glow, 0.05 * nameA)
+    halo(ctx, INK.glow, nameSize * 0.42, 0.22 * nameA, () => {
+      ctx.fillStyle = withAlpha(INK.text, 0.96 * nameA)
       ctx.fillText(C.name, x, nameY)
     })
   }
@@ -365,17 +366,17 @@ function draw(c: ActRenderContext): void {
      its own that was most of a second of black at the cut into the last act. */
   const ruleK = easeOut(range(t, named ? 0.8 : -0.25, named ? 1.8 : 1.1))
   if (ruleK > 0.004) {
-    ctx.fillStyle = withAlpha(PALETTE.amberCss, 0.45)
+    ctx.fillStyle = withAlpha(INK.amber, 0.45)
     ctx.fillRect(x, ruleY, colW * ruleK, hw)
     // the head of the rule stays lit for as long as it is travelling
-    if (ruleK < 1) softDot(ctx, x + colW * ruleK, ruleY, nameSize * 0.5, PALETTE.glowCss, 0.4)
+    if (ruleK < 1) softDot(ctx, x + colW * ruleK, ruleY, nameSize * 0.5, INK.glow, 0.4)
   }
 
   /* ---- where he just left, if the card still says so ---- */
   const leftA = hasLeft ? ease(range(t, LEFT_A, LEFT_A + RAMP)) : 0
   if (leftA > 0.004) {
     setFont(ctx, S.small, 'display', 400)
-    ctx.fillStyle = withAlpha(PALETTE.sageCss, 0.85 * leftA)
+    ctx.fillStyle = withAlpha(INK.muted, 0.85 * leftA)
     ctx.fillText(C.left, x, leftY)
   }
 
@@ -383,7 +384,7 @@ function draw(c: ActRenderContext): void {
   const lookA = ease(range(t, LOOK_A, LOOK_A + RAMP))
   if (lookA > 0.004) {
     setFont(ctx, S.body, 'display', 400)
-    ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.92 * lookA)
+    ctx.fillStyle = withAlpha(INK.text, 0.92 * lookA)
     ctx.fillText(C.looking, x, lookY)
   }
 
@@ -411,10 +412,10 @@ function draw(c: ActRenderContext): void {
         const endsRow = ci === row.length - 1
         ci++
         if (k > 0.004) {
-          ctx.fillStyle = withAlpha(PALETTE.amberLitCss, 0.9 * k)
+          ctx.fillStyle = withAlpha(INK.amberLit, 0.9 * k)
           drawTracked(ctx, role, rx, ry, R.track, 'left')
           if (!endsRow) {
-            ctx.fillStyle = withAlpha(PALETTE.amberCss, 0.5 * k)
+            ctx.fillStyle = withAlpha(INK.amber, 0.5 * k)
             disc(ctx, rx + rw + R.sep / 2, ry - R.size * 0.3, hw * 1.1)
           }
         }
@@ -426,7 +427,7 @@ function draw(c: ActRenderContext): void {
           const tailA = ease(range(t, TAIL_A, TAIL_A + RAMP))
           if (tailA > 0.004) {
             setFont(ctx, tailSizeAt(roleTarget) * R.k, 'display', 400)
-            ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.9 * tailA)
+            ctx.fillStyle = withAlpha(INK.text, 0.9 * tailA)
             ctx.fillText(C.rolesTail, rx - R.sep * 0.55, ry)
             setFont(ctx, R.size, 'mono', 500)
           }
@@ -440,7 +441,7 @@ function draw(c: ActRenderContext): void {
   const askA = hasAsk ? ease(range(t, ASK_A, ASK_A + RAMP)) : 0
   if (askA > 0.004) {
     setFont(ctx, S.body, 'display', 400)
-    ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.9 * askA)
+    ctx.fillStyle = withAlpha(INK.text, 0.9 * askA)
     drawLines(ctx, askLines, x, askY, lh, 'left')
   }
 
@@ -451,16 +452,16 @@ function draw(c: ActRenderContext): void {
      MINT, NOT AMBER. They used to be amber over an amber underline, sitting
      four lines under a role list that is also amber and also set in mono — two
      blocks of warm monospace with nothing between them but a gap, and the
-     addresses lost. Mint is the palette's one cool accent (see PALETTE in
-     src/core/contract.ts) and it is spent here, on the only three things on
+     addresses lost. Green is the film's one cool colour (see INK in
+     src/film/palette.ts) and it is spent here, on the only three things on
      this card that are clickable: the roles say what he wants, these say how to
      reach him, and they are now different KINDS of thing at a glance rather
      than the same thing twice. The glow behind them stays warm, because the
      halo is the light in the room and not the ink. */
   const track = addrSize * ADDR_TRACK
   /** the lit one is the email — first, and the one he most wants used */
-  const LINK = PALETTE.mintCss
-  const LINK_LIT = '#8FE3C6'
+  const LINK = INK.link
+  const LINK_LIT = INK.linkLit
   const rowsIn: Array<{ href: string; label: string; at: number; lit: boolean }> = [
     { href: `mailto:${C.email}`, label: C.email, at: MAIL_A, lit: true },
     ...C.links.map((l, i) => ({
@@ -525,7 +526,7 @@ function draw(c: ActRenderContext): void {
   const hearA = hasHear ? ease(range(t, HEAR_A, HEAR_A + RAMP)) : 0
   if (hearA > 0.004) {
     setFont(ctx, S.body, 'display', 400)
-    ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.92 * hearA)
+    ctx.fillStyle = withAlpha(INK.text, 0.92 * hearA)
     drawLines(ctx, hearLines, x, hearY, lh, 'left')
   }
 
@@ -535,7 +536,7 @@ function draw(c: ActRenderContext): void {
   const thanksA = ease(range(t, THANKS_A, THANKS_A + RAMP))
   if (thanksA > 0.004) {
     setFont(ctx, S.body, 'display', 400)
-    ctx.fillStyle = withAlpha(PALETTE.sageCss, 0.9 * thanksA)
+    ctx.fillStyle = withAlpha(INK.muted, 0.9 * thanksA)
     drawLines(ctx, thanksLines, x, thanksY, lh, 'left')
   }
 }

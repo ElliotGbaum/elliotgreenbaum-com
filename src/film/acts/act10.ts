@@ -47,7 +47,8 @@
  * arriving IS the movement, and a finished list is allowed to be looked at.
  */
 
-import { PALETTE, PHONE, ease, easeOut, range } from '../../core/contract'
+import { PHONE, ease, easeOut, range } from '../../core/contract'
+import { INK } from '../palette'
 import type { Act, ActRenderContext } from '../../core/contract'
 import {
   CROSSFADE,
@@ -314,28 +315,28 @@ function draw(c: ActRenderContext): void {
     ctx.roundRect(x, top, wide, m.cardH, m.cardH * 0.42)
     if (mine) {
       const g = ctx.createLinearGradient(x, top, x, top + m.cardH)
-      g.addColorStop(0, withAlpha(PALETTE.amberLitCss, 0.34 * ka))
-      g.addColorStop(1, withAlpha(PALETTE.amberCss, 0.16 * ka))
+      g.addColorStop(0, withAlpha(INK.amberLit, 0.34 * ka))
+      g.addColorStop(1, withAlpha(INK.amber, 0.16 * ka))
       ctx.fillStyle = g
       ctx.fill()
-      ctx.strokeStyle = withAlpha(PALETTE.amberLitCss, 0.5 * ka)
+      ctx.strokeStyle = withAlpha(INK.amberLit, 0.5 * ka)
     } else {
-      ctx.fillStyle = withAlpha(PALETTE.sageCss, 0.07 * ka)
+      ctx.fillStyle = withAlpha(INK.muted, 0.07 * ka)
       ctx.fill()
-      ctx.strokeStyle = withAlpha(PALETTE.sageCss, 0.36 * ka)
+      ctx.strokeStyle = withAlpha(INK.muted, 0.36 * ka)
     }
     ctx.lineWidth = hw
     ctx.stroke()
 
     // the top edge catches the light, which is what makes it a card
-    ctx.strokeStyle = withAlpha(PALETTE.buffCss, (mine ? 0.22 : 0.12) * ka)
+    ctx.strokeStyle = withAlpha(INK.text, (mine ? 0.22 : 0.12) * ka)
     ctx.beginPath()
     ctx.moveTo(x + m.cardH * 0.45, top + hw * 0.5)
     ctx.lineTo(x + wide - m.cardH * 0.45, top + hw * 0.5)
     ctx.stroke()
 
     ctx.textBaseline = 'middle'
-    ctx.fillStyle = withAlpha(mine ? PALETTE.buffCss : PALETTE.sageCss, 0.95 * ka)
+    ctx.fillStyle = withAlpha(mine ? INK.text : INK.muted, 0.95 * ka)
     drawTracked(ctx, duty, x + m.padX, top + m.cardH / 2, track, 'left')
     ctx.textBaseline = 'alphabetic'
   }
@@ -363,7 +364,7 @@ function draw(c: ActRenderContext): void {
         // the paragraph break is spent once, on the first row of the second
         // sentence, and every row after it carries the offset
         const y = blockTop + li * lh + (second ? para : 0)
-        ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.92 * a)
+        ctx.fillStyle = withAlpha(INK.text, 0.92 * a)
         drawLines(ctx, [line], F.cx, y, lh, 'center')
       }
       li++

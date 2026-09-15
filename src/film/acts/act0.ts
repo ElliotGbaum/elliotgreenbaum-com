@@ -42,7 +42,8 @@
  * while, and at this size that is ninety strokes that resolve into a smudge.
  */
 
-import { PALETTE, clamp, ease, easeOut, range } from '../../core/contract'
+import { clamp, ease, easeOut, range } from '../../core/contract'
+import { INK } from '../palette'
 import type { Act, ActRenderContext } from '../../core/contract'
 import {
   drawTracked,
@@ -152,13 +153,13 @@ function draw(c: ActRenderContext): void {
   /* ---- the seam of the beam striking ---- */
   const seam = (1 - ease(range(t, 0.1, 0.85))) * lamp
   if (seam > 0.004) {
-    softDot(ctx, w * 0.5, h * 0.5, Math.max(w, h) * 0.4, PALETTE.glowCss, 0.16 * seam)
+    softDot(ctx, w * 0.5, h * 0.5, Math.max(w, h) * 0.4, INK.glow, 0.16 * seam)
     const bw = w * (0.2 + 0.8 * easeOut(range(t, 0, 0.32)))
     const bh = Math.max(1, h * 0.0035)
     const g = ctx.createLinearGradient(w * 0.5 - bw * 0.5, 0, w * 0.5 + bw * 0.5, 0)
-    g.addColorStop(0, withAlpha(PALETTE.glowCss, 0))
-    g.addColorStop(0.5, withAlpha(PALETTE.glowCss, 0.95 * seam))
-    g.addColorStop(1, withAlpha(PALETTE.glowCss, 0))
+    g.addColorStop(0, withAlpha(INK.glow, 0))
+    g.addColorStop(0.5, withAlpha(INK.glow, 0.95 * seam))
+    g.addColorStop(1, withAlpha(INK.glow, 0))
     ctx.fillStyle = g
     ctx.fillRect(w * 0.5 - bw * 0.5, h * 0.5 - bh * 0.5, bw, bh)
   }
@@ -179,7 +180,7 @@ function draw(c: ActRenderContext): void {
   if (faceA > 0.004 && drawK > 0.0005) {
     // the sheet the drawing is on — enough lift that the lines have something
     // to sit against, never enough to read as a panel
-    softDot(ctx, px + boxW * 0.5, py + boxH * 0.44, boxW * 0.95, PALETTE.glowCss, 0.055 * faceA * lamp)
+    softDot(ctx, px + boxW * 0.5, py + boxH * 0.44, boxW * 0.95, INK.glow, 0.055 * faceA * lamp)
 
     drawSketch(
       ctx,
@@ -189,12 +190,12 @@ function draw(c: ActRenderContext): void {
       {
         alpha: 0.88 * faceA,
         hair: hw,
-        color: PALETTE.buffCss,
+        color: INK.text,
         pen: reduced
           ? undefined
           : (p) => {
-              softDot(ctx, p.x, p.y, boxW * 0.07, PALETTE.glowCss, 0.5 * faceA)
-              ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.95 * faceA)
+              softDot(ctx, p.x, p.y, boxW * 0.07, INK.glow, 0.5 * faceA)
+              ctx.fillStyle = withAlpha(INK.text, 0.95 * faceA)
               ctx.beginPath()
               ctx.arc(p.x, p.y, hw * 1.5, 0, Math.PI * 2)
               ctx.fill()
@@ -245,7 +246,7 @@ function draw(c: ActRenderContext): void {
             cx + cw / 2,
             baseline - size * 0.3,
             size * (0.5 + 0.7 * s.heat),
-            PALETTE.glowCss,
+            INK.glow,
             0.34 * s.heat * s.alpha * lamp,
           )
         }
@@ -253,7 +254,7 @@ function draw(c: ActRenderContext): void {
         // A hard switch rather than a blend — two colours is the film's whole
         // palette and a per-character interpolation between them is a gradient
         // nobody asked for.
-        const colour = s.heat > 0.45 ? PALETTE.amberLitCss : PALETTE.buffCss
+        const colour = s.heat > 0.45 ? INK.amberLit : INK.text
         ctx.save()
         ctx.translate(cx + cw / 2, baseline)
         if (s.size !== 1) ctx.scale(s.size, s.size)
@@ -293,8 +294,8 @@ function draw(c: ActRenderContext): void {
     const a = caretA * on * lamp
 
     // the head of the pen, same as the sketch's
-    softDot(ctx, cx, baseline - size * 0.3, size * 1.1, PALETTE.glowCss, 0.32 * a)
-    ctx.fillStyle = withAlpha(PALETTE.amberCss, 0.85 * a)
+    softDot(ctx, cx, baseline - size * 0.3, size * 1.1, INK.glow, 0.32 * a)
+    ctx.fillStyle = withAlpha(INK.amber, 0.85 * a)
     ctx.fillRect(cx, baseline - size * 0.72, Math.max(1.5, size * 0.05), size * 0.86)
   }
 
@@ -302,7 +303,7 @@ function draw(c: ActRenderContext): void {
   const flare = ease(range(t, TYPE_B - 0.35, TYPE_B + 0.35)) * (1 - ease(range(t, TYPE_B + 0.6, TYPE_B + 1.7)))
   if (flare > 0.004) {
     const fx = centred ? anchor : anchor + total * 0.5
-    softDot(ctx, fx, baseline - size * 0.32, size * 3.2, PALETTE.glowCss, 0.07 * flare * lamp)
+    softDot(ctx, fx, baseline - size * 0.32, size * 3.2, INK.glow, 0.07 * flare * lamp)
   }
 
   /* ---- rule ---- */
@@ -312,18 +313,18 @@ function draw(c: ActRenderContext): void {
     const rw = full * ruleP
     const ry = baseline + size * 0.5
     const rx = centred ? anchor - rw * 0.5 : anchor
-    ctx.fillStyle = withAlpha(PALETTE.amberCss, 0.5 * ruleP)
+    ctx.fillStyle = withAlpha(INK.amber, 0.5 * ruleP)
     ctx.fillRect(rx, ry, rw, hw)
     // the head of the rule stays lit for as long as it is travelling, which is
     // the last thing in the act that moves
-    if (ruleP < 1 && !reduced) softDot(ctx, rx + rw, ry, size * 0.6, PALETTE.glowCss, 0.4)
+    if (ruleP < 1 && !reduced) softDot(ctx, rx + rw, ry, size * 0.6, INK.glow, 0.4)
   }
 
   /* ---- the small line ---- */
   const subA = ease(range(t, 3.25, 3.9))
   if (subA > 0.004 && C.sub) {
     setFont(ctx, S.small, 'mono', 400)
-    ctx.fillStyle = withAlpha(PALETTE.sageCss, 0.62 * subA)
+    ctx.fillStyle = withAlpha(INK.muted, 0.62 * subA)
     drawTracked(
       ctx,
       C.sub,

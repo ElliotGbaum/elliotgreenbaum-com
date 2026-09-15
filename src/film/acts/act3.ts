@@ -31,7 +31,8 @@
  * goes — is solved off that.
  */
 
-import { PALETTE, ease, easeOut, range } from '../../core/contract'
+import { ease, easeOut, range } from '../../core/contract'
+import { INK } from '../palette'
 import type { Act, ActRenderContext } from '../../core/contract'
 import type { Pt } from '../timeline'
 import {
@@ -78,7 +79,7 @@ const TURNS = 1.6
  *  cleanly, few enough that three of them cost nothing */
 const STEPS = 96
 
-const FIELD_COLOUR = [PALETTE.buffCss, PALETTE.amberCss, PALETTE.mintCss]
+const FIELD_COLOUR = [INK.text, INK.amber, INK.link]
 
 /**
  * Left-to-right order of the strands where they enter the frame.
@@ -121,7 +122,7 @@ function draw(c: ActRenderContext): void {
      firms and the job title under theirs. It used to be set at `micro`, which
      made it the smallest type in the film; it is a fact somebody might want to
      read. See `subhead` in src/film/timeline.ts. */
-  const subY = subhead(ctx, F, S, hy, C.school, ease(range(t, SCHOOL_A, SCHOOL_A + 0.7)), PALETTE.sageCss)
+  const subY = subhead(ctx, F, S, hy, C.school, ease(range(t, SCHOOL_A, SCHOOL_A + 0.7)), INK.muted)
 
   /* ---------------- the band ----------------
      The labels sit ABOVE the top of the braid, in their own strip, so a strand
@@ -189,7 +190,7 @@ function draw(c: ActRenderContext): void {
   ctx.lineJoin = 'round'
   for (let j = 0; j < STRANDS; j++) {
     const i = ORDER[j] ?? j
-    const colour = FIELD_COLOUR[j] ?? PALETTE.buffCss
+    const colour = FIELD_COLOUR[j] ?? INK.text
     const born = GROW_A + j * GROW_STEP
     const grow = easeOut(range(t, born, born + GROW_RUN))
     if (grow <= 0.004) continue
@@ -202,8 +203,8 @@ function draw(c: ActRenderContext): void {
     // tip the sketches use, for the same reason
     if (grow < 1 && !reduced) {
       const head = pointAtV(i, grow)
-      softDot(ctx, head.x, head.y, F.s * 0.05, PALETTE.glowCss, 0.55)
-      ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.95)
+      softDot(ctx, head.x, head.y, F.s * 0.05, INK.glow, 0.55)
+      ctx.fillStyle = withAlpha(INK.text, 0.95)
       disc(ctx, head.x, head.y, hw * 1.8)
     }
   }
@@ -214,7 +215,7 @@ function draw(c: ActRenderContext): void {
   if (!reduced) {
     for (let j = 0; j < STRANDS; j++) {
       const i = ORDER[j] ?? j
-      const colour = FIELD_COLOUR[j] ?? PALETTE.buffCss
+      const colour = FIELD_COLOUR[j] ?? INK.text
       const born = PULSE_A + j * PULSE_STEP
       const u = range(t, born, born + PULSE_RUN)
       if (u <= 0 || u >= 1) continue
@@ -274,7 +275,7 @@ function draw(c: ActRenderContext): void {
     if (!p) continue
     const a = ease(range(t, GROW_A + j * GROW_STEP, GROW_A + j * GROW_STEP + 0.7))
     if (a <= 0.004) continue
-    ctx.fillStyle = withAlpha(FIELD_COLOUR[j] ?? PALETTE.buffCss, 0.88 * a)
+    ctx.fillStyle = withAlpha(FIELD_COLOUR[j] ?? INK.text, 0.88 * a)
     drawTracked(ctx, p.text, p.anchor, labelY, size * 0.22, p.align)
   }
   ctx.textBaseline = 'alphabetic'
@@ -283,11 +284,11 @@ function draw(c: ActRenderContext): void {
   const nodeK = easeOut(range(t, NODE_A, NODE_A + 0.8))
   if (nodeK > 0.004) {
     const end = pointAtV(0, 1)
-    softDot(ctx, end.x, end.y, F.s * 0.09 * nodeK, PALETTE.glowCss, 0.32 * nodeK)
-    ctx.strokeStyle = withAlpha(PALETTE.amberLitCss, 0.6 * nodeK)
+    softDot(ctx, end.x, end.y, F.s * 0.09 * nodeK, INK.glow, 0.32 * nodeK)
+    ctx.strokeStyle = withAlpha(INK.amberLit, 0.6 * nodeK)
     ctx.lineWidth = hw
     ring(ctx, end.x, end.y, F.s * 0.022 * nodeK)
-    ctx.fillStyle = withAlpha(PALETTE.amberLitCss, 0.95 * nodeK)
+    ctx.fillStyle = withAlpha(INK.amberLit, 0.95 * nodeK)
     disc(ctx, end.x, end.y, Math.max(2, F.s * 0.009))
   }
 }

@@ -33,7 +33,8 @@
  * through "Playing Sax at…".
  */
 
-import { PALETTE, clamp, ease, easeOut, range } from '../../core/contract'
+import { clamp, ease, easeOut, range } from '../../core/contract'
+import { INK } from '../palette'
 import type { Act, ActRenderContext } from '../../core/contract'
 import type { Pt } from '../timeline'
 import {
@@ -119,8 +120,8 @@ function draw(c: ActRenderContext): void {
 
   /** the lit tip of the pen, shared by both drawings */
   const nib = (a: number) => (p: Pt) => {
-    softDot(ctx, p.x, p.y, bandH * 0.1, PALETTE.glowCss, 0.45 * a)
-    ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.95 * a)
+    softDot(ctx, p.x, p.y, bandH * 0.1, INK.glow, 0.45 * a)
+    ctx.fillStyle = withAlpha(INK.text, 0.95 * a)
     disc(ctx, p.x, p.y, hw * 1.4)
   }
 
@@ -138,7 +139,7 @@ function draw(c: ActRenderContext): void {
     G,
     { x: F.cx - COL - half / 2, y: bandTop, w: half, h: bandH },
     clamp(range(t, G_A, G_B)),
-    { alpha: 0.9 * gA, hair: hw, color: PALETTE.buffCss, pen: reduced ? undefined : nib(gA) },
+    { alpha: 0.9 * gA, hair: hw, color: INK.text, pen: reduced ? undefined : nib(gA) },
   )
 
   const xFit = drawSketch(
@@ -146,7 +147,7 @@ function draw(c: ActRenderContext): void {
     X,
     { x: F.cx + COL - half / 2, y: bandTop, w: half, h: bandH },
     clamp(range(t, X_A, X_B)),
-    { alpha: 0.9 * xA, hair: hw, color: PALETTE.buffCss, pen: reduced ? undefined : nib(xA) },
+    { alpha: 0.9 * xA, hair: hw, color: INK.text, pen: reduced ? undefined : nib(xA) },
   )
 
   /* the boards they are standing on — one mark each, and a figure stops
@@ -156,7 +157,7 @@ function draw(c: ActRenderContext): void {
   const stage = (fit: SketchBox, born: number) => {
     const k = easeOut(range(t, born, born + 1.1))
     if (k <= 0.004) return
-    ctx.fillStyle = withAlpha(PALETTE.sageCss, 0.18 * k)
+    ctx.fillStyle = withAlpha(INK.muted, 0.18 * k)
     // ONE width for both, not each drawing's own. Sized off `fit.w`, the
     // guitar's rule came out nearly twice the sax's — the sax figure is a
     // narrow drawing — which is unbalanced furniture under balanced objects.
@@ -176,7 +177,7 @@ function draw(c: ActRenderContext): void {
     for (const line of lines) {
       const a = ease(range(t, born + i * 0.28, born + RAMP + i * 0.28))
       if (a > 0.004) {
-        ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.92 * a)
+        ctx.fillStyle = withAlpha(INK.text, 0.92 * a)
         drawLines(ctx, [line], cx, capTop + i * capLh, capLh, 'center')
       }
       i++

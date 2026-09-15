@@ -20,7 +20,8 @@
  * anything else to leave.
  */
 
-import { PALETTE, ease, easeOut, range } from '../../core/contract'
+import { ease, easeOut, range } from '../../core/contract'
+import { INK } from '../palette'
 import type { Act, ActRenderContext } from '../../core/contract'
 import type { Pt } from '../timeline'
 import {
@@ -109,27 +110,27 @@ function draw(c: ActRenderContext): void {
 
   if (curveA > 0.004) {
     // the floor it leaves, so the climb has something to be measured against
-    ctx.fillStyle = withAlpha(PALETTE.sageCss, 0.16 * curveA)
+    ctx.fillStyle = withAlpha(INK.muted, 0.16 * curveA)
     ctx.fillRect(cx0, floor, cw * easeOut(range(t, 0.5, 1.4)), hw)
 
     const k = easeOut(range(t, CURVE_A, CURVE_B))
     if (k > 0.004) {
       ctx.lineCap = 'round'
       ctx.lineJoin = 'round'
-      ctx.strokeStyle = withAlpha(PALETTE.amberCss, 0.75 * curveA)
+      ctx.strokeStyle = withAlpha(INK.amber, 0.75 * curveA)
       ctx.lineWidth = hw * 2
       drawPath(ctx, curve, k)
       if (k < 1 && !reduced) {
-        const p = comet(ctx, curve, k, F.s * 0.035, PALETTE.glowCss, 0.7 * curveA, 0.15)
+        const p = comet(ctx, curve, k, F.s * 0.035, INK.glow, 0.7 * curveA, 0.15)
         if (p) {
-          ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.95 * curveA)
+          ctx.fillStyle = withAlpha(INK.text, 0.95 * curveA)
           disc(ctx, p.x, p.y, hw * 2)
         }
       } else if (k >= 1) {
         const end = curve[curve.length - 1]
         if (end) {
-          softDot(ctx, end.x, end.y, F.s * 0.07, PALETTE.glowCss, 0.35 * curveA)
-          ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.9 * curveA)
+          softDot(ctx, end.x, end.y, F.s * 0.07, INK.glow, 0.35 * curveA)
+          ctx.fillStyle = withAlpha(INK.text, 0.9 * curveA)
           disc(ctx, end.x, end.y, hw * 2)
         }
       }
@@ -149,7 +150,7 @@ function draw(c: ActRenderContext): void {
   for (const line of sparkLines) {
     const a = ease(range(t, SPARK_A + li * SPARK_STEP, SPARK_A + RAMP + li * SPARK_STEP))
     if (a > 0.004) {
-      ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.92 * a)
+      ctx.fillStyle = withAlpha(INK.text, 0.92 * a)
       drawLines(ctx, [line], F.cx, footTop + li * lh, lh, 'center')
     }
     li++

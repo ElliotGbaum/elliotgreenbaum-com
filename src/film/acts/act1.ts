@@ -22,7 +22,8 @@
  * actually says it.
  */
 
-import { PALETTE, clamp, ease, easeOut, range } from '../../core/contract'
+import { clamp, ease, easeOut, range } from '../../core/contract'
+import { INK } from '../palette'
 import type { Act, ActRenderContext } from '../../core/contract'
 import {
   CROSSFADE,
@@ -112,12 +113,12 @@ function draw(c: ActRenderContext): void {
     drawSketch(ctx, SCENE, box, clamp(range(t, SKETCH_A, SKETCH_B)), {
       alpha: 0.9 * picA,
       hair: hw,
-      color: PALETTE.buffCss,
+      color: INK.text,
       pen: reduced
         ? undefined
         : (p) => {
-            softDot(ctx, p.x, p.y, bandH * 0.11, PALETTE.glowCss, 0.45 * picA)
-            ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.95 * picA)
+            softDot(ctx, p.x, p.y, bandH * 0.11, INK.glow, 0.45 * picA)
+            ctx.fillStyle = withAlpha(INK.text, 0.95 * picA)
             disc(ctx, p.x, p.y, hw * 1.4)
           },
     })
@@ -140,7 +141,7 @@ function draw(c: ActRenderContext): void {
   for (const line of chessLines) {
     const a = ease(range(t, CHESS_A + ci * CHESS_STEP, CHESS_A + RAMP + ci * CHESS_STEP)) * chessOut
     if (a > 0.004) {
-      ctx.fillStyle = withAlpha(PALETTE.sageCss, 0.92 * a)
+      ctx.fillStyle = withAlpha(INK.muted, 0.92 * a)
       drawLines(ctx, [line], F.cx, chessTop + ci * lh, lh, 'center')
     }
     ci++
@@ -155,7 +156,7 @@ function draw(c: ActRenderContext): void {
   for (const line of closeLines) {
     const a = ease(range(t, CLOSE_A + li * CLOSE_STEP, CLOSE_A + RAMP + li * CLOSE_STEP))
     if (a > 0.004) {
-      ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.92 * a)
+      ctx.fillStyle = withAlpha(INK.text, 0.92 * a)
       drawLines(ctx, [line], F.cx, closeTop + li * lh, lh, 'center')
     }
     li++

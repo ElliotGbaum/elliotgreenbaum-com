@@ -20,7 +20,8 @@
  * src/film/sketches/desk.ts.
  */
 
-import { PALETTE, clamp, easeOut, range } from '../../core/contract'
+import { clamp, easeOut, range } from '../../core/contract'
+import { INK } from '../palette'
 import type { Act, ActRenderContext } from '../../core/contract'
 import {
   disc,
@@ -79,12 +80,12 @@ function draw(c: ActRenderContext): void {
     drawSketch(ctx, SCENE, box, clamp(range(t, SKETCH_A, SKETCH_B)), {
       alpha: 0.9 * picA,
       hair: hw,
-      color: PALETTE.buffCss,
+      color: INK.text,
       pen: reduced
         ? undefined
         : (p) => {
-            softDot(ctx, p.x, p.y, bandH * 0.1, PALETTE.glowCss, 0.45 * picA)
-            ctx.fillStyle = withAlpha(PALETTE.buffCss, 0.95 * picA)
+            softDot(ctx, p.x, p.y, bandH * 0.1, INK.glow, 0.45 * picA)
+            ctx.fillStyle = withAlpha(INK.text, 0.95 * picA)
             disc(ctx, p.x, p.y, hw * 1.4)
           },
     })
