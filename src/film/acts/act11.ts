@@ -121,7 +121,18 @@ const DURATION = 13.0
  * rides on the last row beside the final role and therefore has to be reserved
  * out of that row's budget — it is measured by the caller because it is not set
  * in this face or at this size.
+ *
+ * ONE ROW IS STILL PREFERRED WHEN IT IS CHEAP. Wrapping was the answer to a
+ * list that would otherwise have been crushed to nothing; it is not an answer
+ * to a list that misses one row by a few characters. Four short roles at the
+ * target size ran three across and left "Product" on a row of its own under
+ * them, which reads as a fourth thing rather than the fourth item. So the
+ * single row is measured first, and if it can be had for a shrink no deeper
+ * than `ONE_ROW_FLOOR` it is taken, everything scaled together. Only past that
+ * floor does the list wrap.
  */
+const ONE_ROW_FLOOR = 0.8
+
 function fitRoles(
   ctx: CanvasRenderingContext2D,
   roles: readonly string[],
@@ -132,6 +143,18 @@ function fitRoles(
   const track = target * 0.12
   const sep = target * 1.7
   setFont(ctx, target, 'mono', 500)
+
+  /* the single row, before anything is wrapped */
+  const oneW =
+    roles.reduce((n, role) => n + trackedWidth(ctx, role, track), 0) +
+    sep * Math.max(0, roles.length - 1) +
+    tailW
+  if (oneW > 0) {
+    const k1 = Math.min(1, colW / oneW)
+    if (k1 >= ONE_ROW_FLOOR) {
+      return { size: target * k1, track: track * k1, sep: sep * k1, rows: [[...roles]], k: k1 }
+    }
+  }
 
   const rows: string[][] = []
   let row: string[] = []
