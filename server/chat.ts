@@ -28,8 +28,9 @@
  * is public: anything that is not a POST from this site (the browser's own
  * Sec-Fetch-Site header has to say same-origin — curl has to say it too);
  * a transcript that is too long, malformed, or not turn-taking; a single
- * message past a few hundred characters; and more than a handful of
- * requests a minute from one address.
+ * message past a few hundred characters; more than a handful of requests
+ * a minute from one address; and, over a day, more than a few dozen from
+ * one address or a few hundred for the whole site.
  *
  * The transcript is the visitor's browser's, and it is not trusted. In
  * particular the ASSISTANT turns in it — the things "Elliot" said earlier —
@@ -59,14 +60,16 @@ import { PERSONA } from './persona.js'
 import { liveFacts, ZONE } from './live.js'
 import { count } from './limits.js'
 import { BOOK_TOOLS, bookingSystem, runBookTool, safeZone } from './book.js'
-import { canBook } from './calendly.js'
+import { booking, canBook } from './calendly.js'
 
 /**
- * The model. Overridable from the environment so it can be changed without a
- * deploy of code — `ELLIOT_MODEL=claude-sonnet-5`, say, if the bill matters
- * more than the last few points of judgement.
+ * The model. Sonnet 5 by default: a short reply about one person's CV, or a
+ * booking read back and confirmed, is well inside what it does, at a fifth
+ * of Opus's output price. Overridable from the environment so it can be
+ * changed without a deploy of code — `ELLIOT_MODEL=claude-opus-5` to spend
+ * more on judgement.
  */
-const MODEL = process.env.ELLIOT_MODEL || 'claude-opus-5'
+const MODEL = process.env.ELLIOT_MODEL || 'claude-sonnet-5'
 
 /** replies are short by instruction; this is the ceiling, not the target */
 const MAX_TOKENS = 600
@@ -82,6 +85,17 @@ const MAX_TOTAL_CHARS = 5000
 /** requests per address per window, best effort — see the header */
 const RATE_LIMIT = 12
 const RATE_WINDOW_MS = 60_000
+/**
+ * The ceilings on the bill. The minute limit above stops one address from
+ * hammering; these stop a patient one, and many addresses at once, from
+ * running the key up over a day. Counted in the shared store like the rest
+ * (server/limits.ts), so they hold across instances. At Sonnet's prices a
+ * turn is well under a cent, so the site-wide cap bounds a day at a few
+ * dollars, and a real visitor never gets near the per-address one.
+ */
+const DAY_MS = 24 * 60 * 60_000
+const PER_ADDRESS_DAY = 60
+const PER_SITE_DAY = 600
 
 /** the two briefs — see the header */
 export type Mode = 'talk' | 'book'
@@ -168,7 +182,13 @@ export async function handleChat(req: Request): Promise<Response> {
      the client sent. */
   const forwarded = req.headers.get('x-forwarded-for')?.split(',').map((s) => s.trim()).filter(Boolean)
   const ip = req.headers.get('x-real-ip') || forwarded?.at(-1) || 'local'
-  if ((await count(`chat:${hash(ip)}`, RATE_WINDOW_MS)) > RATE_LIMIT) return json({ error: 'busy' }, 429)
+  const who = ip === 'local' ? 'local' : hash(ip)
+  const [minute, day, site] = await Promise.all([
+    count(`chat:${who}`, RATE_WINDOW_MS),
+    count(`chatday:${who}`, DAY_MS),
+    count('chatday:site', DAY_MS),
+  ])
+  if (minute > RATE_LIMIT || day > PER_ADDRESS_DAY || site > PER_SITE_DAY) return json({ error: 'busy' }, 429)
 
   let body: unknown
   try {
@@ -187,7 +207,6 @@ export async function handleChat(req: Request): Promise<Response> {
   if (!process.env.ANTHROPIC_API_KEY) return json({ error: 'unconfigured' }, 503)
 
   const client = new Anthropic()
-  const who = ip === 'local' ? 'local' : hash(ip)
 
   /* The brief goes first with a cache mark on it: it is the same every
      request and the transcript is not, so the prefix is what the API can
@@ -213,7 +232,14 @@ export async function handleChat(req: Request): Promise<Response> {
     const today = new Intl.DateTimeFormat('en-US', { timeZone: zone, weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).format(new Date())
     system.push({
       type: 'text',
-      text: bookingSystem({ link: process.env.CALENDLY_URL || null, zone, today, wired: canBook() }),
+      text: bookingSystem({
+        link: process.env.CALENDLY_URL || null,
+        zone,
+        today,
+        wired: canBook(),
+        // the slot length, so the read-back does not have to guess it
+        minutes: (await booking())?.minutes ?? null,
+      }),
     })
     tools = BOOK_TOOLS
   }
