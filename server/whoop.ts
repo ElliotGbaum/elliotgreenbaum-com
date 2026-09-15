@@ -28,10 +28,18 @@
  * Three things in the environment: WHOOP_CLIENT_ID, WHOOP_CLIENT_SECRET,
  * WHOOP_REFRESH_TOKEN. Scope is read:recovery and offline, nothing else.
  *
- * CACHED for ten minutes per warm instance. A morning WHOOP has not scored
- * yet (he slept without the strap, or it is still calibrating) answers null,
- * so the panel shows no line and the chat is never told; so does a dead
- * token. There is no "zero" here the way there is for runs.
+ * THE NUMBER STAYS UP. WHOOP scores a night some time after he wakes, and
+ * while he is still asleep, or the strap is still crunching, the newest
+ * record is PENDING_SCORE. That is not a reason for the line to blink out:
+ * the latest morning that WAS scored is shown instead, and the model is
+ * told which morning it is, so a Tuesday visitor who catches him mid-sleep
+ * sees Monday's score, labelled as Monday's. Only two things take the line
+ * down: no scored morning in the last week (strap off, or he stopped), and
+ * a dead token or a dead API before any number has ever been read — a
+ * failed fetch keeps the last good number rather than replacing it with
+ * nothing. Calibrating scores are skipped, not shown.
+ *
+ * CACHED for ten minutes per warm instance.
  */
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
@@ -44,6 +52,8 @@ export interface Recovery {
 }
 
 const TTL_MS = 10 * 60_000
+/** a scored morning older than this is not "the latest" in any useful sense */
+const MAX_AGE_MS = 7 * 24 * 3_600_000
 const STORE_KEY = 'whoop:refresh'
 const API = 'https://api.prod.whoop.com'
 let cached: { at: number; recovery: Recovery | null } | null = null
@@ -146,7 +156,7 @@ type Record_ = {
 async function fetchRecovery(): Promise<Recovery | null> {
   const token = await accessToken()
   if (!token) return null
-  const r = await fetch(`${API}/developer/v2/recovery?limit=3`, {
+  const r = await fetch(`${API}/developer/v2/recovery?limit=7`, {
     headers: { authorization: `Bearer ${token}` },
   })
   if (!r.ok) {
@@ -154,25 +164,37 @@ async function fetchRecovery(): Promise<Recovery | null> {
     return null
   }
   const { records } = (await r.json()) as { records: Record_[] }
-  const latest = (records ?? [])[0]
-  if (!latest || latest.score_state !== 'SCORED' || !latest.score || latest.score.user_calibrating) return null
-  // a score is "today's" for the day it was made; older than that and it is
-  // not what the line claims, so it is not shown
-  if (Date.now() - Date.parse(latest.created_at) > 36 * 3_600_000) return null
+  // newest first; the newest is PENDING_SCORE until WHOOP has scored the
+  // night, so walk down to the latest morning that has a number
+  const latest = (records ?? []).find((x) => x.score_state === 'SCORED' && x.score && !x.score.user_calibrating)
+  if (!latest || !latest.score) return null
+  if (Date.now() - Date.parse(latest.created_at) > MAX_AGE_MS) return null
   return { score: Math.round(latest.score.recovery_score), at: latest.created_at }
 }
 
-/** today's recovery, or null when there is none to show */
+function fresh(r: Recovery | null): Recovery | null {
+  return r && Date.now() - Date.parse(r.at) <= MAX_AGE_MS ? r : null
+}
+
+/** the latest scored recovery, or null when there is none to show */
 export async function recoveryToday(): Promise<Recovery | null> {
-  if (cached && Date.now() - cached.at < TTL_MS) return cached.recovery
+  if (cached && Date.now() - cached.at < TTL_MS) return fresh(cached.recovery)
   let recovery: Recovery | null = null
   try {
     recovery = await fetchRecovery()
   } catch (err) {
     console.error('[whoop]', err)
   }
+  // a fetch that came back empty does not take a known number down
+  recovery = recovery ?? fresh(cached?.recovery ?? null)
   cached = { at: Date.now(), recovery }
   return recovery
+}
+
+/** "this morning", "yesterday morning", or how many mornings ago it was scored */
+export function whichMorning(r: Recovery, now = Date.now()): string {
+  const days = Math.round((now - Date.parse(r.at)) / 86_400_000)
+  return days <= 0 ? 'this morning' : days === 1 ? 'yesterday morning' : `${days} mornings ago`
 }
 
 /** the band WHOOP colours it: green, yellow or red */
@@ -190,5 +212,7 @@ export function describeRecovery(r: Recovery | null): string | null {
       : colour === 'yellow'
         ? 'which WHOOP calls yellow: fine, but not a day to go all out'
         : 'which WHOOP calls red: run down, and a sign to take it easy'
-  return `Elliot's WHOOP recovery score this morning is ${r.score} out of 100, ${read}. He put it on his website for the same reason as his running total: a number anyone can see is his reason to actually go to bed.`
+  const when = whichMorning(r)
+  const scored = when === 'this morning' ? '' : ` (scored ${when}; last night has not been scored yet)`
+  return `Elliot's latest WHOOP recovery score is ${r.score} out of 100${scored}, ${read}. He put it on his website for the same reason as his running total: a number anyone can see is his reason to actually go to bed.`
 }

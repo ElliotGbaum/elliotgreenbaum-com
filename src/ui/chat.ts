@@ -230,7 +230,7 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
 
   /* ---------------- what is true right now ----------------
      GET /api/live: what he is playing on Spotify, what he last pushed to
-     GitHub, how far he has run this month on Strava, this morning's WHOOP
+     GitHub, how far he has run this month on Strava, his latest WHOOP
      recovery, and where to book time with him — each one read from his own
      account, each one a short line under the header that names where it
      came from, and each one absent when there is nothing to show. The same
