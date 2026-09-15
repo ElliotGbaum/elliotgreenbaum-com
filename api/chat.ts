@@ -11,7 +11,7 @@
  * reason the reply reads as typing rather than as a wait.
  */
 
-import { handleChat } from '../server/chat'
+import { handleChat } from '../server/chat.js'
 
 export default function handler(req: Request): Promise<Response> {
   return handleChat(req)

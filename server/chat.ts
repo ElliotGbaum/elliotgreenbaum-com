@@ -55,11 +55,11 @@
 
 import Anthropic from '@anthropic-ai/sdk'
 import { createHmac, createHash, timingSafeEqual } from 'node:crypto'
-import { PERSONA } from './persona'
-import { liveFacts, ZONE } from './live'
-import { count } from './limits'
-import { BOOK_TOOLS, bookingSystem, runBookTool, safeZone } from './book'
-import { canBook } from './calendly'
+import { PERSONA } from './persona.js'
+import { liveFacts, ZONE } from './live.js'
+import { count } from './limits.js'
+import { BOOK_TOOLS, bookingSystem, runBookTool, safeZone } from './book.js'
+import { canBook } from './calendly.js'
 
 /**
  * The model. Overridable from the environment so it can be changed without a

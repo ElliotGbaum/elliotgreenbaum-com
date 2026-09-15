@@ -5,7 +5,7 @@
  * function mounted at the same path by the Vite dev and preview servers.
  */
 
-import { handleSpotify } from '../server/spotify'
+import { handleSpotify } from '../server/spotify.js'
 
 export default function handler(req: Request): Promise<Response> {
   return handleSpotify(req)

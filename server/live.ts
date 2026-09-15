@@ -17,11 +17,11 @@
  * because the world's clock runs there without asking the server.
  */
 
-import { latestTrack, listeningDetail, describe, describeDetail, ago, type Track } from './spotify'
-import { lastShipped, describeShipped, type Shipped } from './github'
-import { ranThisMonth, describeRan, type Ran } from './strava'
-import { recoveryToday, describeRecovery, type Recovery } from './whoop'
-import { booking, describeBooking, type Booking } from './calendly'
+import { latestTrack, listeningDetail, describe, describeDetail, ago, type Track } from './spotify.js'
+import { lastShipped, describeShipped, type Shipped } from './github.js'
+import { ranThisMonth, describeRan, type Ran } from './strava.js'
+import { recoveryToday, describeRecovery, type Recovery } from './whoop.js'
+import { booking, describeBooking, type Booking } from './calendly.js'
 
 export const ZONE = process.env.ELLIOT_ZONE || 'America/New_York'
 

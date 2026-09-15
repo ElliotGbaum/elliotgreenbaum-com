@@ -5,7 +5,7 @@
  * function mounted at the same path by the Vite dev and preview servers.
  */
 
-import { handleLive } from '../server/live'
+import { handleLive } from '../server/live.js'
 
 export default function handler(req: Request): Promise<Response> {
   return handleLive(req)

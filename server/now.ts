@@ -12,7 +12,7 @@
  * is the only file that changes; `interest()` keeps its shape.
  */
 
-import now from '../src/content/now.json'
+import now from '../src/content/now.json' with { type: 'json' }
 
 export interface Interest {
   text: string

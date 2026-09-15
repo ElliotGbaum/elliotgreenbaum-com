@@ -29,8 +29,8 @@
  */
 
 import type Anthropic from '@anthropic-ai/sdk'
-import { BOOK_DAYS, bookSlot, canBook, openSlots, slotLabel } from './calendly'
-import { count } from './limits'
+import { BOOK_DAYS, bookSlot, canBook, openSlots, slotLabel } from './calendly.js'
+import { count } from './limits.js'
 
 /** bookings per address per day, and for the whole site per day */
 const PER_ADDRESS = 2
