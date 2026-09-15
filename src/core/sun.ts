@@ -31,6 +31,23 @@ import type { TimeOfDay } from '../world/field'
 /** degrees below the horizon at which the field goes to night */
 const DUSK_ELEVATION = -4
 
+/**
+ * The lowest the sun ever gets, in degrees. The real sun keeps going; the
+ * field's does not. Elliot looked at the world at 7:17pm on 2026-09-15, sun
+ * three degrees under the hills, sky red, grass gold, and asked for that to
+ * be as dark as it ever gets: "it looks worse as it gets darker." So the
+ * golden hour is the floor. Everything that hands the field a sun goes
+ * through `worldSun` (and `setSun` clamps again, so a dev pin cannot go
+ * under either). Sits above DUSK_ELEVATION on purpose: the HUD is never
+ * told it is night.
+ */
+export const SUN_FLOOR = -3
+
+/** the sun the field is given: the real one, never under SUN_FLOOR */
+export function worldSun(place: Place, now: Date = new Date()): number {
+  return Math.max(SUN_FLOOR, sunElevation(place, now))
+}
+
 /** [latitude, longitude] of a city in each zone, degrees; enough to place the sun */
 const ZONES: Record<string, [number, number]> = {
   'Africa/Cairo': [30.0, 31.2],
@@ -193,5 +210,5 @@ export function sunElevation(place: Place, now: Date = new Date()): number {
 
 /** night or day for this visitor, right now */
 export function timeOfDayFor(place: Place = guessPlace(), now: Date = new Date()): TimeOfDay {
-  return sunElevation(place, now) > DUSK_ELEVATION ? 'day' : 'night'
+  return worldSun(place, now) > DUSK_ELEVATION ? 'day' : 'night'
 }

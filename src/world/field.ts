@@ -23,12 +23,20 @@
  * number, `daylight`, and the few things that care about the colour of the
  * light read `dusk` beside it. `setMode` is still here for the dev switch
  * and for anything that only knows day from night: it parks the sun high or
- * puts it well under.
+ * puts it as low as it goes.
+ *
+ * AS LOW AS IT GOES is not night any more. Since 2026-09-15 `setSun` clamps
+ * the sun at `SUN_FLOOR` (core/sun.ts, three degrees under), so the darkest
+ * the field ever gets is the golden hour: red sky, gold grass, lanterns lit.
+ * Elliot asked for it — the full night looked worse to him every time. The
+ * NIGHT look is still the far end of the crossfade and still tunes what the
+ * dusk mix is pulled from, but no visitor sees it whole.
  */
 
 import * as THREE from 'three'
 import { PALETTE, clamp, ease, rand, reducedMotion } from '../core/contract'
 import { WEATHER_GLSL, weatherUniforms } from './weather'
+import { SUN_FLOOR } from '../core/sun'
 
 export const FIELD_RADIUS = 90
 
@@ -515,11 +523,11 @@ export function createField(scene: THREE.Scene): Field {
     },
 
     setMode(next: TimeOfDay, instant = false) {
-      aim(next === 'day' ? 1 : 0, 0, instant)
+      this.setSun(next === 'day' ? 40 : SUN_FLOOR, instant)
     },
 
     setSun(elevation: number, instant = false) {
-      const look = sunToLook(elevation)
+      const look = sunToLook(Math.max(SUN_FLOOR, elevation))
       aim(look.daylight, look.dusk, instant)
     },
 

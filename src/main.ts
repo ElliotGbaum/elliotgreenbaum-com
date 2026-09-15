@@ -46,7 +46,7 @@ import {
   type Landmark,
   type LandmarkContext,
 } from './core/contract'
-import { timeOfDayFor, sunElevation, elliotPlace, elliotClock } from './core/sun'
+import { timeOfDayFor, worldSun, elliotPlace, elliotClock, SUN_FLOOR } from './core/sun'
 import { createField, FIELD_RADIUS } from './world/field'
 import { createScenery } from './world/scenery'
 import { createPlayer } from './world/player'
@@ -326,12 +326,14 @@ function boot() {
      field off the clock until the sky itself changes its answer. */
   const where = elliotPlace()
   // The field takes the sun's actual height, so it passes through the golden
-  // hour on the way between day and night (see field.ts). On the dev server
-  // `?sun=<degrees>` pins it, for looking at that hour without waiting for it.
+  // hour on the way between day and night (see field.ts) — and stops there:
+  // `worldSun` never hands over a sun under SUN_FLOOR, so the world's darkest
+  // is the golden hour. On the dev server `?sun=<degrees>` pins it, for
+  // looking at an hour without waiting for it (the field clamps a pin too).
   const pin = import.meta.env.DEV ? new URLSearchParams(location.search).get('sun') : null
-  const elevation = () => (pin ? Number(pin) : sunElevation(where))
+  const elevation = () => (pin ? Number(pin) : worldSun(where))
   let sky = timeOfDayFor(where)
-  if (pin) sky = Number(pin) > -4 ? 'day' : 'night'
+  if (pin) sky = Math.max(SUN_FLOOR, Number(pin)) > -4 ? 'day' : 'night'
   field.setSun(elevation(), true)
   hud.setTimeOfDay(sky)
   hud.setClock(elliotClock())
