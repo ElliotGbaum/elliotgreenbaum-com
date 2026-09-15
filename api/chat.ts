@@ -13,6 +13,10 @@
 
 import { handleChat } from '../server/chat.js'
 
-export default function handler(req: Request): Promise<Response> {
+// Named by method, not `export default`: Vercel only hands a web `Request`
+// (and sends the `Response` back) to method-named exports. A default export
+// gets Node's (req, res) pair instead, the Response goes nowhere, and the
+// function hangs until it times out — which is how it shipped on 2026-09-15.
+export function POST(req: Request): Promise<Response> {
   return handleChat(req)
 }
