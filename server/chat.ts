@@ -60,7 +60,7 @@ import { persona } from './persona.js'
 import { liveFacts, ZONE } from './live.js'
 import { count } from './limits.js'
 import { BOOK_TOOLS, bookingSystem, runBookTool, safeZone } from './book.js'
-import { booking, canBook } from './calendly.js'
+import { booking, canBook, openSlots } from './calendly.js'
 
 /**
  * The model. Sonnet 5 by default: a short reply about one person's CV, or a
@@ -231,6 +231,14 @@ export async function handleChat(req: Request): Promise<Response> {
       })
     }
   } else {
+    /* Three reads of Calendly before the model is asked anything, and none
+       waits on another: the plan check, the slot length, and the open-slot
+       list itself. The list is not needed yet — the model asks for it with
+       open_slots, a round later — but it is cached for a minute once read,
+       so starting it now means the tool round finds it warm instead of
+       spending a second and a half on four calls in a row. */
+    void openSlots()
+    const [wired, minutes] = await Promise.all([canBook(), booking().then((b) => b?.minutes ?? null)])
     const today = new Intl.DateTimeFormat('en-US', { timeZone: zone, weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }).format(new Date())
     system.push({
       type: 'text',
@@ -238,9 +246,9 @@ export async function handleChat(req: Request): Promise<Response> {
         link: process.env.CALENDLY_URL || null,
         zone,
         today,
-        wired: await canBook(),
+        wired,
         // the slot length, so the read-back does not have to guess it
-        minutes: (await booking())?.minutes ?? null,
+        minutes,
       }),
     })
     tools = BOOK_TOOLS

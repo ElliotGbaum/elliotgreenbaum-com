@@ -109,22 +109,29 @@ async function fetchBooking(): Promise<Booking | null> {
 /**
  * The open start times over the next `days` days, ISO, soonest first.
  * Calendly allows at most a seven-day window per request, starting no
- * earlier than now, so a fortnight is two requests.
+ * earlier than now, so a fortnight is two requests — made together, since
+ * each one takes half a second and neither depends on the other.
  */
 async function availableTimes(token: string, type: EventType, days: number): Promise<string[]> {
-  const out: string[] = []
+  const windows: string[] = []
   let from = Date.now() + 60_000
   const until = from + days * 86_400_000
   while (from < until) {
     const start = new Date(from)
     const end = new Date(Math.min(from + 7 * 86_400_000 - 60_000, until))
-    const slots = await get<{ collection: { status: string; start_time: string }[] }>(
-      `/event_type_available_times?event_type=${encodeURIComponent(type.uri)}&start_time=${start.toISOString()}&end_time=${end.toISOString()}`,
-      token,
-    )
-    for (const s of slots?.collection ?? []) if (s.status === 'available') out.push(s.start_time)
+    windows.push(`&start_time=${start.toISOString()}&end_time=${end.toISOString()}`)
     from = end.getTime() + 60_000
   }
+  const pages = await Promise.all(
+    windows.map((w) =>
+      get<{ collection: { status: string; start_time: string }[] }>(
+        `/event_type_available_times?event_type=${encodeURIComponent(type.uri)}${w}`,
+        token,
+      ),
+    ),
+  )
+  const out: string[] = []
+  for (const page of pages) for (const s of page?.collection ?? []) if (s.status === 'available') out.push(s.start_time)
   return [...new Set(out)].sort()
 }
 
