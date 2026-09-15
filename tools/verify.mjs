@@ -593,19 +593,19 @@ console.log('\n11. Elliot answers')
   await page.goto(base + '/', { waitUntil: 'networkidle' })
   await page.waitForTimeout(2200)
 
-  // he stands up by the screen, off to its right (EX, EZ in
+  // he stands halfway up the path, off to its right (EX, EZ in
   // src/world/landmarks/elliot.ts). Three legs — up the path, out to the
   // side, then up again — because the LAST step has to point at him: he only
   // takes the prompt line from someone actually walking to him, and a
   // diagonal that carries past him does not count (see headedTo in main.ts)
   await page.keyboard.down('ArrowUp')
-  await page.waitForTimeout(4200)
+  await page.waitForTimeout(1300)
   await page.keyboard.up('ArrowUp')
   await page.keyboard.down('ArrowRight')
-  await page.waitForTimeout(2400)
+  await page.waitForTimeout(1300)
   await page.keyboard.up('ArrowRight')
   await page.keyboard.down('ArrowUp')
-  await page.waitForTimeout(1300)
+  await page.waitForTimeout(900)
   await page.keyboard.up('ArrowUp')
   await page.waitForTimeout(900)
   const line = ((await page.locator('#prompt').textContent()) ?? '').trim()
