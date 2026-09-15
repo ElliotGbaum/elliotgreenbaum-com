@@ -27,17 +27,17 @@
  *   trees    a broken ring of dark broadleaf silhouettes between the field's
  *            edge and the hills. Their crowns lean downwind when a gust
  *            reaches them.
- *   grass    BY DAY ONLY. Tens of thousands of instanced blades that follow the
+ *   grass    AT ALL HOURS. Tens of thousands of instanced blades that follow the
  *            figure around: each blade's position is wrapped onto a square
  *            centred on you, so the patch is always underfoot but no blade
  *            ever moves — it is fixed in the world until it drops off one edge
  *            of the square and reappears on the other. A second, sparser
  *            layer of bigger blades takes over past the middle of the shot
  *            and carries the meadow to the tree line. They sway, and they
- *            are bare under the machine. At night they are gone: a meadow
- *            round your legs in
- *            the dark felt like wading, and the ground under the lantern is
- *            better plain. The grass grows in with the daylight crossfade.
+ *            are bare under the machine. For a while (until 2026-09-15) the
+ *            meadow was the day's only and shrank away with the light; Elliot
+ *            wants the grass there at night too, so now only its colour
+ *            follows the sun (NIGHT.grass → DAY.grass → DUSK.grass).
  *            It parts around the figure's legs, darkens under a passing
  *            cloud, and lies down in a gust — the gust is a front that rolls
  *            downwind across the meadow, so the wind reads as a thing
@@ -534,7 +534,6 @@ function createGrass(
     // starts at nothing: the field opens with no machine and no mark of one
     uClear: { value: new THREE.Vector3(clearing.x, clearing.z, 0) },
     uTime: { value: 0 },
-    uDay: { value: 0 },
     /** where the figure's feet are (x, z) and how far the grass parts round them */
     uFoot: { value: new THREE.Vector3(0, 0, 1.7) },
     /** how much of the sun a cloud can take: 1 by day, less in the golden hour */
@@ -557,7 +556,6 @@ function createGrass(
         uniform float uWidth;
         uniform vec3 uClear;
         uniform float uTime;
-        uniform float uDay;
         uniform vec3 uFoot;
         uniform float uCloudShade;
         varying float vH;
@@ -579,9 +577,8 @@ function createGrass(
         float fade = step(lot, smoothstep(uFade.x, uFade.y, dist)) * step(lot, 1.0 - smoothstep(uFade.z, uFade.w, dist));
         // bare ground under the machine
         float clear = uClear.z <= 0.0 ? 1.0 : smoothstep(uClear.z * 0.45, uClear.z, distance(base, uClear.xy));
-        // the meadow belongs to the day: it grows in with the light and is
-        // gone by night, when the ground under the lantern is plain
-        float s = aOffset.z * fade * clear * uDay;
+        // the meadow stands day and night; only its colour follows the sun
+        float s = aOffset.z * fade * clear;
         float t = position.y;
         vH = t;
         vec3 p = position * vec3(s * uWidth, s, s);
@@ -604,7 +601,7 @@ function createGrass(
         // beside a foot are pressed down and the ring round it leans out
         vec2 away = base - uFoot.xy;
         float near = 1.0 - smoothstep(0.0, uFoot.z, length(away));
-        float press = near * near * (0.5 + 0.5 * uDay);
+        float press = near * near;
         vec2 dir = away / max(length(away), 0.05);
         transformed.xz += dir * press * t * t * s * 1.9;
         transformed.y -= press * t * s * 0.55;
@@ -995,10 +992,8 @@ export function createScenery(scene: THREE.Scene, opts: SceneryOptions): Scenery
     mix(trees.trunk.color, NIGHT.trunk, DAY.trunk, DUSK.trunk, k, dg)
     for (const g of grass) {
       mix(g.mat.color, NIGHT.grass, DAY.grass, DUSK.grass, k, dg)
-      g.uniforms.uDay.value = k
       // cloud shadows need a sun to cast them: full by day, softer at dusk
       g.uniforms.uCloudShade.value = k * (1 - d * 0.5)
-      g.mesh.visible = k > 0.01
     }
     flies.mat.uniforms.uNight.value = blend(NIGHT.fireflies, DAY.fireflies, DUSK.fireflies, k, d)
     flies.points.visible = flies.mat.uniforms.uNight.value > 0.01
