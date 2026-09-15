@@ -33,15 +33,15 @@ const DUSK_ELEVATION = -4
 
 /**
  * The lowest the sun ever gets, in degrees. The real sun keeps going; the
- * field's does not. Elliot looked at the world at 7:17pm on 2026-09-15, sun
- * three degrees under the hills, sky red, grass gold, and asked for that to
- * be as dark as it ever gets: "it looks worse as it gets darker." So the
- * golden hour is the floor. Everything that hands the field a sun goes
- * through `worldSun` (and `setSun` clamps again, so a dev pin cannot go
- * under either). Sits above DUSK_ELEVATION on purpose: the HUD is never
- * told it is night.
+ * field's does not. Elliot asked on 2026-09-15 for the world to be as dark
+ * as it ever gets at the 6:45pm look — sun three degrees over the hills,
+ * the golden hour just starting — "it looks worse as it gets darker."
+ * (He first said 7:17pm, -3°, then saw it and wanted lighter.) Everything
+ * that hands the field a sun goes through `worldSun` (and `setSun` clamps
+ * again, so a dev pin cannot go under either). Sits above DUSK_ELEVATION on
+ * purpose: the HUD is never told it is night.
  */
-export const SUN_FLOOR = -3
+export const SUN_FLOOR = 3
 
 /** the sun the field is given: the real one, never under SUN_FLOOR */
 export function worldSun(place: Place, now: Date = new Date()): number {

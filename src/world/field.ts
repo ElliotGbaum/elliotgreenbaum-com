@@ -26,8 +26,9 @@
  * puts it as low as it goes.
  *
  * AS LOW AS IT GOES is not night any more. Since 2026-09-15 `setSun` clamps
- * the sun at `SUN_FLOOR` (core/sun.ts, three degrees under), so the darkest
- * the field ever gets is the golden hour: red sky, gold grass, lanterns lit.
+ * the sun at `SUN_FLOOR` (core/sun.ts, three degrees over the hills), so the
+ * darkest the field ever gets is the start of the golden hour: warm sky,
+ * gold grass, lanterns lit.
  * Elliot asked for it — the full night looked worse to him every time. The
  * NIGHT look is still the far end of the crossfade and still tunes what the
  * dusk mix is pulled from, but no visitor sees it whole.
