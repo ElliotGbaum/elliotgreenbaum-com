@@ -359,6 +359,14 @@ export function createPlayer(scene: THREE.Scene): Player {
 
   /* the reach gesture */
   let gestureT = -1
+  /** `faceTo` has named a POINT that has to hold even while the figure is
+   *  still coasting to a stop — a scripted walk resolves inside ARRIVE_RADIUS,
+   *  before the velocity has died, so the caller's turn lands a stride short
+   *  of the mark. Kept as a point and re-aimed every frame, not as an angle:
+   *  from a stride away the bearing to something three units off is twenty
+   *  degrees different, and the figure used to end up looking past the person
+   *  it had been told to face. Any movement clears it. */
+  let facePin: THREE.Vector3 | null = null
   const GESTURE_DUR = 1.15
   const GESTURE_CONTACT = 0.46
   let contact: (() => void) | null = null
@@ -376,6 +384,7 @@ export function createPlayer(scene: THREE.Scene): Player {
      handing control back to it the moment the script lets go. main.ts arms the
      hold again on the next press. */
   function settle(): void {
+    facePin = null
     const done = arrive
     arrive = null
     autoTravel = false
@@ -481,7 +490,8 @@ export function createPlayer(scene: THREE.Scene): Player {
     /* ---------------- facing ---------------- */
     // steer toward travel while moving; a gesture pins the facing so the
     // figure doesn't drift off its mark mid-reach
-    if (sp > 0.6 && gestureT < 0) yawTarget = Math.atan2(vel.x, vel.z)
+    if (facePin) faceToward(facePin.x, facePin.z)
+    else if (sp > 0.6 && gestureT < 0) yawTarget = Math.atan2(vel.x, vel.z)
     const turn = angleDelta(yaw, yawTarget)
     yaw += turn * Math.min(1, TURN_RATE * dt)
     group.rotation.y = yaw
@@ -617,6 +627,7 @@ export function createPlayer(scene: THREE.Scene): Player {
     },
 
     faceTo(p: THREE.Vector3) {
+      facePin = p.clone()
       faceToward(p.x, p.z)
     },
 

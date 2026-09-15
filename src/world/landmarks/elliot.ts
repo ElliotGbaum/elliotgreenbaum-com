@@ -37,10 +37,14 @@
  * attractions. Then he stood up by the screen, off its right edge (x = 27,
  * z = -8), and that overshot: from the spawn he was a few pixels tall at the
  * treeline, and a figure that small with a tag over its head reads as a
- * stray, not a second thing to do. Now he stands a little ahead of the
- * projector's depth, off the right of the path, facing the screen: an
- * audience member, plainly in the shot from the first frame and plainly
- * not the thing the compass and the standing line point at. AT REST HE IS
+ * stray, not a second thing to do. Then x = 19, z = 14 — a little ahead of
+ * the projector's depth — and from the spawn, thirty-two units off, he was
+ * still a figure you had to squint for. Now he stands halfway up the path
+ * between the spawn and the projector, off its right, facing the screen: an
+ * audience member, plainly in the shot from the first frame at the size a
+ * person twenty units away is, and plainly not the thing the compass and
+ * the standing line point at. His height is the visitor's and stays so;
+ * how big he reads is a matter of where he stands, never of scale. AT REST HE IS
  * SECOND, NOT HIDDEN: the lantern at half, his name and the invitation over
  * his head, so anyone who reads it knows he is a thing you can do — this is
  * not a game with secrets in it. Hierarchy comes from place, not from
@@ -51,7 +55,7 @@
  *
  * Off the centre line for the reason the signs are (see the long note in
  * gate.ts): the film's watching shot is a cone out of a camera at z = 50 and
- * nothing may stand in it. At x = 19, z = 14 he is 28° off that shot's axis
+ * nothing may stand in it. At x = 13, z = 25 he is 27° off that shot's axis
  * against a half-frame of 19° on a 16:9 window and about 25° on a 21:9, so
  * he is clear of the picture on both.
  */
@@ -60,8 +64,8 @@ import * as THREE from 'three'
 import { PALETTE, clamp, angleDelta, type Landmark, type LandmarkContext } from '../../core/contract'
 
 /* Where he stands — see WHERE HE STANDS in the header */
-const EX = 19
-const EZ = 14
+const EX = 13
+const EZ = 25
 
 /** where the visitor's figure starts, so Elliot can face it before anyone arrives */
 const SPAWN_Z = 46
@@ -107,14 +111,29 @@ const TALK_Y = (55 * Math.PI) / 180
 /** from him toward the visitor, once the two are talking */
 const TALK_FACE = new THREE.Vector3(Math.sin(TALK_Y), 0, Math.cos(TALK_Y))
 /**
- * Where the talking shot is taken from: the pair's south, the axis the
- * follow cam already sits on, turned this little toward the west so the two
- * figures open out side by side instead of one in front of the other. From
- * the follow cam that is a turn of a dozen degrees inside a push-in, not
- * an orbit.
+ * Where the talking shot is taken from: OVER THE VISITOR'S SHOULDER. The
+ * camera stands behind the visitor's figure and off its right side, looking
+ * past it at Elliot — the two-shot every filmed conversation uses to say
+ * who is listening and who is talking. The near figure is the visitor: a
+ * touch larger, back three-quarters to the lens, exactly where you would be
+ * if it were you. The far one is Elliot: face on, lit, the one the shot is
+ * about. That is the whole of how the two are told apart, and it is the
+ * same cue a viewer reads without knowing they are reading it. The pair
+ * used to stand side by side in profile, seen from the path, and with two
+ * identical armatures that shot answered the question "which is me?" with
+ * nothing at all.
+ *
+ * The axis runs from Elliot through the visitor, swung this far round
+ * toward the visitor's right, so the visitor lands on the RIGHT of Elliot
+ * in frame — beside the panel, not under it — and Elliot sits in the clear
+ * left two-thirds. Seen from here he is turned about forty-five degrees off
+ * the lens: facing the visitor, and open to you.
  */
-const TALK_YAW = (-12 * Math.PI) / 180
-const TALK_DIR = new THREE.Vector3(Math.sin(TALK_YAW), 0, Math.cos(TALK_YAW))
+const TALK_SWING = (-45 * Math.PI) / 180
+const TALK_DIR = new THREE.Vector3(Math.sin(TALK_Y + TALK_SWING), 0, Math.cos(TALK_Y + TALK_SWING))
+/** frame-right from that camera, on the ground: the way the look-at is
+ *  nudged so Elliot sits left of centre and the pair clear the panel */
+const TALK_RIGHT = new THREE.Vector3(Math.cos(TALK_Y + TALK_SWING), 0, -Math.sin(TALK_Y + TALK_SWING))
 
 /* ---------------- proportions ----------------
    The player's, exactly (src/world/player.ts), so the two figures are the
@@ -498,21 +517,19 @@ export function createElliot(): Elliot {
     talkVantage(aspect: number) {
       const k = clamp((1.0 - aspect) / 0.55)
       /* THE PANEL DECIDES THE FRAMING. On a window it is a column down the
-         right third, so the shot is taken from TALK_DIR — the pair's south,
-         a shade west, which is near enough where the follow cam already is
-         — and with the visitor stood off his east side that puts him on the
-         LEFT of frame with the visitor's figure beside him. The look-at is
-         nudged toward the visitor so the pair sit in the clear two-thirds
-         rather than under the panel. On a phone it is a sheet over the
-         bottom three-fifths, so the shot looks well below the ground line
-         and the pair ride up into the top third, tag and all. */
-      const mid = origin.clone().addScaledVector(TALK_FACE, 1.8)
-      const d = 20 + k * 8
-      const position = mid.clone().addScaledVector(TALK_DIR, d)
-      position.y = 3.4 + k * 0.6
-      const lookAt = mid.clone().addScaledVector(TALK_FACE, 2.4 * (1 - k))
-      lookAt.y = 2.8 - k * 7.7
-      return { position, lookAt, fov: 30 + k * 22 }
+         right third, so the shot is taken from TALK_DIR — behind the
+         visitor's shoulder, see above — with the look-at pushed a little
+         frame-right of Elliot: he sits in the left third, the visitor's
+         back beside him nearer the lens, both clear of the panel. On a
+         phone it is a sheet over the bottom three-fifths, so the shot pulls
+         back, widens, and looks well below the ground line so the pair
+         ride up into the top third. */
+      const d = 18 + k * 10
+      const position = origin.clone().addScaledVector(TALK_DIR, d)
+      position.y = 3.2 + k * 0.8
+      const lookAt = origin.clone().addScaledVector(TALK_RIGHT, 3.0 * (1 - k))
+      lookAt.y = 2.6 - k * 7.5
+      return { position, lookAt, fov: 33 + k * 19 }
     },
 
     setEngaged(on: boolean) {
