@@ -231,15 +231,16 @@ function boot() {
   const scenery = createScenery(scene, {
     clearing: new THREE.Vector3(0, 0, 4),
   })
+  // the machine is there from the first frame, so the bare patch under it is too
+  scenery.setClearing(1)
 
-  /* The standing instruction, shown until the film has been watched once — and
-     it is LITERALLY the projector's own prompt, not a second sentence that
-     means the same thing. The two used to be different phrasings, so the line
-     rewrote itself as you closed the distance and you re-read an instruction
-     you had already followed. Sharing the string means `say()`'s
-     already-showing check swallows the hand-off entirely: the words on screen
-     when you are thirty units out are the same words, unmoved, when you arrive. */
-  const LEAD = projector.prompt
+  /* The standing instruction, shown until the film has been watched once. It
+     names both things there are to do; the projector's own prompt takes over
+     as you close in and says only what to do at the machine. (For a while the
+     two were one string, so nothing changed on screen as you walked — Elliot
+     chose the two sentences on 2026-09-15, since the far one has to mention
+     him too.) */
+  const LEAD = 'Walk to the projector or talk to Elliot'
   for (const l of landmarks) scene.add(l.object)
 
   /* ---------------- the film's third dimension ----------------
@@ -390,7 +391,12 @@ function boot() {
   /** scratch, so projecting the screen's corner once a frame allocates nothing */
   const corner = new THREE.Vector3()
 
-  async function startFilm() {
+  /**
+   * @param card the TL;DR was asked for instead of the film (from Elliot's
+   *   panel): the same walk, the same lamp, and the reel already wound to
+   *   the card when it strikes.
+   */
+  async function startFilm(card = false) {
     if (filmActive) return
     filmActive = true
     const mine = ++seq
@@ -400,7 +406,8 @@ function boot() {
     // the world is putting on a show; the instruments can sit this one out
     hud.hide()
 
-    // walk the last few units in — from wherever in the radius it was pressed
+    // walk the last few units in — from wherever in the radius it was
+    // pressed, or from beside Elliot if the film was picked in his panel
     await player.walkTo(projector.pressSpot)
     if (mine !== seq) return
 
@@ -423,24 +430,28 @@ function boot() {
     watching = true
     const v = projector.watchVantage(aspect())
     vantage = v
-    await rig.cutTo(v.position, v.lookAt, REDUCED_MOTION ? 0.01 : 1.9, v.fov)
+    await rig.cutTo(v.position, v.lookAt, REDUCED_MOTION ? 0.01 : 1.5, v.fov)
     if (mine !== seq) return
-    /* Elliot comes round to watch. The camera is on the screen now and he is
-       not in that shot — nothing off its cone is — so this is the one moment
-       he can cross the field unseen, and when the shot swings home at the
-       end he is standing off to the left, an audience member, twenty-odd
-       units away, rather than behind the lens where his path-side spot left
-       him. Behind the lens is where the visitor found him nowhere at all,
-       and the standing line was naming a person who was not on screen. He
-       stays there; see `comeToWatch` in src/world/landmarks/elliot.ts. */
+    /* Elliot takes his watching spot, off the screen's left, NOW and not a
+       moment sooner: the camera is on the film's shot, and neither where he
+       stood — by the screen the first time, beside the visitor on a replay
+       (`comeCloser` in finishFilm) — nor where he goes is in it, so the
+       move is never seen. He used to set off the instant the film was
+       picked and the visitor watched him hurry across the field; see WHERE
+       HE STANDS ONCE THE FILM IS ON in src/world/landmarks/elliot.ts. */
     elliot.comeToWatch(aspect())
     await stepped
     if (mine !== seq) return
 
     player.faceTo(SCREEN_CENTRE)
-    film.play()
+    if (card) {
+      film.playCard()
+      analytics.film.tldr('panel')
+    } else film.play()
     analytics.film.started(film.state)
     controls.show()
+    seenFilm = true
+    chat.setFilmSeen(true)
   }
 
   /** the one way out, wherever we are in the sequence */
@@ -460,10 +471,16 @@ function boot() {
     // the picture is going; whatever the cursor was promising is going with it
     setPointing(false)
     rig.release()
+    // …and Elliot comes in from his watching spot to stand beside the visitor
+    // while the shot swings home
+    elliot.comeCloser()
     player.cancelTravel()
     player.setEnabled(true)
     suppressUntil = now() + 1.4
     hud.show()
+    // the film walked the figure; the first step it takes now is its own,
+    // not the whole of that walk read as one stride toward whoever is nearest
+    lastPos.copy(player.position)
   }
 
   film.onEnd(finishFilm)
@@ -511,20 +528,44 @@ function boot() {
     chat.open()
   }
 
-  /** the one way out — the panel closing, whoever closed it */
-  function finishTalk() {
+  /**
+   * the one way out — the panel closing, whoever closed it
+   * @param handOff the panel is closing because the film is about to start:
+   *   the camera and the figure are the film's now, so the field is not
+   *   handed back — no HUD, no keys — and `startFilm` takes it from here.
+   */
+  function finishTalk(handOff = false) {
     if (!talking) return
     talking = false
     talkSeq++
     elliot.setEngaged(false)
     rig.release()
     player.cancelTravel()
+    if (handOff) return
     player.setEnabled(true)
     suppressUntil = now() + 1.4
     hud.show()
+    lastPos.copy(player.position)
   }
 
-  chat.onClose(finishTalk)
+  /** set while the panel is closing into the film, so `onClose` knows */
+  let handingOff = false
+  chat.onClose(() => finishTalk(handingOff))
+
+  /* ---------------- what he offers ----------------
+     Two of the three choices in the panel are the world's to do, and they
+     are the same thing at two lengths: the panel goes, Elliot walks off to
+     his watching spot, and the figure is walked over to the projector to
+     switch it on. For the film the reel starts at the top; for the TL;DR
+     it is already wound to the card when the lamp strikes. */
+  chat.onPick((what) => {
+    if (filmActive) return
+    handingOff = true
+    chat.close()
+    handingOff = false
+    disarmed.add('projector')
+    void startFilm(what === 'digest')
+  })
 
   /* ---------------- proximity + dwell activation ---------------- */
   // Press E — or Enter, or Space — while standing at the thing, AND THAT IS
@@ -1065,6 +1106,7 @@ function boot() {
     player.update(dt, elapsed)
     analytics.frame(player.position.x, player.position.z)
     scenery.setDaylight(field.daylight, field.dusk)
+    scenery.setWatching(watching)
     scenery.update(dt, elapsed, player.position)
     vel.subVectors(player.position, last).divideScalar(Math.max(dt, 0.0001))
     last.copy(player.position)
@@ -1174,15 +1216,14 @@ function boot() {
         else if (pending.anchor.distanceTo(player.position) < pending.radius) fire(pending, 'walk')
       }
 
-      // The prompt has two things to say, and DISTANCE IS NOT ONE OF THEM: the
-      // standing line and the projector's own prompt are the same string (see
-      // LEAD above), so closing the distance changes nothing on screen. What
-      // does change it is state — having already done the thing, which is what
-      // `again` is for.
-      // …with one addition since: the film having been watched, the standing
-      // line hands over to Elliot's own prompt, until he has been talked to.
-      // Same rule — it is HIS string, so closing the distance to him changes
-      // nothing on screen — and then the field goes quiet, as it did before.
+      // Far off, the standing line names both things to do (LEAD above); close
+      // to a thing, its own prompt takes over. State changes it too — having
+      // already done the thing, which is what `again` is for.
+      // The far line stays up until both things have been done. It used to
+      // hand over to Elliot's own prompt once the film was watched, which put
+      // "talk to Elliot" on screen from the far side of the field; Elliot
+      // asked (2026-09-15) that his line only appear once you are actually
+      // near him. Then the field goes quiet.
       const armed = !!near && !disarmed.has(near.id)
       say(
         near
@@ -1190,11 +1231,9 @@ function boot() {
             ? near.prompt
             : near.again
           : elapsed > LEAD_DELAY
-            ? !seenFilm
+            ? !seenFilm || !talked
               ? LEAD
-              : !talked
-                ? elliot.prompt
-                : null
+              : null
             : null,
       )
 
@@ -1220,6 +1259,7 @@ function boot() {
         rig.camera,
         inReach ? reach : null,
         (armed ? near?.verb : (near?.verbAgain ?? near?.verb)) ?? '',
+        near?.reachSide,
       )
 
       // …and standing there does not press it. `autoActivate: false` opts a

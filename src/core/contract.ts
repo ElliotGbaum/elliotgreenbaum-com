@@ -162,6 +162,15 @@ export interface Landmark {
    */
   readonly reach?: THREE.Vector3
   /**
+   * Which side of the `reach` point the badge sits on. `'above'` (the
+   * default) hangs it over the point, centred, the way a label hangs over a
+   * switch. `'right'` and `'left'` stand it beside the point, on its level:
+   * for a figure rather than a machine, where the point is his head, a label
+   * stacked over him and his name reads as a title card, and one at his
+   * shoulder reads as an aside.
+   */
+  readonly reachSide?: 'above' | 'left' | 'right'
+  /**
    * How close you have to be to the `reach` point, in world units, before the
    * badge appears — measured on the ground plane, so height never counts.
    * This is deliberately much tighter than `radius`: the radius is "the

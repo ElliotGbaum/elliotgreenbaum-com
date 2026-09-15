@@ -53,10 +53,10 @@
  * `reveal` below), and once the film has been watched, which is the moment
  * the standing line starts naming him.
  *
- * That is where he stands UNTIL THE FILM IS SWITCHED ON. Once the picture is
- * up he crosses to a spot off the screen's left and watches from there, so
- * that when the film ends he is in the shot — see WHERE HE STANDS ONCE THE
- * FILM IS ON, over `WATCH_DESK` below.
+ * That is where he stands UNTIL THE FILM IS SWITCHED ON. Once the camera has
+ * cut to the screen he is placed at a spot off the screen's left, unseen,
+ * and watches from there, so that when the film ends he is in the shot —
+ * see WHERE HE STANDS ONCE THE FILM IS ON, over `WATCH_DESK` below.
  *
  * Off the centre line for the reason the signs are (see the long note in
  * gate.ts): the film's watching shot is a cone out of a camera at z = 50 and
@@ -66,17 +66,40 @@
  */
 
 import * as THREE from 'three'
-import { PALETTE, PHONE, clamp, angleDelta, type Landmark, type LandmarkContext } from '../../core/contract'
+import { PALETTE, PHONE, REDUCED_MOTION, clamp, angleDelta, type Landmark, type LandmarkContext } from '../../core/contract'
 
 /* Where he stands, until the film is switched on — see WHERE HE STANDS in
    the header */
 const EX = 13
 const EZ = 25
+/** how fast he walks in beside the visitor, world units a second */
+const WALK_SPEED = 7.5
+
+/**
+ * WHERE HE STANDS ONCE THE FILM IS OVER: beside the visitor. The watching
+ * spot is chosen to be out of the film's shot, and out of the film's shot
+ * is a long way off — when the camera swung home he was a small figure
+ * thirty degrees left of the lens, forty units off, which read as "too far
+ * away and too far left" rather than as company. So the moment the film
+ * ends (`comeCloser`, called from `finishFilm` in main.ts) he walks in to
+ * the visitor's side, fifteen units left and a step ahead, both of them
+ * facing the screen: twenty degrees off the follow cam's axis, a figure
+ * the visitor's own size. He is inside his own talking radius here, which
+ * is fine — main.ts only lets him take the prompt off the projector once
+ * the visitor is walking toward him — but he must stay outside his REACH
+ * (`reachRadius`, measured from his anchor, which sits 5.5 in front of
+ * him), or E at the machine opens his panel instead of the replay. On a
+ * replay he stands here while the visitor walks to the switch, and is put
+ * back at the watching spot once the camera has cut to the screen
+ * (`comeToWatch` again, from `startFilm`), out of a frame that no longer
+ * holds where he stood.
+ */
+const NEAR = [-21, 0] as const
 
 /**
  * WHERE HE STANDS ONCE THE FILM IS ON: off the screen's left, twenty-odd
  * units from where the visitor watches, facing the screen like the rest of
- * the audience. He moves there the moment the film's camera has cut to the
+ * the audience. He is put there the moment the film's camera has cut to the
  * screen (`comeToWatch`, called from `startFilm` in main.ts) and stays.
  *
  * Why he moves at all. The path-side spot is south-east of the watching
@@ -84,8 +107,9 @@ const EZ = 25
  * ended he was BEHIND THE LENS: the standing line said "walk over to
  * Elliot" over a field with nobody in it. Nowhere in the film's own shot is
  * also visible from the follow cam's, so he cannot simply be put somewhere
- * both can see; he goes while the picture is up, which is the one stretch
- * where the field off the screen's cone is unseen.
+ * both can see; he goes once the picture is up, which is the one stretch
+ * where the field off the screen's cone is unseen — and he goes in a
+ * single step, because a walk from the path-side spot crosses the cone.
  *
  * Where, exactly, is two constraints. He must be OUTSIDE the watching shot,
  * for the replay: the desktop shot is a 22° lens at (3.5, 50) aimed at the
@@ -163,10 +187,13 @@ const TALK_FACE = new THREE.Vector3(Math.sin(TALK_Y), 0, Math.cos(TALK_Y))
  * The axis runs from Elliot through the visitor, swung this far round
  * toward the visitor's right, so the visitor lands on the RIGHT of Elliot
  * in frame — beside the panel, not under it — and Elliot sits in the clear
- * left two-thirds. Seen from here he is turned about forty-five degrees off
- * the lens: facing the visitor, and open to you.
+ * left two-thirds. Swung this far the pair are seen nearly side-on, the
+ * two of them across the frame from each other: Elliot's near profile is
+ * turned a touch toward the lens, the visitor's a touch away. A tighter
+ * swing (45°, then 32°) read as both of them talking at the lens on a
+ * diagonal rather than to each other.
  */
-const TALK_SWING = (-45 * Math.PI) / 180
+const TALK_SWING = (-70 * Math.PI) / 180
 const TALK_DIR = new THREE.Vector3(Math.sin(TALK_Y + TALK_SWING), 0, Math.cos(TALK_Y + TALK_SWING))
 /** frame-right from that camera, on the ground: the way the look-at is
  *  nudged so Elliot sits left of centre and the pair clear the panel */
@@ -259,7 +286,7 @@ function tagTexture(mode: 'night' | 'day'): THREE.CanvasTexture {
   const NAME_FONT = '600 104px "Hoefler Text", "Iowan Old Style", Palatino, Georgia, serif'
   const SUB_FONT = '600 34px ui-monospace, "SF Mono", Menlo, monospace'
   const SUB_SPACING = 6
-  const NAME_Y = H / 2 - 36
+  const NAME_Y = H / 2 - 22
   const SUB_Y = H / 2 + 58
   if (day) {
     // the pill is measured off the words — the wider line plus a clear
@@ -310,12 +337,18 @@ export interface Elliot extends Landmark {
   /** the point the visitor's figure turns to face once it is there */
   readonly facePoint: THREE.Vector3
   /**
-   * The film has been switched on and the camera is on the screen: he
-   * crosses to his watching spot, unseen, so he is in the shot when the film
-   * ends. Once; a replay finds him already there. `aspect` is the
+   * The film has been switched on and the camera is on the screen: he is
+   * placed at his watching spot, unseen, so he is in the shot when the film
+   * ends. Call it once the cut is done. `aspect` is the
    * viewport's width over its height, which on a phone decides the spot.
    */
   comeToWatch(aspect: number): void
+  /**
+   * The film is over: come in and stand beside the visitor. See WHERE HE
+   * STANDS ONCE THE FILM IS OVER, over `NEAR`. Nothing, if the film was
+   * never watched.
+   */
+  comeCloser(): void
   /**
    * He is being talked to: keep facing the talking spot rather than tracking
    * the figure, and let the lantern hang still. Off again when the panel
@@ -385,7 +418,11 @@ export function createElliot(): Elliot {
   body.add(neck)
 
   // legs, planted: a little apart, one knee a touch softer than the other,
-  // which is what standing looks like as opposed to being stood up
+  // which is what standing looks like as opposed to being stood up. Kept,
+  // because he walks (to his watching spot, and back to the visitor's side)
+  // and the stride in `update` is laid over these rest poses.
+  const thighs: THREE.Group[] = []
+  const knees: THREE.Group[] = []
   for (const side of [-1, 1]) {
     const hip = new THREE.Group()
     hip.position.set(side * HIP_X, HIP_Y, 0)
@@ -399,7 +436,11 @@ export function createElliot(): Elliot {
     const foot = new THREE.Mesh(keep(new THREE.BoxGeometry(0.3, 0.13, 0.52)), dark)
     foot.position.set(0, -SHIN + 0.02, 0.11)
     knee.add(foot)
+    thighs.push(thigh)
+    knees.push(knee)
   }
+  const REST_THIGH = thighs.map((t) => t.rotation.x)
+  const REST_KNEE = knees.map((k) => k.rotation.x)
 
   const arms: THREE.Group[] = []
   const elbows: THREE.Group[] = []
@@ -489,9 +530,10 @@ export function createElliot(): Elliot {
     const sprite = new THREE.Sprite(mat)
     // 640 × 240 texels, drawn at world size — the name is about two heads
     // tall from where you approach, and it sits clear above the head — and
-    // clear above the PRESS [E] badge too, which hangs at his hips (`reach`)
+    // clear above the PRESS [E] badge too, which hangs just over his head
+    // (`reach`) and tops out under the tag's lower edge
     sprite.scale.set(8.4, 8.4 * (240 / 640), 1)
-    sprite.position.set(0, HEAD_Y + 2.9, 0)
+    sprite.position.set(0, HEAD_Y + 3.7, 0)
     group.add(sprite)
     return { mat, sprite }
   }
@@ -533,12 +575,30 @@ export function createElliot(): Elliot {
        toward the spawn — so the radius reaches the way you come */
     approach.set(-x, 0, SPAWN_Z - z).normalize()
     anchor.copy(origin).addScaledVector(approach, 5.5)
-    // the badge hangs at his hips — see `reach` below
-    reach.set(x, HIP_Y - 0.4, z)
+    // the badge hangs just over his head — see `reach` below
+    reach.set(x, HEAD_Y + HEAD_R + 0.15, z)
     restY = restYawAt(x, z)
   }
   standAt(EX, EZ)
   let watching = false
+  /** where he is walking to, while he is; null once he has arrived */
+  let goal: THREE.Vector3 | null = null
+  /** the stride's clock, in radians */
+  let stride = 0
+
+  /** set off for (x, z) at walking pace — or, under reduced motion, be there */
+  function walkTo(x: number, z: number): void {
+    if (goal ? goal.x === x && goal.z === z : origin.x === x && origin.z === z) return
+    if (REDUCED_MOTION) {
+      goal = null
+      standAt(x, z)
+      yaw = yawTarget = restY
+      group.rotation.y = yaw
+      return
+    }
+    goal = new THREE.Vector3(x, 0, z)
+    lookToward(goal)
+  }
 
   /** turned to face a point on the ground, the long way round never */
   function lookToward(p: THREE.Vector3): void {
@@ -558,21 +618,21 @@ export function createElliot(): Elliot {
        look at you at the same distance, which is the other half of the
        invitation. */
     radius: 12,
-    /* One sentence, the same from thirty units out as from three. main.ts
-       uses this string as the standing line once the film has been watched,
-       so it has to read as an instruction from across the field as well as
-       a label at his feet. */
-    prompt: 'Walk over to Elliot and ask him anything',
+    /* Shown only once you are near him (or walking at him): the far line in
+       main.ts names him itself. So this is a label at his feet, not an
+       instruction from across the field. */
+    prompt: 'Talk to Elliot',
     again: 'Ask Elliot something else',
     verb: 'talk',
     verbAgain: 'talk again',
-    /* The badge hangs at his hips rather than over his head, because the
-       nametag is over his head and two labels stacked on one figure is a
-       figure wearing a menu. It used to sit at his shoulders, and from the
-       two-shot you are left in after a conversation — close, and looking
-       slightly down — a badge hanging UP from the shoulders climbed straight
-       into the invitation line. Hanging up from the hips it tops out at his
-       chest, well clear of the tag, and still points at the person. */
+    /* The badge hangs just over his head, in the gap under the nametag. It
+       lived at his hips for a while so the two labels would not stack, but
+       a badge rising from the hips lands on his chest, and from the two-shot
+       after a conversation — close, the visitor's figure right beside him —
+       it sat across both bodies and read as pinned to the wrong one (Elliot,
+       2026-09-15). Over the head it is unambiguously his; the tag starts
+       3.7 above the head, which leaves it room at every distance the badge
+       is shown from (`reachRadius`). */
     reach,
     reachRadius: 8,
     /* the whole figure, and the tag: you point at a person, not at an arm,
@@ -598,20 +658,35 @@ export function createElliot(): Elliot {
       const d = 18 + k * 10
       const position = origin.clone().addScaledVector(TALK_DIR, d)
       position.y = 3.2 + k * 0.8
-      const lookAt = origin.clone().addScaledVector(TALK_RIGHT, 3.0 * (1 - k))
+      /* the push was 3.0 until 2026-09-15; at that the visitor's figure
+         stood on the panel's fade and read through the live lines. And the
+         look-at is the midpoint between them, not Elliot: centred on him
+         alone the visitor falls off the right edge */
+      const lookAt = origin.clone().addScaledVector(TALK_RIGHT, 4.4 * (1 - k)).addScaledVector(TALK_FACE, 1.8 * k)
       lookAt.y = 2.6 - k * 7.5
       return { position, lookAt, fov: 33 + k * 19 }
     },
 
     comeToWatch(aspect: number) {
-      if (watching) return
       watching = true
       const [x, z] = !PHONE ? WATCH_DESK : aspect < 1 ? WATCH_PHONE_UP : WATCH_PHONE_WIDE
+      /* He is placed, not walked. Until 2026-09-15 he set off the moment
+         the film was picked and the visitor watched him hurry fifty units
+         across the field on their way to the switch, which read as a man
+         bolting rather than an audience settling. Now main.ts calls this
+         only once the camera has cut to the film's shot, and both where he
+         was and where he goes are outside that shot, so the move is unseen:
+         he stands by the screen while the visitor walks up, and is simply
+         at his watching spot when the picture comes up. */
+      goal = null
       standAt(x, z)
-      /* nobody can see him cross, so he need not turn either: he arrives
-         already looking at the screen, as he would have been for a while */
       yaw = yawTarget = restY
       group.rotation.y = yaw
+    },
+
+    comeCloser() {
+      if (!watching) return
+      walkTo(NEAR[0], NEAR[1])
     },
 
     setEngaged(on: boolean) {
@@ -631,7 +706,37 @@ export function createElliot(): Elliot {
       /* who he is looking at: you, once you are near enough to be worth
          turning for; the spot in front of him while you are talking; the
          spawn otherwise, which is where the next visitor comes from */
-      if (engaged) lookToward(talkSpot)
+      /* the walk, when there is one: a straight line to the goal at walking
+         pace, facing the way he is going, legs swinging. He arrives, faces
+         the screen, and the stride settles back to the standing pose. */
+      if (goal) {
+        const dx = goal.x - origin.x
+        const dz = goal.z - origin.z
+        const left = Math.hypot(dx, dz)
+        const step = WALK_SPEED * dt
+        if (left <= step) {
+          standAt(goal.x, goal.z)
+          goal = null
+          yawTarget = restY
+        } else {
+          standAt(origin.x + (dx / left) * step, origin.z + (dz / left) * step)
+          lookToward(goal)
+          stride += dt * 8.6
+        }
+      }
+      const walking = goal ? 1 : 0
+      const gait = Math.sin(stride)
+      for (let i = 0; i < thighs.length; i++) {
+        const sign = i === 0 ? 1 : -1
+        const tgtT = REST_THIGH[i]! + walking * gait * sign * 0.55
+        const tgtK = REST_KNEE[i]! + walking * Math.max(0, -gait * sign) * 0.9
+        thighs[i]!.rotation.x += (tgtT - thighs[i]!.rotation.x) * Math.min(1, dt * 14)
+        knees[i]!.rotation.x += (tgtK - knees[i]!.rotation.x) * Math.min(1, dt * 14)
+      }
+
+      if (goal) {
+        // already facing the way he is going
+      } else if (engaged) lookToward(talkSpot)
       else {
         const p = ctx.playerPosition
         const d = Math.hypot(p.x - origin.x, p.z - origin.z)
@@ -649,7 +754,7 @@ export function createElliot(): Elliot {
       leftArm.rotation.x = 0.05 + breath * 0.025
       rightArm.rotation.x = -0.12 - breath * 0.02
       const carried = -(rightArm.rotation.x + rightElbow.rotation.x)
-      swing.rotation.x = carried + Math.sin(elapsed * 0.9) * 0.05
+      swing.rotation.x = carried + Math.sin(elapsed * 0.9) * 0.05 + walking * gait * 0.12
       swing.rotation.z = Math.sin(elapsed * 0.7 + 1.1) * 0.04
 
       /* How much of him is up. At rest — nobody near, film not yet watched —

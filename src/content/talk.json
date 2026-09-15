@@ -1,5 +1,5 @@
 {
-  "_readme": "Every word the conversation panel says on its own, before the AI says anything. Edit the strings, reload, done — no code. What the AI itself knows about Elliot is NOT here: that is server/persona.ts, which is the only file the model ever reads, and it is kept off the client on purpose. 'pick' is the opening choice: the panel starts on two options and nothing can be typed until one is chosen — ask about his work, or book a call — and 'pick.bookOpener' is the line sent as the visitor's first words when they choose the call, the way a chip is. 'pick.toBook' and 'pick.toTalk' are the one chip in each mode that switches to the other. 'questions' are the chips, in order. Only a few are on screen at a time (chat.ts decides how many); when one is asked it leaves and the next in this list takes its place, so the list can be long without the panel being a menu. Each one is sent to the AI verbatim as if the visitor had typed it, so they read as questions a person would actually ask, in the second person. 'fallback' is what Elliot says when the AI cannot be reached, by cause; none of those lines are generated either. 'live' labels the short lines under the header that are read live from his own accounts as the panel opens — Spotify, GitHub, Strava, WHOOP, Calendly — each one naming its source in small type and absent when there is nothing to show.",
+  "_readme": "Every word the conversation panel says on its own, before the AI says anything. Edit the strings, reload, done — no code. What the AI itself knows about Elliot is NOT here: that is server/persona.ts, which is the only file the model ever reads, and it is kept off the client on purpose. 'pick' is the opening choice: the panel starts on three options and nothing can be typed until one is chosen — watch the film, get the TL;DR card, or book a call. The first two are handed to the world (main.ts raises the screen, or shows the card); the third is a conversation, and 'pick.bookOpener' is the line sent as the visitor's first words when they choose it, the way a chip is. 'pick.filmAgain' replaces 'pick.film' once the film has been watched. 'pick.back' is the one chip in the booking conversation, and it returns to the three choices. The interview — 'questions', 'pick.talk', 'pick.toTalk', 'pick.toBook' — is parked: the code for it is still in chat.ts and the server still answers the 'talk' brief, but the choice is not offered. 'questions' are the interview's chips, in order. Only a few are on screen at a time (chat.ts decides how many); when one is asked it leaves and the next in this list takes its place, so the list can be long without the panel being a menu. Each one is sent to the AI verbatim as if the visitor had typed it, so they read as questions a person would actually ask, in the second person. 'fallback' is what Elliot says when the AI cannot be reached, by cause; none of those lines are generated either. 'live' labels the short lines under the header that are read live from his own accounts as the panel opens — Spotify, GitHub, Strava, WHOOP, Calendly — each one naming its source in small type and absent when there is nothing to show.",
   "questions": [
     "Tell me about yourself",
     "Why startups?",
@@ -13,9 +13,13 @@
   ],
   "pick": {
     "label": "What would you like to do?",
-    "talk": "Ask me about my work",
+    "film": "Watch a short film Elliot made about himself",
+    "filmAgain": "Watch the short film again",
+    "digest": "Get the TL;DR version of the film",
     "book": "Book a call with Elliot",
     "bookOpener": "I’d like to book a call with Elliot.",
+    "back": "← Back to the choices",
+    "talk": "Ask me about my work",
     "toBook": "Book a call instead",
     "toTalk": "Ask me about my work instead"
   },
@@ -30,13 +34,11 @@
     "strava": "Strava",
     "ran": "Ran this month",
     "noRuns": "no runs yet",
-    "accountable": "(holding myself accountable 🙂)",
+    "accountable": "(holding myself accountable)",
     "whoop": "WHOOP",
-    "recovery": "Recovery",
-    "calendly": "Calendly",
-    "free": "Next free",
-    "book": "Free to talk",
-    "bookLink": "book a time"
+    "recovery": "Recovery today",
+    "notion": "Notion",
+    "interest": "Into this week"
   },
   "fallback": {
     "unconfigured": "I’ve lost my voice — the AI behind me isn’t switched on right now. The real Elliot is one email away: elliotgreenbaum@gmail.com.",

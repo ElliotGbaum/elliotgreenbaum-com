@@ -1,9 +1,21 @@
 /**
  * The conversation panel — what opens when you talk to Elliot.
  *
- * It opens on a choice — ask Elliot about his work, or book a call with
- * him — and nothing can be typed until one is made. Then a log, a row of
- * chips, and a line to type your own. It is the one piece of chrome on this
+ * It opens on the live lines from his accounts and a choice of three: watch
+ * the film he made about himself, get the TL;DR card, or book a call with
+ * him. The first two are not conversations at all — the panel hands them
+ * back to the world through `onPick` (main.ts raises the screen out of the
+ * ground and plays the reel from the top, or from the card) — and the third
+ * is: a log, a chip back to the choices, and a line to type your own.
+ *
+ * THE INTERVIEW IS PARKED. There used to be a fourth choice, "Ask me about
+ * my work", a conversation with a model briefed on Elliot's own notes
+ * (server/persona.ts). All of it is still here — the `talk` mode, the chips
+ * in talk.json, the server's brief — and none of it is offered: the choice
+ * is the three above. Put `pick('talk', …)` back in `drawAsks` to bring
+ * it back.
+ *
+ * It is the one piece of chrome on this
  * site that talks back, and the one piece where the words on screen were
  * not written in advance: every reply is generated, live, by a model that
  * has been given a brief — Elliot's notes about himself for the first
@@ -42,8 +54,15 @@
 import './chat.css'
 import copy from '../content/talk.json'
 
+/** the two choices that leave the panel: the film, and the card */
+export type Pick = 'film' | 'digest'
+
 export interface Chat {
   readonly isOpen: boolean
+  /** the visitor chose something the world has to do — see `Pick` */
+  onPick(cb: (what: Pick) => void): void
+  /** the film has been watched: the film's choice says "again" from now on */
+  setFilmSeen(seen: boolean): void
   /** start fetching the live lines now, so they are on screen the moment
    *  the panel opens — called when the visitor turns toward Elliot */
   warm(): void
@@ -67,7 +86,7 @@ type Mode = 'talk' | 'book'
 const SIG_MARK = '\u001f'
 
 /** links from the live feeds are only ever to the services they came from */
-const LINK_HOSTS = ['open.spotify.com', 'github.com', 'www.strava.com', 'calendly.com']
+const LINK_HOSTS = ['open.spotify.com', 'github.com', 'www.strava.com', 'notion.so', 'calendly.com']
 function safeLink(url: unknown): string | null {
   if (typeof url !== 'string') return null
   try {
@@ -97,7 +116,7 @@ function ago(iso: string): string {
 const MAX_CHARS = 500
 
 function noopChat(): Chat {
-  return { isOpen: false, warm() {}, open() {}, close() {}, onClose() {}, dispose() {} }
+  return { isOpen: false, onPick() {}, setFilmSeen() {}, warm() {}, open() {}, close() {}, onClose() {}, dispose() {} }
 }
 
 export function createChat(): Chat {
@@ -167,6 +186,8 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
   let open = false
   let inflight: AbortController | null = null
   const closeCbs: Array<() => void> = []
+  const pickCbs: Array<(what: Pick) => void> = []
+  let filmSeen = false
 
   /** one line in the log. Returns the element the text goes into. */
   function line(role: Turn['role'], text: string): HTMLElement {
@@ -231,11 +252,13 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
   /* ---------------- what is true right now ----------------
      GET /api/live: what he is playing on Spotify, what he last pushed to
      GitHub, how far he has run this month on Strava, his latest WHOOP
-     recovery, and where to book time with him — each one read from his own
-     account, each one a short line under the header that names where it
-     came from, and each one absent when there is nothing to show. The same
-     facts are handed to the model server-side, so the lines and the answers
-     agree. Links only ever go to the service the line came from.
+     recovery, and what he is into this week (his Notion note) — each one
+     read from his own account, each one a short line under the header that
+     names where it came from, and each one absent when there is nothing to
+     show. The same facts are handed to the model server-side, so the lines
+     and the answers agree; the Calendly slots ride the same wire for the
+     booking conversation and are not drawn as a line. Links only ever go to
+     the service the line came from.
 
      WHEN IT IS FETCHED: before the panel opens, not as it opens. The walk
      over and the camera move take a second and a half, which is longer than
@@ -252,6 +275,7 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
     shipped: { repo: string; url: string; at: string } | null
     ran: { miles: number; runs: number; url: string } | null
     recovery: { score: number; at: string } | null
+    interest: { text: string; since: string; link: string | null } | null
     booking: { url: string; next: string[]; minutes: number | null } | null
     zone: string
   }
@@ -304,7 +328,7 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
     github: '<circle cx="6" cy="6" r="1.9"/><path d="M6 .9v3.2M6 7.9v3.2"/>',
     strava: '<path d="M1.6 9.6l3-6.8 3 6.8M6.6 9.6l1.7-3.8 1.7 3.8"/>',
     whoop: '<path d="M1 6h2.2l1.3-3 1.8 6 1.5-4 1 1h2.2"/>',
-    calendly: '<rect x="1.5" y="2.5" width="9" height="8" rx="1"/><path d="M1.5 5.2h9M4 1.3v2.2M8 1.3v2.2"/>',
+    notion: '<rect x="2" y="1.5" width="8" height="9" rx="1"/><path d="M4 4.2h4M4 6.2h4M4 8.2h2.5"/>',
   }
   function row(kind: string, source: string, label: string): { li: HTMLElement; body: HTMLElement } {
     const li = document.createElement('li')
@@ -397,21 +421,12 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
       rows.push(r)
     }
 
-
-    if (live.booking) {
-      const b = live.booking
-      const { li: r, body } = row('calendly', L.calendly, b.next.length ? L.free : L.book)
-      if (b.next[0]) {
-        const when = new Intl.DateTimeFormat('en-US', {
-          timeZone: live.zone,
-          weekday: 'short',
-          hour: 'numeric',
-          minute: '2-digit',
-          timeZoneName: 'short',
-        }).format(new Date(b.next[0]))
-        body.append(plain(`${when} · `))
-      }
-      body.append(link(b.url, L.bookLink))
+    if (live.interest) {
+      const i = live.interest
+      const { li: r, body } = row('notion', L.notion, L.interest)
+      // written by hand; the date it was written is kept in now.json but
+      // not shown — the line reads as what he is into, not as a post
+      body.append(link(i.link, i.text))
       rows.push(r)
     }
 
@@ -459,19 +474,39 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
     asks.replaceChildren()
     asks.dataset.picking = mode ? 'false' : 'true'
     if (!mode) {
-      asks.setAttribute('aria-label', copy.pick.label)
-      const pick = (m: Mode, text: string) => {
+      /* the question is printed, in the ledger's eyebrow voice, so the eye
+         has somewhere to land after the facts: it is the one line on the
+         panel that says which block is the reason you came in */
+      const lead = document.createElement('p')
+      lead.id = 'talk-lead'
+      lead.className = 'talk__lead'
+      lead.textContent = copy.pick.label
+      asks.removeAttribute('aria-label')
+      asks.setAttribute('aria-labelledby', lead.id)
+      asks.append(lead)
+      const pick = (m: Mode | Pick, text: string, on: () => void) => {
         const b = document.createElement('button')
         b.type = 'button'
         b.className = 'talk__pick'
         b.dataset.mode = m
         b.textContent = text
-        b.addEventListener('click', () => choose(m))
+        b.addEventListener('click', on)
         return b
       }
-      asks.append(pick('talk', copy.pick.talk), pick('book', copy.pick.book))
+      /* the three. The first two are the world's to do, and the panel only
+         passes the word on; the third is the booking conversation. */
+      const handOff = (what: Pick) => () => {
+        if (busy) return
+        for (const cb of pickCbs.slice()) cb(what)
+      }
+      asks.append(
+        pick('film', filmSeen ? copy.pick.filmAgain : copy.pick.film, handOff('film')),
+        pick('digest', copy.pick.digest, handOff('digest')),
+        pick('book', copy.pick.book, () => choose('book')),
+      )
       return
     }
+    asks.removeAttribute('aria-labelledby')
     asks.setAttribute('aria-label', 'Questions to ask')
     if (mode === 'talk') {
       // the chips already asked have left the queue; what is shown is the next few
@@ -482,8 +517,21 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
       queue.splice(0, Math.min(CHIPS_SHOWN, queue.length))
       asks.append(chip(copy.pick.toBook, () => choose('book'), 'switch'))
     } else {
-      asks.append(chip(copy.pick.toTalk, () => choose('talk'), 'switch'))
+      // the one chip in the booking conversation goes back to the choices;
+      // the transcript is kept, so choosing the call again continues it
+      asks.append(chip(copy.pick.back, () => back(), 'switch'))
     }
+  }
+
+  /** back to the three choices, from inside a conversation */
+  function back(): void {
+    if (busy || !mode) return
+    mode = null
+    panel.dataset.mode = 'none'
+    form.hidden = true
+    log.replaceChildren()
+    drawAsks()
+    panel.focus({ preventScroll: true })
   }
 
   /** the visitor has said what this conversation is for */
@@ -532,6 +580,54 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
     inflight?.abort()
     const ctl = new AbortController()
     inflight = ctl
+
+    /* THE REPLY IS PACED ONTO THE SCREEN, not dropped in as it arrives. The
+       model sends its words in bursts — a hundred characters, then nothing
+       for half a second, then a hundred more — and painted the moment they
+       land they read as a stutter: a sentence appears whole, the caret
+       sits, another sentence appears whole. So the paint runs a beat behind
+       the stream: a steady eighty characters a second at rest, and faster
+       the further behind it falls, so it is never waiting on the screen,
+       only ever on the model. Under reduced motion, or with the tab hidden
+       (no frames come), everything shows the moment it arrives. */
+    const instant = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    let revealed = 0
+    let carry = 0
+    let frame = 0
+    let lastTick = 0
+    let streamed = false
+    let settle: () => void = () => {}
+    const settled = new Promise<void>((r) => (settle = r))
+    const paint = (text: string): void => {
+      reply.parentElement!.dataset.thinking = 'false'
+      write(reply, text)
+      scrollDown()
+    }
+    const tick = (now: number): void => {
+      frame = 0
+      const text = shown(answer)
+      const backlog = text.length - revealed
+      if (backlog > 0) {
+        let step = backlog
+        if (!instant && !document.hidden && !ctl.signal.aborted) {
+          const dt = lastTick ? Math.min(now - lastTick, 100) : 16
+          carry += (dt / 1000) * (80 + backlog * 3)
+          step = Math.min(backlog, Math.floor(carry))
+          carry -= step
+        }
+        if (step > 0) {
+          revealed += step
+          paint(text.slice(0, revealed))
+        }
+      }
+      lastTick = now
+      if (streamed && revealed >= text.length) settle()
+      else frame = requestAnimationFrame(tick)
+    }
+    const schedule = (): void => {
+      if (!frame) frame = requestAnimationFrame(tick)
+    }
+
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
@@ -553,9 +649,7 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
           const { value, done } = await reader.read()
           if (done) break
           answer += decoder.decode(value, { stream: true })
-          reply.parentElement!.dataset.thinking = 'false'
-          write(reply, shown(answer))
-          scrollDown()
+          schedule()
         }
         answer += decoder.decode()
         // the last line is the server's signature on what it said — kept
@@ -566,12 +660,19 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
           answer = answer.slice(0, mark)
         }
         if (!answer.trim()) failed = copy.fallback.error
+        else {
+          // the stream is in; wait for the last of it to be written out
+          streamed = true
+          schedule()
+          await settled
+        }
       }
     } catch (err) {
       if (ctl.signal.aborted) return
       console.error('[talk]', err)
       failed = copy.fallback.error
     } finally {
+      if (frame) cancelAnimationFrame(frame)
       if (inflight === ctl) inflight = null
     }
 
@@ -633,15 +734,26 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
       // a phone would bring the keyboard up over the figures on the first
       // frame; the visitor can tap the line or a chip, both of which are in
       // reach. A keyboard gets the cursor, because the next thing it does is
-      // type.
+      // type. On the choices the cursor goes to the panel itself, not the
+      // first choice: a lit first line reads as already chosen, and one Tab
+      // reaches it.
       if (mode && window.matchMedia('(hover: hover)').matches) input.focus({ preventScroll: true })
-      else if (!mode) asks.querySelector<HTMLButtonElement>('.talk__pick')?.focus({ preventScroll: true })
+      else if (!mode) panel.focus({ preventScroll: true })
     },
 
     close,
 
     onClose(cb) {
       closeCbs.push(cb)
+    },
+
+    onPick(cb) {
+      pickCbs.push(cb)
+    },
+
+    setFilmSeen(seen) {
+      filmSeen = seen
+      if (!mode) drawAsks()
     },
 
     dispose() {

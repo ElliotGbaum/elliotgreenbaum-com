@@ -256,51 +256,49 @@ const KNIGHT: SketchStroke[] = (() => {
   const H = 0.125
   const p = (dx: number, dy: number): [number, number] => [cx + dx * H, cy - dy * H]
   return [
-    /* One closed silhouette, and the four events that make it a horse rather
-       than a rodent: the THROAT LATCH at (-0.20, 0.60), which is the sharpest
-       concave vertex on the piece; the MUZZLE, projecting forward and CUT OFF
-       BLUNT over 0.06 of the height; the two SHARP EARS; and the whole head
-       tilted nose-down. The crest carries three shallow scallops of 0.02 —
-       that is the mane, and it is on the contour rather than inside it. */
+    /* One closed silhouette, read clockwise from the front foot: a narrow
+       collar, a NECK that leans forward with a concave chest, the THROAT
+       LATCH tucked in at (-0.13, 0.48), then the jaw swinging out to a MUZZLE
+       that hangs well forward of the base and is CUT OFF BLUNT, nose down; a
+       concave stop up the bridge to the brow, two SHARP PRICKED EARS, and the
+       crest arching back and down in one convex sweep — the mane is that
+       sweep, not a line inside it. The old one stood as wide at the foot as
+       at the head, and a box with a bump on it is a duck. */
     hand(
       curve(
         W.edge,
         [
-          p(-0.24, 0),
-          p(-0.23, 0.08),
-          p(-0.18, 0.13),
-          p(-0.15, 0.22),
-          p(-0.24, 0.5),
-          p(-0.2, 0.6),
-          p(-0.28, 0.66),
-          p(-0.44, 0.72),
-          p(-0.45, 0.78),
-          p(-0.3, 0.85),
-          p(-0.14, 0.95),
-          p(-0.12, 0.93),
-          p(-0.02, 0.99),
-          p(0.02, 1.0),
-          p(0.05, 0.95),
-          p(0.09, 0.98),
-          p(0.13, 0.92),
-          p(0.18, 0.82),
+          p(-0.2, 0),
+          p(-0.17, 0.06),
+          p(-0.11, 0.1),
+          p(-0.09, 0.26),
+          p(-0.11, 0.4),
+          p(-0.13, 0.48),
+          p(-0.27, 0.52),
+          p(-0.41, 0.56),
+          p(-0.48, 0.62),
+          p(-0.46, 0.7),
+          p(-0.33, 0.77),
+          p(-0.2, 0.85),
+          p(-0.1, 0.9),
+          p(-0.06, 1.0),
+          p(0.0, 0.9),
+          p(0.06, 0.98),
+          p(0.1, 0.88),
           p(0.2, 0.76),
-          p(0.23, 0.68),
-          p(0.235, 0.62),
-          p(0.265, 0.54),
-          p(0.265, 0.48),
-          p(0.28, 0.4),
-          p(0.275, 0.32),
-          p(0.245, 0.14),
-          p(0.24, 0.06),
-          p(0.24, 0),
+          p(0.26, 0.6),
+          p(0.26, 0.42),
+          p(0.22, 0.26),
+          p(0.16, 0.12),
+          p(0.19, 0.06),
+          p(0.22, 0),
         ],
         { closed: true },
       ),
       0.0022,
       9.8,
     ),
-    dot(W.line, cx - 0.14 * H, cy - 0.86 * H, 0.0075),
+    dot(W.line, cx - 0.2 * H, cy - 0.79 * H, 0.0075),
     ring(W.fine, cx, cy, SQ_K * 0.39, SQ_K * 0.39 * SQUASH),
   ]
 })()

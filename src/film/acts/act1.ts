@@ -58,20 +58,25 @@ const C = copy.act1
 /* 12.3, down from 12.6. The second half of the closing line settles at 8.9, so
    the last three and a half seconds are a held frame; three tenths came off the
    hold and nothing arrives any earlier than it did. */
-const DURATION = 12.3
+/* 11.7, down from 12.3. The board went back to two men (one pawn, one knight —
+   the six-man position was tried on 2026-09-15 and Elliot found the slide too
+   long), and the pen's window closed by six tenths to match: a shorter drawing
+   at the same pace. Everything after the pen moved earlier by the same six
+   tenths, so every hold is exactly what it was. */
+const DURATION = 11.7
 
 const SCENE = prepare(CHESS)
 
 /** the pen runs across these seconds — two dozen strokes is a long draw */
 const SKETCH_A = 0.5
-const SKETCH_B = 4.3
+const SKETCH_B = 3.7
 
 /** the caption under the picture, and then the line that replaces it */
-const CHESS_A = 3.0
+const CHESS_A = 2.4
 /** its own wrapped lines arrive this far apart */
 const CHESS_STEP = 0.4
-const CHESS_OUT = 7.4
-const CLOSE_A = 7.7
+const CHESS_OUT = 6.8
+const CLOSE_A = 7.1
 /** how far apart the two wrapped halves of the closing line arrive */
 const CLOSE_STEP = 0.5
 

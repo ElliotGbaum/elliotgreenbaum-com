@@ -77,9 +77,9 @@ console.log('\n1. Served HTML (no JS executed)')
   // The transcript is the one block allowed to say what the film says (it IS
   // the film, generated from its copy), so it is lifted out and checked on
   // its own terms below: present, the film's words, and no shape of its own.
-  const transcript = html.match(/<details id="transcript"[\s\S]*?<\/details>/)?.[0] ?? ''
+  const transcript = html.match(/<section id="transcript"[\s\S]*?<\/section>/)?.[0] ?? ''
   const markup = html
-    .replace(/<details id="transcript"[\s\S]*?<\/details>/, '')
+    .replace(/<section id="transcript"[\s\S]*?<\/section>/, '')
     .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/<style[\s\S]*?<\/style>/gi, '')
     .replace(/<script[\s\S]*?<\/script>/gi, '')
@@ -90,7 +90,7 @@ console.log('\n1. Served HTML (no JS executed)')
   // the film, in words — for the reader with no WebGL and for the machines
   ok('the film is in the markup, in words', /Hi, I’m Elliot/.test(transcript) && /Cassidy/.test(transcript))
   ok('the transcript is a transcript, not a CV', !/<(ul|ol|li|time|a)[\s>]/i.test(transcript))
-  ok('the transcript is folded, not hidden', /<details/.test(transcript) && !/hidden|aria-hidden/.test(transcript))
+  ok('the transcript is in the tree for screen readers', /<section/.test(transcript) && !/hidden|aria-hidden/.test(transcript))
   const llms = await fetch(`${base}/llms.txt`)
   const llmsText = llms.ok ? await llms.text() : ''
   ok('llms.txt is served', llms.ok && /^# Elliot Greenbaum/.test(llmsText), String(llms.status))
@@ -136,6 +136,10 @@ console.log('\n3. WebGL unavailable')
   await page.waitForTimeout(900)
   ok('card visible', await page.locator('#card').isVisible())
   ok('world stays hidden', !(await page.locator('#stage').isVisible()))
+  // the transcript is in the page for readers that do not paint it, and
+  // takes no room on the card for the one that does
+  const tBox = await page.locator('#transcript').boundingBox()
+  ok('the transcript is off the screen', tBox !== null && tBox.width <= 1 && tBox.height <= 1, JSON.stringify(tBox))
   ok('no uncaught errors', errors.length === 0, errors[0] ?? '')
   await ctx.close()
 }
@@ -159,12 +163,10 @@ console.log('\n4. prefers-reduced-motion: reduce')
  * world has to say so unprompted. The standing line at the bottom and the
  * compass naming its destination both carry that.
  *
- * AND THE LINE DOES NOT REWRITE ITSELF AS YOU WALK. It used to: the standing
- * instruction and the projector's own prompt were two phrasings of the same
- * idea, so crossing into the radius swapped one for the other and the eye went
- * back to re-read a sentence it had already acted on. They are one string now
- * (main.ts takes `LEAD` straight off `projector.prompt`), and this is the
- * check that keeps them one.
+ * The far line names both things to do — the projector and Elliot — and the
+ * projector's own prompt takes over as you close in, saying only what to do
+ * at the machine. (For a while the two were one string so nothing rewrote
+ * itself as you walked; Elliot chose the two sentences on 2026-09-15.)
  */
 console.log('\n5. The projector announces itself')
 {
@@ -174,7 +176,7 @@ console.log('\n5. The projector announces itself')
   await page.waitForTimeout(3200)
 
   const lead = ((await page.locator('#prompt').textContent()) ?? '').toLowerCase()
-  ok('a standing instruction is shown', /projector/.test(lead) && /film/.test(lead), lead)
+  ok('a standing instruction is shown', /projector/.test(lead) && /elliot/.test(lead), lead)
   ok('the prompt is actually visible', (await page.locator('#prompt').getAttribute('data-on')) === 'true')
 
   const compass = ((await page.locator('#compass [data-mark="projector"] em').textContent()) ?? '').trim()
@@ -195,7 +197,7 @@ console.log('\n5. The projector announces itself')
   await page.keyboard.up('ArrowUp')
   await page.waitForTimeout(400)
   const close = ((await page.locator('#prompt').textContent()) ?? '').toLowerCase()
-  ok('the instruction does not change as you close in', close === lead, `${lead} → ${close}`)
+  ok('the instruction hands over to the projector as you close in', /switch on the projector/.test(close) && /film/.test(close), `${lead} → ${close}`)
 
   // …and standing at it does not start the film. The dwell trigger used to
   // fire after half a second of standing still; the projector opts out of it.
@@ -203,7 +205,7 @@ console.log('\n5. The projector announces itself')
   ok('standing at the projector does NOT start the film', !(await page.locator('#film').isVisible()))
   ok(
     'and it is still asking to be switched on',
-    ((await page.locator('#prompt').textContent()) ?? '').toLowerCase() === lead,
+    ((await page.locator('#prompt').textContent()) ?? '').toLowerCase() === close,
   )
 
   await ctx.close()
@@ -623,7 +625,7 @@ console.log('\n11. Elliot answers')
   await page.keyboard.up('ArrowUp')
   await page.waitForTimeout(900)
   const line = ((await page.locator('#prompt').textContent()) ?? '').trim()
-  ok('the prompt at him names him and says to ask', /Elliot/.test(line) && /ask/i.test(line), line)
+  ok('the prompt at him says to talk to him', /talk to Elliot/i.test(line), line)
   ok('standing next to him does NOT open the panel', await page.locator('#talk').isHidden())
 
   await page.keyboard.press('e')
@@ -640,19 +642,52 @@ console.log('\n11. Elliot answers')
     // (the model says what it is if anyone asks — see the head of chat.ts)
     ok('the log starts empty', (await page.locator('#talk-log li').count()) === 0)
 
-    // it opens on a choice — ask, or book a call — and nothing can be typed
-    // until one is made: the panel is an agent with two jobs, not a text box
+    // it opens on a choice of three — the film, the TL;DR card, a call — and
+    // nothing can be typed until the call is picked: the other two are the
+    // world's to do, not conversations
     const picks = await page.locator('.talk__pick').allTextContents()
-    ok('two things to do, and only those', picks.length === 2 && /ask/i.test(picks[0]) && /book/i.test(picks[1]), picks.join(' | '))
+    ok('three things to do, and only those', picks.length === 3 && /film/i.test(picks[0]) && /tl;?dr/i.test(picks[1]) && /book/i.test(picks[2]), picks.join(' | '))
     ok('nothing to type into until one is picked', await page.locator('#talk-form').isHidden())
     ok('no question chips before the choice', (await page.locator('.talk__ask').count()) === 0)
-    await page.locator('.talk__pick[data-mode="talk"]').click()
-    await page.waitForTimeout(400)
-    ok('choosing to ask brings up the line', await page.locator('#talk-input').isVisible())
-    ok('…and still says nothing first', (await page.locator('#talk-log li').count()) === 0)
-    const chips = await page.locator('.talk__ask:not(.talk__ask--switch)').count()
-    ok('a few questions to choose from, not a menu', chips >= 3 && chips <= 5, `${chips}`)
-    ok('one chip switches to booking a call', (await page.locator('.talk__ask--switch').allTextContents()).some((t) => /book/i.test(t)))
+    ok('the interview is not offered', !picks.some((t) => /ask me/i.test(t)))
+
+    // the card: the same walk, the same screen rising, and the reel already
+    // wound to the card when the lamp strikes — the film is up, parked at
+    // the end, with the card named on the transport and nothing left for
+    // the TLDR button to do. Escape stops it and the field comes back.
+    await page.locator('.talk__pick[data-mode="digest"]').click()
+    let cardUp = false
+    for (let i = 0; i < 50 && !cardUp; i++) {
+      await page.waitForTimeout(500)
+      cardUp = await page.locator('#film').isVisible()
+    }
+    ok('the TL;DR walks to the projector and switches it on', cardUp)
+    ok('…and the panel has gone', await page.locator('#talk').isHidden())
+    await page.waitForTimeout(600)
+    const cardTime = ((await page.locator('#film-time').textContent()) ?? '').trim()
+    const [, cur, tot] = /(\d+:\d\d)\s*\/\s*(\d+:\d\d)/.exec(cardTime) ?? []
+    ok('the reel is already at the card', !!cur && cur === tot, cardTime)
+    ok('the card names itself on the transport', /tl;?dr|about me/i.test((await page.locator('#film-chapter').textContent()) ?? ''), (await page.locator('#film-chapter').textContent()) ?? '')
+    ok('the TLDR button has nothing to do', await page.locator('#film-tldr').isHidden())
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(1500)
+    ok('Escape stops it', !(await page.locator('#film').isVisible()))
+
+    // …and back to him for the third choice. The film leaves you at the
+    // watching spot and him a step ahead on your left (`comeCloser`), so
+    // it is a short walk: two seconds of ArrowLeft lands inside his radius.
+    await page.keyboard.down('ArrowLeft')
+    await page.waitForTimeout(2200)
+    await page.keyboard.up('ArrowLeft')
+    await page.waitForTimeout(600)
+    await page.keyboard.press('e')
+    up = false
+    for (let i = 0; i < 40 && !up; i++) {
+      await page.waitForTimeout(250)
+      up = await page.locator('#talk').isVisible()
+    }
+    ok('E at him opens the conversation again', up)
+    ok('the film now offers a replay', /again/i.test((await page.locator('.talk__pick[data-mode="film"]').textContent()) ?? ''))
 
     // what is true right now, live from his accounts: the endpoint always
     // answers, and each line is there exactly when there is something to show
@@ -662,7 +697,7 @@ console.log('\n11. Elliot answers')
     await page.waitForTimeout(1200)
     const factsUp = await page.locator('#talk-now').isVisible()
     const facts = factsUp ? await page.locator('#talk-now .talk__fact').count() : 0
-    const expected = ['track', 'shipped', 'ran', 'recovery', 'booking'].filter((k) => live?.[k]).length
+    const expected = ['track', 'shipped', 'ran', 'recovery', 'interest'].filter((k) => live?.[k]).length
     ok('one line per live feed that answered', facts === expected, `${facts} shown, ${expected} answered`)
     if (live?.track) {
       const nowText = ((await page.locator('#talk-now-track').textContent()) ?? '').trim()
@@ -671,34 +706,28 @@ console.log('\n11. Elliot answers')
       ok('the line is just the track: nothing to expand', (await page.locator('#talk-now-track button').count()) === 0)
     }
     const hrefs = await page.locator('#talk-now a').evaluateAll((as) => as.map((a) => a.href))
-    ok('every live link is https to the service it came from', hrefs.every((h) => /^https:\/\/(open\.spotify\.com|github\.com|www\.strava\.com|calendly\.com)\//.test(h)), `${hrefs.length} links`)
+    ok('every live link is https to the service it came from', hrefs.every((h) => /^https:\/\/(open\.spotify\.com|github\.com|www\.strava\.com|(www\.)?notion\.so|calendly\.com)\//.test(h)), `${hrefs.length} links`)
     ok('every live line names its source', (await page.locator('#talk-now .talk__src').count()) === facts)
-    ok('the classic ones are there', (await page.locator('.talk__ask').allTextContents()).some((t) => /startups/i.test(t)))
 
-    await page.locator('.talk__ask').first().click()
+    // the third job: booking a call by talking. Choosing it is the visitor's
+    // first line, sent as if typed, and the log is this conversation's own
+    await page.locator('.talk__pick[data-mode="book"]').click()
     await page.waitForTimeout(2500)
-    const lines = await page.locator('#talk-log li').allTextContents()
-    ok('the question lands in the log, and an answer follows', lines.length >= 2, `${lines.length} lines`)
-    const last = (lines[lines.length - 1] ?? '').trim()
-    ok('with no model he says so and gives the email', /gmail\.com/.test(last), last.slice(0, 70))
-
+    const bookLines = await page.locator('#talk-log li').allTextContents()
+    ok('choosing the call starts its own conversation', bookLines.length === 2 && /book a call/i.test(bookLines[0]), `${bookLines.length} lines`)
+    ok('with no model the booking says so, and gives the email', /gmail\.com/.test(bookLines[1] ?? ''), (bookLines[1] ?? '').slice(0, 70))
+    ok('the line to type is up in booking mode', await page.locator('#talk-input').isVisible())
     await page.locator('#talk-input').fill('hello')
     await page.keyboard.press('Enter')
     await page.waitForTimeout(1500)
-    ok('a typed question is asked too', (await page.locator('#talk-log li').count()) >= 4)
-
-    // the other job: booking a call by talking. Choosing it is the visitor's
-    // first line, sent as if typed, and the log is this conversation's own
-    await page.locator('.talk__ask--switch').click()
-    await page.waitForTimeout(1500)
-    const bookLines = await page.locator('#talk-log li').allTextContents()
-    ok('switching to the call starts its own conversation', bookLines.length === 2 && /book a call/i.test(bookLines[0]), `${bookLines.length} lines`)
-    ok('with no model the booking says so too, and gives the email', /gmail\.com/.test(bookLines[1] ?? ''), (bookLines[1] ?? '').slice(0, 70))
-    ok('the line to type stays up in booking mode', await page.locator('#talk-input').isVisible())
-    ok('one chip switches back to questions', (await page.locator('.talk__ask--switch').allTextContents()).some((t) => /ask/i.test(t)))
+    ok('a typed reply is sent too', (await page.locator('#talk-log li').count()) >= 4)
+    ok('one chip goes back to the choices', (await page.locator('.talk__ask--switch').allTextContents()).some((t) => /back/i.test(t)))
     await page.locator('.talk__ask--switch').click()
     await page.waitForTimeout(400)
-    ok('switching back brings the first conversation back, intact', (await page.locator('#talk-log li').count()) >= 4)
+    ok('…and the three choices come back', (await page.locator('.talk__pick').count()) === 3)
+    await page.locator('.talk__pick[data-mode="book"]').click()
+    await page.waitForTimeout(400)
+    ok('choosing the call again continues it, intact', (await page.locator('#talk-log li').count()) >= 4)
 
     // the wire refuses what the panel could never send: a made-up mode, and
     // an "Elliot said" turn that Elliot did not say — in either brief

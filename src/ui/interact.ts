@@ -48,6 +48,8 @@ import { reducedMotion } from '../core/contract'
 /** how long the cap stays down after the key is actually hit, ms */
 const HIT_MS = 190
 
+export type BadgeSide = 'above' | 'left' | 'right'
+
 export interface InteractPrompt {
   /**
    * Once a frame.
@@ -59,9 +61,12 @@ export interface InteractPrompt {
    *   again". Two or three words, lower case, no full stop, and the same words
    *   whichever gesture the device offers.
    *
+   * @param side which side of the point the label sits on — see
+   *   `Landmark.reachSide`. Above unless told otherwise.
+   *
    * `null`/empty for either takes it off screen.
    */
-  update(camera: THREE.Camera, point: THREE.Vector3 | null, verb?: string): void
+  update(camera: THREE.Camera, point: THREE.Vector3 | null, verb?: string, side?: BadgeSide): void
   /** the key was pressed — knock the cap down, so the badge answers */
   hit(): void
   dispose(): void
@@ -78,6 +83,7 @@ export function createInteractPrompt(): InteractPrompt {
 
   let on = false
   let shownVerb = ''
+  let shownSide: BadgeSide = 'above'
   // the last position written to the DOM — a projected point moves by a
   // fraction of a pixel most frames, and a style write that changes nothing
   // still costs a style recalculation
@@ -95,7 +101,7 @@ export function createInteractPrompt(): InteractPrompt {
   const p = new THREE.Vector3()
 
   return {
-    update(camera: THREE.Camera, point: THREE.Vector3 | null, verb = '') {
+    update(camera: THREE.Camera, point: THREE.Vector3 | null, verb = '', side: BadgeSide = 'above') {
       if (!point || !verb) return hide()
 
       p.copy(point).project(camera)
@@ -117,6 +123,10 @@ export function createInteractPrompt(): InteractPrompt {
       if (verb !== shownVerb) {
         verbEl.textContent = verb
         shownVerb = verb
+      }
+      if (side !== shownSide) {
+        el.dataset.side = side
+        shownSide = side
       }
 
       if (!on) {

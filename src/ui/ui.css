@@ -373,7 +373,7 @@ html.has-fs-btn #clock {
    of the object your hand goes to, arriving on approach, leaving faster than
    it arrived.
 
-   It is the quietest thing on screen on purpose — 0.63rem mono in ink-3, no
+   It is the quietest thing on screen on purpose — 0.74rem mono in ink-3, no
    panel behind it, and the only element carrying any weight at all is the
    keycap, because the keycap is the information. The cap breathes on a
    three-and-a-half second cycle: slow enough to find out of the corner of an
@@ -406,15 +406,19 @@ html.has-fs-btn #clock {
   transform-origin: 50% 100%;
   opacity: 0;
   font-family: var(--ui-font-mono);
-  font-size: 0.63rem;
-  font-weight: 500;
-  letter-spacing: 0.17em;
+  /* a size up and a shade lighter than the rest of the instrument type:
+     grey mono over grass was being missed, and it still sits well under
+     the nametag it hangs over */
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
   line-height: 1;
-  color: var(--ui-ink-3);
+  color: var(--ui-ink-2);
   text-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.92),
-    0 0 12px rgba(0, 0, 0, 0.8);
+    0 1px 2px rgba(0, 0, 0, 1),
+    0 1px 4px rgba(0, 0, 0, 0.95),
+    0 0 14px rgba(0, 0, 0, 0.85);
   /* out faster than in — a prompt for something you have walked away from
      should already be gone by the time you notice it was there */
   transition:
@@ -429,9 +433,31 @@ html.has-fs-btn #clock {
     transform 320ms cubic-bezier(0.16, 0.84, 0.28, 1);
 }
 
+/* …or beside it. A landmark can ask for the badge on its right or left
+   (`Landmark.reachSide`): the pin stands on the point's level with a gap,
+   and it arrives from the side it sits on rather than from below. Nothing
+   asks for it at the moment: Elliot's badge did stand at his shoulder for
+   a while, and it floated in the grass a hand's width from anything, so it
+   went back over his crown, under the name, where the two stack into one
+   caption (src/world/landmarks/elliot.ts, BADGE_Y). */
+#interact[data-side='right'] .interact__pin {
+  transform: translate(14px, -50%) translateX(-5px) scale(0.965);
+  transform-origin: 0 50%;
+}
+#interact[data-side='right'][data-on='true'] .interact__pin {
+  transform: translate(14px, -50%) scale(1);
+}
+#interact[data-side='left'] .interact__pin {
+  transform: translate(calc(-100% - 14px), -50%) translateX(5px) scale(0.965);
+  transform-origin: 100% 50%;
+}
+#interact[data-side='left'][data-on='true'] .interact__pin {
+  transform: translate(calc(-100% - 14px), -50%) scale(1);
+}
+
 /* the verb is the half of the sentence that changes, so it gets the light */
 .interact__verb {
-  color: var(--ui-ink-2);
+  color: var(--ui-ink);
 }
 
 /* …and the half in front of it names the gesture. `Press [E] to` carries the
@@ -451,15 +477,15 @@ html.has-fs-btn #clock {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 5px;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
   border: 1px solid var(--ui-rule);
-  border-radius: 5px;
-  background: rgba(10, 20, 24, 0.82);
+  border-radius: 6px;
+  background: rgba(10, 20, 24, 0.88);
   color: var(--ui-glow);
   font-family: inherit;
-  font-size: 0.7rem;
+  font-size: 0.84rem;
   font-weight: 500;
   letter-spacing: 0;
   text-shadow: none;
@@ -515,7 +541,7 @@ html.has-fs-btn #clock {
      sky the raycast reads as grass, so a finger that goes to the label rather
      than to the projector under it would walk the figure sideways — see
      onPointerDown in src/main.ts, which fires the landmark for a press that
-     lands in here. The padding is the tap target: the type stays 0.63rem
+     lands in here. The padding is the tap target: the type stays 0.8rem
      because the badge is still the quietest thing on screen, and the box
      around it is a thumb wide. Only while it is up — an invisible label is
      not a button. */
@@ -698,15 +724,51 @@ html.is-day #prompt {
   font-size: clamp(1.04rem, 0.97rem + 0.5vw, 1.26rem);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
+/* The badge is the exception to the exception. It took the veil too, and
+   over Elliot it was the biggest, flattest thing in the shot: a dark box
+   hanging over a nametag that is dark ink on a pale halo, two languages
+   stacked on one person. So by day it does what the tag does
+   (src/world/landmarks/elliot.ts, tagTexture): the ink inverts to dark and
+   the halo goes pale, stacked until it holds against the treeline, and the
+   keycap is a pale key with a dark rim. Still no rectangle over the field. */
 html.is-day .interact__pin {
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: rgba(10, 20, 24, 0.82);
-  color: var(--ui-sage);
-  text-shadow: none;
+  color: #0f1a1c;
+  /* four offset 1px shadows make a solid outline; the blurred ones behind
+     them fill the halo until the grass's pale specks cannot break through */
+  text-shadow:
+    1px 0 0 rgba(244, 240, 228, 1),
+    -1px 0 0 rgba(244, 240, 228, 1),
+    0 1px 0 rgba(244, 240, 228, 1),
+    0 -1px 0 rgba(244, 240, 228, 1),
+    0 0 3px rgba(244, 240, 228, 1),
+    0 0 6px rgba(244, 240, 228, 1),
+    0 0 10px rgba(244, 240, 228, 0.95),
+    0 0 18px rgba(244, 240, 228, 0.8);
 }
-html.is-day .interact__verb {
-  color: var(--ui-buff);
+html.is-day .interact__verb,
+html.is-day .interact__tap {
+  color: #0a1418;
+}
+html.is-day #interact kbd {
+  background: rgba(244, 240, 228, 0.94);
+  color: #0a1418;
+  animation-name: interact-breathe-day;
+}
+@keyframes interact-breathe-day {
+  0%,
+  100% {
+    border-color: rgba(10, 20, 24, 0.45);
+    box-shadow: 0 0 0 rgba(227, 169, 74, 0);
+  }
+  50% {
+    border-color: rgba(176, 118, 32, 0.85);
+    box-shadow: 0 0 13px rgba(227, 169, 74, 0.5);
+  }
+}
+html.is-day #interact[data-hit='true'] kbd {
+  background: rgba(227, 169, 74, 0.55);
+  color: #0a1418;
+  border-color: rgba(176, 118, 32, 1);
 }
 
 /* --------------------------------------------------------------------------
@@ -814,3 +876,4 @@ html.is-day .interact__verb {
     right: calc(var(--pad-r) + 202px);
   }
 }
+

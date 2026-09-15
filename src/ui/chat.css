@@ -566,6 +566,11 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 4px 0;
+  /* a clear step down from the ledger, but not pinned to the panel's foot:
+     the facts are the room, the choices are the reason you came in, and
+     the eyebrow above them is what says so. A hairline was tried and read
+     as a fifth row of the ledger. */
+  margin-top: 28px;
   overflow: visible;
   -webkit-mask-image: none;
   mask-image: none;
@@ -573,9 +578,33 @@
 .talk__pick {
   font-size: 1.05rem;
   min-height: 44px;
+  /* the choices are sentences, and on a phone the first one is wider than
+     the panel: they wrap where the chips never do */
+  white-space: normal;
+  max-width: 100%;
+  align-items: flex-start;
+  padding: 8px 0;
 }
-.talk__pick:nth-child(2) {
+.talk__pick::before {
+  margin-top: 0.55em;
+}
+/* the question over the three, in the ledger's own eyebrow voice */
+.talk__lead {
+  margin: 0 0 4px;
+  color: var(--talk-sage);
+  font-family: var(--talk-mono);
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  line-height: 1.6;
+  animation: talk-in 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.talk__pick:nth-of-type(2) {
   animation-delay: 70ms;
+}
+.talk__pick:nth-of-type(3) {
+  animation-delay: 140ms;
 }
 /* the chip that changes what the conversation is for sits apart from the questions */
 .talk__ask--switch {
@@ -594,15 +623,19 @@
 }
 
 /* ---- the line ----
-   Pinned to the foot of the panel, whatever is above it. A line to write
-   on, not a field: a hairline under the words that lights amber when you
-   are in it, and at its end an arrow to send. */
+   Right under the last thing said, not at the foot of the panel: on a
+   window the panel is the full height of the frame, and a reply line
+   pinned down there sat a screen below the question it answers, where
+   nobody looked for it. On a phone the log fills the panel and the line
+   lands at the foot anyway. A line to write on, not a field: a hairline
+   under the words that lights amber when you are in it, and at its end an
+   arrow to send. */
 #talk-form {
   position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: auto 0 0;
+  margin: 0;
   border-bottom: 1px solid var(--talk-rule);
   transition: border-color 200ms ease;
 }
@@ -708,6 +741,14 @@
 #talk-input:focus-visible {
   outline: none;
 }
+/* the choices and the chips carry their own focus, the lit colour and the
+   longer dash. The panel takes the cursor itself as it opens on the choices
+   so none of them is lit before the visitor has touched one */
+#talk:focus,
+#talk .talk__ask:focus-visible,
+#talk .talk__pick:focus-visible {
+  outline: none;
+}
 
 /* ---- a phone: the ledger's eyebrow column narrows, and the log keeps
    enough room under it ---- */
@@ -746,6 +787,9 @@
     -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 var(--talk-fade));
     mask-image: linear-gradient(90deg, transparent 0, #000 var(--talk-fade));
     animation: talk-slide 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  #talk-asks[data-picking='true'] {
+    margin-top: 52px;
   }
   /* the questions stack on a window */
   #talk-asks {

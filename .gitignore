@@ -11,7 +11,8 @@ refs/
 .vercel
 .env*
 
-# private working notes, kept local
+# private working notes, kept local — and the AI's notes about Elliot (see server/persona.ts)
+server/persona.md
 PLAN.md
 CONTEXT.md
 CLAUDE.md

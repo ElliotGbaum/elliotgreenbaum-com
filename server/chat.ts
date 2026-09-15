@@ -56,7 +56,7 @@
 
 import Anthropic from '@anthropic-ai/sdk'
 import { createHmac, createHash, timingSafeEqual } from 'node:crypto'
-import { PERSONA } from './persona.js'
+import { persona } from './persona.js'
 import { liveFacts, ZONE } from './live.js'
 import { count } from './limits.js'
 import { BOOK_TOOLS, bookingSystem, runBookTool, safeZone } from './book.js'
@@ -205,6 +205,8 @@ export async function handleChat(req: Request): Promise<Response> {
   const zone = safeZone((body as { zone?: unknown }).zone, ZONE)
 
   if (!process.env.ANTHROPIC_API_KEY) return json({ error: 'unconfigured' }, 503)
+  const PERSONA = persona()
+  if (mode === 'talk' && !PERSONA) return json({ error: 'unconfigured' }, 503)
 
   const client = new Anthropic()
 

@@ -544,13 +544,14 @@ export function createProjector(picture: HTMLCanvasElement): Projector {
      * THE SAME SENTENCE AT EVERY DISTANCE, and that is the point. This used to
      * read "Switch on the projector — it plays the film" while the standing
      * line at the bottom of the screen said "Walk to the projector and switch
-     * it on to play the film", so the instruction rewrote itself under you as
-     * you walked. Two phrasings of one idea is not extra information, it is a
-     * flicker: the eye goes back to re-read a line it had already finished.
-     * main.ts takes its standing line from this string (`LEAD`), so the two
-     * cannot drift apart again — edit it here and it changes in both places.
+     * it on to play the film" — two phrasings of one idea. For a while the two
+     * were one string (`LEAD` in main.ts read this one) so the line never
+     * rewrote itself under you. Since 2026-09-15 they are two sentences again,
+     * by Elliot's choice: the standing line names both things to do — walk to
+     * the projector, or talk to Elliot — and this one, which takes over when
+     * you are close, says only what to do here. The far line lives in main.ts.
      */
-    prompt: 'Walk to the projector and switch it on to play the film',
+    prompt: 'Switch on the projector to play the film',
     again: 'Switch it on again to replay the film',
     /**
      * …and up at the machine itself, once you are within arm's reach of it,

@@ -386,6 +386,13 @@ export interface Film {
    */
   fitTo(devicePxWide: number): boolean
   play(from?: number): void
+  /**
+   * Start with the TL;DR card already in the gate: the reel is wound to the
+   * end before the lamp strikes, so the first frame is the card filling in
+   * on its own clock. The transport is the film's — `seek` scrubs back into
+   * the film from here exactly as it does after a wind-forward.
+   */
+  playCard(): void
   stop(): void
   /**
    * Wipe the picture back to black. Whoever is *showing* the film has to call
@@ -542,8 +549,11 @@ export function createFilm(): Film {
 
     if (state.rushing && !REDUCED_MOTION) {
       /* THE DIP. Out: the frame that was playing, held exactly where it was
-         when the button went down, under a black that comes up over it. In:
-         the card, on its own clock, under a black that goes away. */
+         when the button went down, under a blank screen that comes up over
+         it. In: the card, on its own clock, under a blank that goes away. It
+         dips to the screen's own cream, not to black: the screen never goes
+         dark at any point in the film, and a cut through black on a pale
+         picture reads as the lamp failing. */
       const out = rushT < RUSH_OUT
       let held: Act | undefined
       let t: number
@@ -796,6 +806,15 @@ export function createFilm(): Film {
       locate()
       acc = 0
       dirty = true
+      paint()
+    },
+
+    playCard() {
+      state.running = true
+      state.paused = false
+      state.rate = 1
+      rushCardT = 0
+      enterDigest()
       paint()
     },
 

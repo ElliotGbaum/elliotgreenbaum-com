@@ -99,18 +99,21 @@ const AXIS = 0.5
 
 /**
  * The side of the FACE, chin corner to where the hair takes over at eye
- * level. Widest at the cheekbone (0.34 at y 0.40) and CONVEX all the way —
- * no gonial corner, because the photograph has none to show. Its top anchor
- * is shared with HAIR_L / HAIR_R so the two are one contour.
+ * level. CONVEX all the way and still OPENING at the eye line — no gonial
+ * corner, because the photograph has none to show, and no waist either: the
+ * cheek used to turn back in at 0.35 and the hair flared out again above it,
+ * which made the head a peanut. Now cheek and hair are one oval, widest a
+ * little above the eyes, and the join is invisible. Its top anchor is shared
+ * with HAIR_L / HAIR_R so the two are one contour.
  */
 const CHEEK = curve(W.edge, [
   [0.445, 0.583],
-  [0.415, 0.56],
-  [0.385, 0.525],
-  [0.362, 0.48],
-  [0.347, 0.43],
-  [0.341, 0.39],
-  [0.3435, 0.35],
+  [0.413, 0.558],
+  [0.382, 0.52],
+  [0.357, 0.475],
+  [0.338, 0.43],
+  [0.325, 0.39],
+  [0.316, 0.35],
 ])
 
 /** The chin, sharing both of CHEEK's lower endpoints. Rounded, and flat for
@@ -162,8 +165,10 @@ const LID_LOWER = curve(W.fine, [
   [0.415, 0.356],
 ])
 
-/** The iris, 40% of the eye's width, and its top is cut by the upper lid. */
-const IRIS = dot(1.8, 0.405, EYE + 0.003, 0.0105)
+/** The iris, 40% of the eye's width, its top cut by the upper lid, and DEAD
+ *  CENTRE between the corners (0.375 and 0.44). Mirrored, a hundredth either
+ *  way is a squint: 0.405 read wall-eyed and 0.418 read cross-eyed. */
+const IRIS = dot(1.8, 0.408, EYE + 0.001, 0.0105)
 
 /**
  * The neck. Starts ON the jaw and converges upward — 0.095 of half-width at
@@ -223,65 +228,70 @@ const ARM = curve(1.6, [
  * his right and lies flat on his left, so the silhouette leans.
  */
 const HAIR_L = curve(W.edge, [
-  [0.3435, 0.35],
-  [0.324, 0.31],
-  [0.305, 0.26],
-  [0.298, 0.205],
-  [0.31, 0.15],
-  [0.338, 0.108],
-  [0.378, 0.086],
-  [0.422, 0.092],
-  [0.455, 0.115],
+  [0.316, 0.35],
+  [0.307, 0.3],
+  [0.304, 0.25],
+  [0.31, 0.2],
+  [0.326, 0.15],
+  [0.352, 0.113],
+  [0.39, 0.09],
+  [0.425, 0.084],
+  [0.455, 0.09],
 ])
 
 /** The right half: no wave, a longer flatter run, carrying the mass out a
- *  little less far and back down past the ear. */
+ *  little less far and back down past the ear. It starts where HAIR_L ends,
+ *  ON the falling side of the wave: the join sits between its neighbours in
+ *  height, so the crown is one dome. When it sat below both, the seam read
+ *  as a dent in the top of the head. */
 const HAIR_R = curve(W.edge, [
-  [0.455, 0.115],
-  [0.5, 0.106],
-  [0.555, 0.112],
-  [0.612, 0.134],
-  [0.655, 0.172],
-  [0.68, 0.225],
-  [0.68, 0.285],
-  [0.668, 0.328],
-  [0.6565, 0.35],
+  [0.455, 0.09],
+  [0.5, 0.097],
+  [0.55, 0.107],
+  [0.6, 0.126],
+  [0.642, 0.16],
+  [0.668, 0.21],
+  [0.684, 0.265],
+  [0.688, 0.31],
+  [0.684, 0.35],
 ])
 
 /**
  * THE HAIRLINE. Lowest over the viewer's-left brow, where the wave comes
  * forward, and rising to the right where the hair is combed flat and back.
- * It ends short of the right temple, free in the mass, and it starts ON the
- * left contour — one attached end, one loose one, so it bounds nothing.
+ * It stops at the crown, well short of the right temple, and starts ON the
+ * left contour — one attached end, one loose one, so it bounds nothing. Run
+ * out to the far temple it spanned the head, and a line across the whole
+ * head is a brim whatever its shape: the head read as cut in two.
  */
 const HAIRLINE = curve(W.line, [
-  [0.32, 0.305],
-  [0.348, 0.268],
+  [0.308, 0.305],
+  [0.34, 0.268],
   // the wave comes forward here: one lock's worth of dip over the near brow
   [0.378, 0.262],
   [0.41, 0.243],
-  [0.465, 0.229],
-  [0.53, 0.222],
-  [0.595, 0.229],
-  [0.64, 0.252],
+  [0.46, 0.23],
+  [0.495, 0.224],
 ])
 
 /**
  * Three sweeps, the grain of the hair. All run the way it is combed — up
  * and to the viewer's left — each starting near the hairline and ending
- * free inside the mass, the longest one climbing into the wave. Nothing
- * here closes against anything, which is what keeps it hair.
+ * free inside the mass, the longest one climbing toward the wave. Nothing
+ * here closes against anything, which is what keeps it hair — the long one
+ * used to land ON the outline beside the tuft, and a stroke that meets the
+ * contour is a seam: it closed a wedge off the front of the head.
  */
 const SWEEP_A = curve(W.line, [
-  [0.55, 0.205],
-  [0.495, 0.143],
-  [0.428, 0.108],
-  [0.368, 0.104],
+  [0.565, 0.215],
+  [0.515, 0.155],
+  [0.46, 0.125],
+  [0.412, 0.126],
 ])
 const SWEEP_B = curve(W.fine, [
-  [0.605, 0.235],
-  [0.568, 0.19],
-  [0.535, 0.165],
+  [0.63, 0.25],
+  [0.595, 0.2],
+  [0.562, 0.172],
 ])
 /**
  * One tuft that leaves the mass and comes out through the top of the wave,

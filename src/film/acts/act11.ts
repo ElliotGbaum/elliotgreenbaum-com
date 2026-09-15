@@ -94,7 +94,7 @@ import copy from '../../content/film.json'
 
 const C = copy.act11
 /**
- * 13.0, up from 12.4. "Thanks for listening" lands at THANKS_A plus a RAMP,
+ * 13.0, up from 12.4. "Thanks for watching" lands at THANKS_A plus a RAMP,
  * about 8.9 in, and this is the frame the film ends on and the one anybody who
  * wants the address has to read off — so the last four seconds are the card
  * standing finished, and it is the one hold in the film that is allowed to be

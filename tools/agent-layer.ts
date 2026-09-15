@@ -59,24 +59,27 @@ export const DESCRIPTION =
   'Elliot Greenbaum — product, deployment and AI solutions. Philosophy, Politics and Economics at Penn. elliotgreenbaum@gmail.com'
 
 /**
- * The markup that goes into index.html. A collapsed <details> inside the
- * card, so the no-WebGL visitor sees one quiet line and can open it, and a
- * fetcher that strips the page to its text gets all of it. NO ANCHORS in
- * here: the card's three contact links are counted by verify, and the
- * addresses are already in the last act's caption as text.
+ * The markup that goes into index.html. A <section> inside the card that is
+ * in the page but not on the screen — the sr-only pattern, see .transcript
+ * in index.html — so a screen reader and a fetcher that strips the page to
+ * its text both get all of it, and the sighted no-WebGL visitor sees a name
+ * and three links. NO ANCHORS in here: the card's three contact links are
+ * counted by verify, and the addresses are already in the last act's
+ * caption as text. Not `hidden` and not `aria-hidden`: those take it off
+ * screen readers too, and verify checks neither is on it.
  */
 export function transcriptHtml(): string {
   const parts = acts().map((a) => {
     const head = a.index ? `${esc(a.index)} · ${esc(a.chapter)}` : esc(a.chapter)
-    return `    <h2>${head}</h2>\n    <p>${esc(a.caption)}</p>`
+    return `    <h3>${head}</h3>\n    <p>${esc(a.caption)}</p>`
   })
-  parts.push(`    <h2>${esc(copy.digest.chapter)}</h2>\n    <p>${esc(copy.digest.caption)}</p>`)
+  parts.push(`    <h3>${esc(copy.digest.chapter)}</h3>\n    <p>${esc(copy.digest.caption)}</p>`)
   return [
-    `<details id="transcript" class="transcript">`,
-    `    <summary>The film, in words</summary>`,
+    `<section id="transcript" class="transcript" aria-labelledby="transcript-title">`,
+    `    <h2 id="transcript-title">The film, in words</h2>`,
     `    <p class="transcript__note">What the projector plays, as text — the same words in the same order. Also at /llms.txt.</p>`,
     ...parts,
-    `  </details>`,
+    `  </section>`,
   ].join('\n')
 }
 
@@ -98,7 +101,7 @@ export function llmsTxt(): string {
   for (const l of copy.act11.links) lines.push(`- ${l.label}: ${l.href}`)
   lines.push('', '## About this site', '')
   lines.push(
-    'Built by hand in TypeScript with Three.js and Vite. The film is drawn frame by frame on a 2D canvas and projected into the 3D world. Visitors without WebGL get a plain HTML card with the same transcript.',
+    'Built by hand in TypeScript with Three.js and Vite. The film is drawn frame by frame on a 2D canvas and projected into the 3D world. Visitors without WebGL get a plain HTML card; this transcript is in that page for screen readers and fetchers.',
     '',
   )
   return lines.join('\n')
@@ -108,7 +111,10 @@ export function agentLayer(): Plugin {
   const MARK = '<!--@transcript-->'
   return {
     name: 'agent-layer',
-    transformIndexHtml(html) {
+    transformIndexHtml(html, ctx) {
+      // the dev-only pages (sketches.html, filmstrip.html, preview.html) have
+      // no card and no marker; only the real page has to carry the transcript
+      if (!ctx.filename.endsWith('index.html')) return html
       if (!html.includes(MARK)) throw new Error(`[agent-layer] index.html is missing ${MARK}`)
       return html.replace(MARK, transcriptHtml())
     },

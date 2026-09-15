@@ -43,10 +43,10 @@
  *            downwind across the meadow, so the wind reads as a thing
  *            crossing the field rather than a shimmer over all of it.
  *   fireflies a few dozen points drifting over the field at night, gone by day.
- *   birds    BY DAY. A small flock crossing high behind the hills, every
- *            couple of minutes, and gone. They keep to the side of the sky
- *            behind you as you face the screen, so they are never in the shot
- *            while the film plays.
+ *   birds    BY DAY. A small flock crossing the sky over the field, every
+ *            minute and a half, and gone. While the film is on the screen
+ *            they keep to the side of the sky behind you instead, so they
+ *            are never in the watching shot.
  *   mist     AT NIGHT. A few low, faint banks lying out toward the trees,
  *            drifting downwind at nothing like a walking pace.
  *
@@ -67,6 +67,12 @@ export interface Scenery {
   /** `k`: 0 = night, 1 = day — the field's crossfade value, pushed here once a
    *  frame. `dusk`: 0..1, how deep into the golden hour, on top of `k`. */
   setDaylight(k: number, dusk?: number): void
+  /** how much of the clearing under the machine is open, 0..1 — the
+   *  projector's rise, so the turf is whole until the rig breaks it */
+  setClearing(k: number): void
+  /** the film is on the screen and the camera is framed on it: the flock
+   *  keeps out of that shot */
+  setWatching(on: boolean): void
   /** `focus` is the figure's position; the grass patch and the sky centre on it */
   update(dt: number, elapsed: number, focus: THREE.Vector3): void
   dispose(): void
@@ -425,8 +431,8 @@ function createTrees(weather: ReturnType<typeof weatherUniforms>): {
  *
  * Two layers of the same instanced blade, each wrapped onto its own square
  * centred on the figure. The near layer is dense and life-size and thins out
- * past the middle of the shot; the far layer is a fifth as dense, its blades
- * near twice as wide and a little taller, and it thins in exactly where the
+ * past the middle of the shot; the far layer is a sixth as dense, its blades
+ * half again as wide and a touch taller, and it thins in exactly where the
  * near one goes — so the meadow keeps its weight all the way to the tree line
  * for a fraction of the blades a single dense layer would cost. At that range
  * a blade is a pixel or two, so nobody can tell the far ones are bigger.
@@ -448,13 +454,18 @@ interface GrassLayer {
  *  line by day, because daylight fog is far too thin at that range to soften
  *  it. The far layer thins in over the same band the near one thins out, so
  *  the count stays level, and it runs on through the tree line (which starts
- *  at 98) so the last of it goes behind trunks rather than at an edge. */
+ *  at 98) so the last of it goes behind trunks rather than at an edge.
+ *  The near fade-out starts only a few strides out, long before the far
+ *  layer begins to fill in: perspective packs a flat field tighter with
+ *  every unit of distance, so a layer held at full count to the middle of
+ *  the shot read as a thick band behind Elliot with thinner grass either
+ *  side of it. Thinning from close in keeps the count per screen inch level. */
 const GRASS_NEAR: GrassLayer = PHONE
-  ? { n: 19000, span: 116, fade: [-1, 0, 32, 56], blade: [1, 1] }
-  : { n: 54000, span: 136, fade: [-1, 0, 40, 68], blade: [1, 1] }
+  ? { n: 19000, span: 116, fade: [-1, 0, 12, 56], blade: [1, 1] }
+  : { n: 54000, span: 136, fade: [-1, 0, 14, 68], blade: [1, 1] }
 const GRASS_FAR: GrassLayer = PHONE
-  ? { n: 15000, span: 260, fade: [32, 56, 108, 128], blade: [1.8, 1.15] }
-  : { n: 40000, span: 260, fade: [40, 68, 108, 128], blade: [1.8, 1.15] }
+  ? { n: 13000, span: 260, fade: [32, 56, 108, 128], blade: [1.5, 1.1] }
+  : { n: 34000, span: 260, fade: [40, 68, 108, 128], blade: [1.5, 1.1] }
 function bladeGeometry(): THREE.BufferGeometry {
   const SEG = 3
   const W = 0.16
@@ -519,7 +530,9 @@ function createGrass(
     uSpan: { value: span },
     uFade: { value: new THREE.Vector4(...layer.fade) },
     uWidth: { value: layer.blade[0] },
-    uClear: { value: new THREE.Vector3(clearing.x, clearing.z, 7.5) },
+    // the radius is written each frame from the projector's rise, so it
+    // starts at nothing: the field opens with no machine and no mark of one
+    uClear: { value: new THREE.Vector3(clearing.x, clearing.z, 0) },
     uTime: { value: 0 },
     uDay: { value: 0 },
     /** where the figure's feet are (x, z) and how far the grass parts round them */
@@ -565,7 +578,7 @@ function createGrass(
         float lot = fract(aOffset.w * 0.15915494);
         float fade = step(lot, smoothstep(uFade.x, uFade.y, dist)) * step(lot, 1.0 - smoothstep(uFade.z, uFade.w, dist));
         // bare ground under the machine
-        float clear = smoothstep(uClear.z * 0.45, uClear.z, distance(base, uClear.xy));
+        float clear = uClear.z <= 0.0 ? 1.0 : smoothstep(uClear.z * 0.45, uClear.z, distance(base, uClear.xy));
         // the meadow belongs to the day: it grows in with the light and is
         // gone by night, when the ground under the lantern is plain
         float s = aOffset.z * fade * clear * uDay;
@@ -707,26 +720,52 @@ function createFireflies(): { points: THREE.Points; mat: THREE.ShaderMaterial } 
 /* ================================================================== *
  * Birds
  *
- * One flock, nine birds, each two triangles that flap. It crosses the sky
- * behind the hills on a straight line every couple of minutes and is gone
- * for the rest of it — the gap is the point; a sky with birds in it all the
- * time is wallpaper. The line keeps to the +z half of the world, which is
- * behind you when you face the screen, so the flock is never in the
- * watching shot. It alternates direction crossing to crossing.
+ * One flock, eleven birds, flat silhouettes that flap. It crosses the sky
+ * on a straight line every minute and a half and is gone for the rest of
+ * it — the gap is the point; a sky with birds in it all the time is
+ * wallpaper. It alternates direction crossing to crossing.
+ *
+ * Two lines. The everyday one runs over the field in front of you as you
+ * face Elliot and the screen: in from one side past your shoulder, over the
+ * meadow and the screen, and out over the far hills, low enough to read as
+ * birds rather than specks. The line used to run out past the hills on the
+ * far side of the sky behind you, and nobody ever saw it. While the film is
+ * on the screen the flock takes that old line instead — the +z half of the
+ * world, behind you when you face the screen — so it is never in the
+ * watching shot. The first crossing is already under way when you arrive,
+ * far enough along that the flock comes into frame a few seconds after the
+ * field does — the line runs edge to edge across the world and is only in
+ * the camera for its middle stretch, so a crossing that started on arrival
+ * would not show a bird for twenty seconds.
  * ================================================================== */
-const FLOCK = 9
+const FLOCK = 11
 /** seconds from one crossing's start to the next */
-const FLOCK_EVERY = 130
+const FLOCK_EVERY = 90
 /** seconds a crossing takes */
-const FLOCK_CROSS = 48
+const FLOCK_CROSS = 54
+/** seconds the first crossing is already along when you arrive */
+const FLOCK_HEAD = 13
 function createBirds(): { mesh: THREE.Mesh; mat: THREE.ShaderMaterial } {
-  // two triangles per bird, body along z, tips out along x
+  // Flat silhouettes, body along z, wings out along x. Each wing is an
+  // inner panel, shoulder to elbow, and an outer one that sweeps back to a
+  // point — the elbow is what stops it reading as a triangle. The body is a
+  // slim diamond, head forward.
   const pos: number[] = []
   const bird: number[] = []
   for (let i = 0; i < FLOCK; i++) {
-    for (const side of [-1, 1]) {
-      pos.push(0, 0, 0.55, 0, 0, -0.35, side * 1.6, 0, 0.1)
+    const tri = (...v: number[]) => {
+      pos.push(...v)
       bird.push(i, i, i)
+    }
+    tri(0, 0, 0.95, -0.14, 0, 0.1, 0.14, 0, 0.1)
+    tri(0, 0, -0.6, 0.14, 0, 0.1, -0.14, 0, 0.1)
+    for (const s of [-1, 1]) {
+      const sf = [0, 0, 0.3], sb = [0, 0, -0.12]
+      const ef = [s * 1.0, 0, 0.38], eb = [s * 1.0, 0, 0.02]
+      const tip = [s * 2.2, 0, -0.7]
+      tri(...sf, ...sb, ...ef)
+      tri(...sb, ...eb, ...ef)
+      tri(...ef, ...eb, ...tip)
     }
   }
   const geo = new THREE.BufferGeometry()
@@ -759,10 +798,16 @@ function createBirds(): { mesh: THREE.Mesh; mat: THREE.ShaderMaterial } {
                 + side * (k * 3.4 + sin(uTime * 0.7 + aBird * 2.1) * 0.6)
                 - dir * (abs(k) * 3.0 + sin(uTime * 0.5 + aBird * 1.3) * 1.2)
                 + vec3(0.0, sin(uTime * 1.1 + aBird * 0.9) * 0.8, 0.0);
-        // flap: the tips rise and fall, the body does not
-        float flap = sin(uTime * 9.0 + aBird * 1.7) * 0.9;
+        // flap: the wing hinges at the shoulder, and the outer panel hinges
+        // again at the elbow a beat behind it, so the tip trails the stroke
+        // the way a wing does; the body does not move. Held slightly raised
+        // so a wing never passes through dead flat and vanishes edge-on.
+        float beat = uTime * 9.0 + aBird * 1.7;
+        float flap = 0.15 + sin(beat) * 0.55;
+        float trail = sin(beat - 0.9) * 0.7;
         vec3 p = position;
-        p.y += abs(p.x) * flap;
+        float ax = abs(p.x);
+        p.y += min(ax, 1.0) * flap + max(ax - 1.0, 0.0) * trail;
         // point the body along the line of flight
         vec3 world = at + side * p.x + dir * p.z + vec3(0.0, p.y, 0.0);
         vec4 mv = modelViewMatrix * vec4(world, 1.0);
@@ -876,6 +921,9 @@ function createMist(): {
 /* ================================================================== *
  * Assembly
  * ================================================================== */
+/** how far from the machine's footprint the grass stands again, fully raised */
+const CLEARING_R = 7.5
+
 export interface SceneryOptions {
   /** world point the grass is bare around — the machine's footprint */
   clearing: THREE.Vector3
@@ -955,7 +1003,7 @@ export function createScenery(scene: THREE.Scene, opts: SceneryOptions): Scenery
     flies.mat.uniforms.uNight.value = blend(NIGHT.fireflies, DAY.fireflies, DUSK.fireflies, k, d)
     flies.points.visible = flies.mat.uniforms.uNight.value > 0.01
     // birds are the day's, and at dusk they are silhouettes, which is better
-    birds.mat.uniforms.uShow.value = Math.max(k, d * 0.9) * 0.85
+    birds.mat.uniforms.uShow.value = Math.max(k, d * 0.9)
     // mist is the night's, and it lingers a little into the golden hour
     mist.mat.opacity = (1 - k) * 0.2 + d * 0.04
     mist.group.visible = mist.mat.opacity > 0.005
@@ -996,21 +1044,40 @@ export function createScenery(scene: THREE.Scene, opts: SceneryOptions): Scenery
   }
 
   /* ---------------- the flock clock ---------------- */
+  let watching = false
   const fA = birds.mat.uniforms.uA.value as THREE.Vector3
   const fB = birds.mat.uniforms.uB.value as THREE.Vector3
   function flock() {
-    const n = Math.floor(time / FLOCK_EVERY)
-    const p = (time - n * FLOCK_EVERY) / FLOCK_CROSS
-    const show = p < 1 && birds.mat.uniforms.uShow.value > 0.01
+    const t = time + FLOCK_HEAD
+    const n = Math.floor(t / FLOCK_EVERY)
+    const p = (t - n * FLOCK_EVERY) / FLOCK_CROSS
+    const show = t >= 0 && p < 1 && birds.mat.uniforms.uShow.value > 0.01
     birds.mesh.visible = show
     if (!show) return
-    // a line across the +z half of the world, well past the hills and above
-    // them, one way or the other by turns
+    // one way or the other by turns
     const flip = n % 2 === 0 ? 1 : -1
-    const z = 190 + rand(n * 5 + 700) * 60
-    const y = 58 + rand(n * 5 + 701) * 22
-    fA.set(-300 * flip, y, z - 30)
-    fB.set(300 * flip, y + 8, z + 30)
+    if (watching) {
+      // a line across the +z half of the world, well past the hills and
+      // above them: out of the watching shot
+      const z = 190 + rand(n * 5 + 700) * 60
+      const y = 58 + rand(n * 5 + 701) * 22
+      fA.set(-300 * flip, y, z - 30)
+      fB.set(300 * flip, y + 8, z + 30)
+    } else {
+      // a diagonal over the field: in past your shoulder on one side, over
+      // the screen, out over the far hills on the other — or the reverse,
+      // so every other flock comes toward you. The line climbs toward its
+      // far end so it holds about ten degrees over the horizon from where
+      // you stand — the camera's top edge is eighteen — and clears the ridge
+      // line (~33 at its highest, ~7° up from here) the whole way, so the
+      // flock is always against sky.
+      const lift = rand(n * 5 + 704) * 4
+      const near = new THREE.Vector3(0, 22 + lift, 40 + rand(n * 5 + 702) * 30)
+      const far = new THREE.Vector3(0, 40 + lift, -150 + rand(n * 5 + 703) * 40)
+      const toward = n % 4 >= 2
+      fA.copy(toward ? far : near).setX(-190 * flip)
+      fB.copy(toward ? near : far).setX(190 * flip)
+    }
     birds.mat.uniforms.uProgress.value = p
     birds.mat.uniforms.uTime.value = time
   }
@@ -1040,6 +1107,13 @@ export function createScenery(scene: THREE.Scene, opts: SceneryOptions): Scenery
       daylight = k
       dusk = d
       apply(clamp(k), clamp(d))
+    },
+    setClearing(k) {
+      const r = CLEARING_R * clamp(k)
+      for (const g of grass) (g.uniforms.uClear.value as THREE.Vector3).z = r
+    },
+    setWatching(on) {
+      watching = on
     },
     update(dt, _elapsed, focus) {
       // a settled frame for reduced motion: the grass still stands, it just

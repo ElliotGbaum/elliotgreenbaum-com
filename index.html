@@ -147,35 +147,18 @@
   .card .contact a:hover{text-decoration-color:var(--paper-ink)}
 
   /* ---------- the film, in words ----------
-     One collapsed line under the addresses, and the whole film behind it —
-     for the visitor the world cannot serve, who until now got the least of
-     anyone, and for the machines: an assistant handed this address fetches
-     THIS page, and the film is a texture it will never see. Generated from
+     The whole film, in the page but not on the screen — for the machines
+     and for screen readers: an assistant handed this address fetches THIS
+     page, and the film is a texture it will never see. Generated from
      src/content/film.json by tools/agent-layer.ts, so it is the film's own
-     words and cannot drift from them. Collapsed rather than hidden: text a
-     page hides from people and shows to crawlers is a trick, and this is
-     not one — anyone can open it. */
-  .transcript{margin-top:6px;padding-top:6px;border-top:1px solid var(--paper-rule);color:var(--paper-ink-2)}
-  .transcript summary{
-    cursor:pointer;font-size:.82rem;font-weight:500;letter-spacing:.02em;
-    color:var(--paper-ink);min-height:44px;display:flex;align-items:center;
+     words and cannot drift from them. The sr-only pattern rather than
+     `hidden`, because `hidden` takes it off screen readers too; the same
+     words are also at /llms.txt in plain sight, so this is not text the
+     page shows one reader and denies another — it is the film. */
+  .transcript{
+    position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;
+    clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;
   }
-  /* flex on the summary drops the browser's own triangle, so it is drawn back
-     by hand — a thing that opens has to look like it opens */
-  .transcript summary::before{
-    content:'';width:0;height:0;margin-right:10px;flex:none;
-    border-left:6px solid currentColor;border-top:4px solid transparent;border-bottom:4px solid transparent;
-    transition:transform .15s ease;
-  }
-  .transcript summary::-webkit-details-marker{display:none}
-  .transcript[open] summary::before{transform:rotate(90deg)}
-  .transcript summary:hover{text-decoration:underline;text-underline-offset:5px;text-decoration-color:var(--paper-rule)}
-  .transcript__note{margin:4px 0 18px;font-size:.9rem;color:var(--paper-ink-2)}
-  .transcript h2{
-    margin:22px 0 4px;font-family:var(--font-mono);font-weight:500;font-size:.7rem;
-    letter-spacing:.14em;text-transform:uppercase;color:var(--paper-ink-2);
-  }
-  .transcript p{margin:0;font-size:.98rem;line-height:1.55;color:var(--paper-ink)}
 
   /* ---------- the world (shown only once WebGL is confirmed) ----------
      The class is set by the inline script below, before the body is parsed,
@@ -329,11 +312,11 @@
      If the film is ever unreachable the answer is to fix the film, not to
      grow this block back into a CV — it stays three lines.
 
-     Three lines AND the film itself, in words, folded under them: a
-     transcript is not a CV, it is the same story for a reader who cannot
-     run the picture — a locked-down laptop, a screen reader, or the
-     assistant somebody pasted this address into. It is generated from the
-     film's copy, so it can only ever say what the film says.
+     Three lines AND the film itself, in words, in the markup but off the
+     screen: a transcript is not a CV, it is the same story for a reader
+     who cannot see the picture — a screen reader, or the assistant
+     somebody pasted this address into. It is generated from the film's
+     copy, so it can only ever say what the film says.
 
      Hidden the moment WebGL is confirmed (html.has-webgl .card).
      ===================================================================== -->
@@ -341,8 +324,8 @@
   <div class="card__sheet">
     <h1>Elliot Greenbaum</h1>
     <p class="note">
-      A 3D world exists on this page for browsers that can run it. Check
-      your settings.
+      A 3D world exists on this page for browsers that can run it. This is
+      either a you issue, or an us issue.
     </p>
     <p class="contact">
       <a href="mailto:elliotgreenbaum@gmail.com">elliotgreenbaum@gmail.com</a>
@@ -399,7 +382,7 @@
          it is the same string in both. The swap is CSS at `(hover: none)` —
          see src/ui/ui.css — so nothing measures anything at boot and a tablet
          that gains a keyboard gains the keycap. -->
-    <div id="interact" data-on="false" data-hit="false" aria-hidden="true">
+    <div id="interact" data-on="false" data-hit="false" data-side="above" aria-hidden="true">
       <span class="interact__pin">
         <span class="interact__press">Press <kbd>E</kbd> to</span>
         <span class="interact__tap">Tap to</span>
@@ -466,7 +449,7 @@
        copy lives with the rest of the site's words. Outside #hud, because the
        HUD fades out while this is up, and it sits at the film bar's own layer
        for the same reason the film bar does. -->
-  <section id="talk" hidden role="dialog" aria-label="Talk to Elliot" data-busy="false">
+  <section id="talk" hidden role="dialog" aria-label="Talk to Elliot" data-busy="false" tabindex="-1">
     <header class="talk__head">
       <h2 class="talk__name">Elliot</h2>
       <button id="talk-close" type="button">Leave <kbd aria-hidden="true">esc</kbd></button>

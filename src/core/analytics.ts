@@ -56,7 +56,7 @@
  *   film_seek             { via: 'scrub' | 'key' | 'chapter', from_t, to_t, act }
  *   film_pause            { on, via: 'button' | 'key' | 'picture', film_t, act }
  *   film_rate             { rate, via: 'picker' | 'shuttle', film_t }
- *   film_tldr             { via: 'button' | 'key', film_t, act }
+ *   film_tldr             { via: 'button' | 'key' | 'panel', film_t, act }
  *   film_digest_shown     { film_t }
  *   film_link_click       { href, label, act }
  *   film_ended            { watched_s, acts_seen, coverage }
@@ -90,7 +90,7 @@ export type PressVia = 'key' | 'badge' | 'click' | 'walk' | 'dwell'
 export type SeekVia = 'scrub' | 'key' | 'chapter'
 export type PauseVia = 'button' | 'key' | 'picture'
 export type RateVia = 'picker' | 'shuttle'
-export type TldrVia = 'button' | 'key'
+export type TldrVia = 'button' | 'key' | 'panel'
 export type ExitVia = 'button' | 'key'
 
 /** the slice of the film's state the instrumentation reads — see FilmState */

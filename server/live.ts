@@ -1,7 +1,7 @@
 /**
  * Everything true about Elliot right now, in one place.
  *
- * Five feeds, each its own module with the same contract — read live, cached
+ * Six feeds, each its own module with the same contract — read live, cached
  * briefly, and null when it cannot be read — gathered here for the two
  * things that want all of them at once: the panel (GET /api/live, once per
  * opening) and the chat (server/chat.ts, one system block per question). One
@@ -22,6 +22,7 @@ import { lastShipped, describeShipped, type Shipped } from './github.js'
 import { ranThisMonth, describeRan, type Ran } from './strava.js'
 import { recoveryToday, describeRecovery, type Recovery } from './whoop.js'
 import { booking, describeBooking, type Booking } from './calendly.js'
+import { interest, describeInterest, type Interest } from './now.js'
 
 export const ZONE = process.env.ELLIOT_ZONE || 'America/New_York'
 
@@ -30,6 +31,8 @@ export interface Live {
   shipped: Shipped | null
   ran: Ran | null
   recovery: Recovery | null
+  /** what he is into this week: the one line with no account behind it */
+  interest: Interest | null
   booking: Booking | null
 }
 
@@ -41,7 +44,7 @@ export async function live(): Promise<Live> {
     recoveryToday(),
     booking(),
   ])
-  return { track, shipped, ran, recovery, booking: book }
+  return { track, shipped, ran, recovery, interest: interest(), booking: book }
 }
 
 /** the facts as lines for the model, or null when there are none */
@@ -53,6 +56,7 @@ export async function liveFacts(): Promise<string | null> {
     describeShipped(l.shipped, ago),
     describeRan(l.ran),
     describeRecovery(l.recovery),
+    describeInterest(l.interest),
     describeBooking(l.booking, ZONE),
   ].filter((s): s is string => !!s)
   return lines.length ? lines.map((s) => `- ${s}`).join('\n') : null
