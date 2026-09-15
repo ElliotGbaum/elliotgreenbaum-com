@@ -1,13 +1,13 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "_": "Security headers for every response. The CSP hash is the SHA-256 of the inline <script> in index.html (the WebGL probe, which has to stay inline to run before first paint): change one character of that script and the hash has to change with it — tools/csp-hash.mjs prints the current one, and verify goes red if they disagree. img-src allows Spotify's image host for the album art in the panel. The same headers are put on the preview server by vite.config.ts, so the gate runs under them.",
+  "_": "Security headers for every response. The CSP hash is the SHA-256 of the inline <script> in index.html (the WebGL probe, which has to stay inline to run before first paint): change one character of that script and the hash has to change with it — tools/csp-hash.mjs prints the current one, and verify goes red if they disagree. img-src allows Spotify's image host for the album art in the panel. The two posthog.com hosts are analytics (src/core/analytics.ts): events go to us.i.posthog.com, and the library lazy-loads its recorder and web-vitals modules from us-assets.i.posthog.com; without both, a key in Vercel would send nothing and fill the console with CSP errors. The same headers are put on the preview server by vite.config.ts, so the gate runs under them.",
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'sha256-MY8ivMQZrLPGsI/Onr20Svx8bnfueZb+BCgHSsx2oV0='; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://i.scdn.co; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; object-src 'none'"
+          "value": "default-src 'self'; script-src 'self' https://us-assets.i.posthog.com 'sha256-MY8ivMQZrLPGsI/Onr20Svx8bnfueZb+BCgHSsx2oV0='; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://i.scdn.co; font-src 'self'; connect-src 'self' https://us.i.posthog.com; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; object-src 'none'"
         },
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },

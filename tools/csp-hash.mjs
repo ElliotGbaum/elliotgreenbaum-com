@@ -17,8 +17,13 @@ import { createHash } from 'node:crypto'
 
 const root = new URL('../', import.meta.url)
 const html = readFileSync(new URL('index.html', root), 'utf8')
-const scripts = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)]
-const hashes = scripts.map((m) => 'sha256-' + createHash('sha256').update(m[1]).digest('base64'))
+// Every inline <script> that RUNS. A data block (type="application/ld+json",
+// the structured data for search engines) is never executed, so script-src
+// does not apply to it and it needs no hash.
+const scripts = [...html.matchAll(/<script(?![^>]*\bsrc=)([^>]*)>([\s\S]*?)<\/script>/g)].filter(
+  (m) => !/\btype=["']?(?!(?:module|text\/javascript|application\/javascript)\b)[^"'\s>]+/i.test(m[1]),
+)
+const hashes = scripts.map((m) => 'sha256-' + createHash('sha256').update(m[2]).digest('base64'))
 
 if (process.argv.includes('--check')) {
   const config = readFileSync(new URL('vercel.json', root), 'utf8')

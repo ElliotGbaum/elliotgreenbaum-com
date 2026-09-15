@@ -57,9 +57,10 @@ import { createHud } from './ui/hud'
 import { createInteractPrompt } from './ui/interact'
 import { createChat } from './ui/chat'
 import { createFullscreen } from './ui/fullscreen'
-import { CANVAS_H, CANVAS_W, CHAPTERS, createFilm } from './film/film'
+import { CANVAS_H, CANVAS_W, CHAPTERS, RUNTIME, createFilm } from './film/film'
 import { createFilmControls } from './film/controls'
 import { LINKS } from './film/links'
+import { analytics, type PressVia } from './core/analytics'
 import { createFilmStage } from './world/filmstage'
 
 /* ---------------- THE TWO OTHER WORLDS ARE SHELVED ----------------
@@ -108,6 +109,7 @@ const LEAD_DELAY = 1.8
    and quietly decline to boot at all, on a machine that runs the world
    fine. The flag is the fact; boot() puts the class back. */
 if (window.__webgl) {
+  analytics.init('world')
   try {
     boot()
     // the world is up: stand the watchdog down, whatever it was about to do
@@ -115,8 +117,11 @@ if (window.__webgl) {
   } catch (err) {
     // the probe said yes and the renderer said no — back to the card
     document.documentElement.classList.remove('has-webgl')
+    analytics.track('lane_shown', { lane: 'card', reason: 'boot_failed' })
     console.error(err)
   }
+} else {
+  analytics.init('card', 'no_webgl')
 }
 
 /**
@@ -168,6 +173,7 @@ function boot() {
      in place. */
   canvas.addEventListener('webglcontextlost', (e) => {
     e.preventDefault()
+    analytics.contextLost()
     running = false
     if (raf) cancelAnimationFrame(raf)
     raf = 0
@@ -175,6 +181,7 @@ function boot() {
     world.setAttribute('aria-hidden', 'true')
   })
 
+  analytics.renderer(renderer.getContext(), renderer.capabilities.isWebGL2)
   renderer.setPixelRatio(pixelRatio())
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.toneMapping = THREE.ACESFilmicToneMapping
@@ -193,6 +200,10 @@ function boot() {
      the picture plays out in the world rather than over the top of it. */
   const film = createFilm()
   const controls = createFilmControls(film)
+  analytics.film.describe(
+    RUNTIME,
+    CHAPTERS.map((c) => c.title),
+  )
 
   /* ---------------- what is out there ----------------
      ONE landmark, and nothing else: everything in this field is something you
@@ -325,6 +336,7 @@ function boot() {
   // thrown, the dev switch takes the field off the clock until the sky
   // itself changes its answer
   let offClock = false
+  analytics.setContext({ time_of_day: sky })
   hud.onDayNight((mode) => {
     offClock = true
     field.setMode(mode, REDUCED_MOTION)
@@ -426,6 +438,7 @@ function boot() {
 
     player.faceTo(SCREEN_CENTRE)
     film.play()
+    analytics.film.started(film.state)
     controls.show()
   }
 
@@ -567,13 +580,14 @@ function boot() {
    */
   let pending: Landmark | null = null
 
-  function fire(l: Landmark) {
+  function fire(l: Landmark, via: PressVia) {
     // whatever the figure was being sent to do, this is what it is doing now
     pending = null
     disarmed.add(l.id)
     if (l.id === 'projector' && !seenFilm) {
       seenFilm = true
     }
+    if (l.id === 'projector') analytics.projector.pressed(via)
     l.activate(ctx)
   }
 
@@ -581,6 +595,7 @@ function boot() {
     if (e.key === 'Escape' && filmActive) {
       // reachable before the controls exist — during the walk over
       e.preventDefault()
+      if (!film.state.running) analytics.film.exit('key')
       stopFilm()
       return
     }
@@ -619,7 +634,7 @@ function boot() {
 
     e.preventDefault()
     badge.hit() // the cap goes down, whether or not the badge is up to see it
-    fire(near) // explicit intent always works, armed or not
+    fire(near, 'key') // explicit intent always works, armed or not
   }
   window.addEventListener('keydown', onKey)
 
@@ -730,7 +745,7 @@ function boot() {
    * project links, so anything the film is the only route to (Newsglide) is
    * mouse-only. If that list ever grows past one, it needs anchors on the card.
    */
-  function linkAt(e: PointerEvent): { href: string } | null {
+  function linkAt(e: PointerEvent): { href: string; label: string } | null {
     if (!film.state.running || LINKS.length === 0) return null
     if (!aimAt(e)) return null
     const uv = projector.hitScreen(ray)
@@ -820,7 +835,7 @@ function boot() {
     if (!filmActive && !talking && near && (e.target as HTMLElement | null)?.closest('#interact')) {
       e.preventDefault()
       pending = null
-      fire(near)
+      fire(near, 'badge')
       return
     }
 
@@ -837,6 +852,7 @@ function boot() {
       e.stopPropagation()
       const link = linkAt(e)
       if (link) {
+        analytics.film.link(link.href, link.label)
         openLink(link.href)
         return
       }
@@ -845,6 +861,7 @@ function boot() {
          press the transport's button and `k` make — see the key table at the
          top of src/film/controls.ts. */
       film.togglePaused()
+      analytics.film.pause(film.state.paused, 'picture')
       return
     }
 
@@ -857,7 +874,7 @@ function boot() {
          distance the badge and the prompt already treat as "you are at this
          thing", so the two ways in agree about where the thing begins. */
       pending = null
-      if (l.anchor.distanceTo(player.position) < l.radius) fire(l)
+      if (l.anchor.distanceTo(player.position) < l.radius) fire(l, 'click')
       else {
         pending = l
         player.travelTo(l.anchor)
@@ -1045,6 +1062,7 @@ function boot() {
     for (const l of landmarks) l.setDaylight?.(field.daylight)
 
     player.update(dt, elapsed)
+    analytics.frame(player.position.x, player.position.z)
     scenery.setDaylight(field.daylight, field.dusk)
     scenery.update(dt, elapsed, player.position)
     vel.subVectors(player.position, last).divideScalar(Math.max(dt, 0.0001))
@@ -1139,6 +1157,7 @@ function boot() {
         // the panel's live lines are fetched on it (a minute's cache, so a
         // visitor who wanders in and out does not fetch again and again)
         if (near === elliot) chat.warm()
+        if (near?.id === 'projector') analytics.projector.near()
       }
 
       /* …and the other end of a click on something across the field: the
@@ -1151,7 +1170,7 @@ function boot() {
          errand goes with it. */
       if (pending) {
         if (!player.travelling || pending.isEnabled?.() === false) pending = null
-        else if (pending.anchor.distanceTo(player.position) < pending.radius) fire(pending)
+        else if (pending.anchor.distanceTo(player.position) < pending.radius) fire(pending, 'walk')
       }
 
       // The prompt has two things to say, and DISTANCE IS NOT ONE OF THEM: the
@@ -1195,6 +1214,7 @@ function boot() {
         !!reach &&
         Math.hypot(reach.x - player.position.x, reach.z - player.position.z) <
           (near?.reachRadius ?? REACH)
+      if (inReach && near?.id === 'projector') analytics.projector.reach()
       badge.update(
         rig.camera,
         inReach ? reach : null,
@@ -1211,7 +1231,7 @@ function boot() {
         dwell = player.speed < 2.6 ? dwell + dt : 0
         if (dwell > 0.55) {
           dwell = 0
-          fire(near)
+          fire(near, 'dwell')
         }
       }
     } else {
@@ -1262,7 +1282,10 @@ function boot() {
 
   raf = requestAnimationFrame(frame)
   // one real frame on the canvas before the load screen lifts (index.html)
-  requestAnimationFrame(() => root.classList.add('is-ready'))
+  requestAnimationFrame(() => {
+    root.classList.add('is-ready')
+    analytics.worldReady()
+  })
 
   /* ---------------- teardown (dev/HMR hygiene) ---------------- */
   if (import.meta.hot) {

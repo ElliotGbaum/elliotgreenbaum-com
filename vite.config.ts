@@ -1,3 +1,4 @@
+import { agentLayer } from './tools/agent-layer'
 import { defineConfig, loadEnv, type Plugin, type ViteDevServer, type PreviewServer } from 'vite'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { readFileSync } from 'node:fs'
@@ -104,7 +105,8 @@ function chatApi(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [chatApi()],
+  // the film in words, in the served HTML and at /llms.txt — see tools/agent-layer.ts
+  plugins: [chatApi(), agentLayer()],
   build: {
     target: 'es2022',
     // three is the only heavy dependency; keeping it in its own chunk means

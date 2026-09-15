@@ -78,6 +78,7 @@ import {
   type Film,
 } from './film'
 import { clamp } from '../core/contract'
+import { analytics } from '../core/analytics'
 
 export interface FilmControls {
   /** the element the world should treat as "chrome" for hit-testing */
@@ -217,6 +218,7 @@ export function createFilmControls(film: Film): FilmControls {
   function pickRate(r: number, focus = false): void {
     chosen = r
     film.setRate(r)
+    analytics.film.rate(r, 'picker')
     // …and take the shuttle off the hook. Choosing a speed while the space bar
     // happens to be down otherwise leaves `spaceDown` true with no keyup owed
     // to it, and the next release snaps you back to a speed you had left.
@@ -329,7 +331,9 @@ export function createFilmControls(film: Film): FilmControls {
     dragging = true
     scrub.setPointerCapture?.(e.pointerId)
     scrub.dataset.drag = 'true'
+    const from = film.state.time
     film.seek(timeAtX(e.clientX))
+    analytics.film.seek('scrub', from, film.state.time)
   }
 
   const onScrubMove = (e: PointerEvent) => {
@@ -373,6 +377,7 @@ export function createFilmControls(film: Film): FilmControls {
 
   const onScrubKey = (e: KeyboardEvent) => {
     let handled = true
+    const from = film.state.time
     switch (e.key) {
       case 'ArrowLeft':
         film.nudge(-SEEK_SMALL)
@@ -398,6 +403,7 @@ export function createFilmControls(film: Film): FilmControls {
     if (handled) {
       e.preventDefault()
       e.stopPropagation()
+      analytics.film.seek(e.key === 'ArrowUp' || e.key === 'ArrowDown' ? 'chapter' : 'key', from, film.state.time)
     }
   }
 
@@ -413,6 +419,7 @@ export function createFilmControls(film: Film): FilmControls {
   const onPlay = (e: Event) => {
     e.preventDefault()
     film.togglePaused()
+    analytics.film.pause(film.state.paused, 'button')
     // A mouse click leaves focus on the button, and Space on a focused button
     // is a button press — so one click on pause would quietly cost you the 2×
     // shuttle for the rest of the film. Hand focus back to the scrubber, but
@@ -428,6 +435,7 @@ export function createFilmControls(film: Film): FilmControls {
   }
   const onSkipClick = (e: Event) => {
     e.preventDefault()
+    analytics.film.exit('button')
     for (const cb of skips.slice()) cb()
   }
 
@@ -437,6 +445,7 @@ export function createFilmControls(film: Film): FilmControls {
      winding forward every time somebody brushed the shuttle. */
   const onTldrClick = (e: Event) => {
     e.preventDefault()
+    analytics.film.tldr('button')
     film.rush()
     if (e instanceof MouseEvent && e.detail > 0) {
       try {
@@ -507,12 +516,14 @@ export function createFilmControls(film: Film): FilmControls {
       if (spaceDown) return
       spaceDown = true
       film.setRate(2)
+      analytics.film.rate(2, 'shuttle')
       return
     }
 
     if (e.key === 'Escape') {
       e.preventDefault()
       e.stopPropagation()
+      analytics.film.exit('key')
       for (const cb of skips.slice()) cb()
       return
     }
@@ -522,21 +533,28 @@ export function createFilmControls(film: Film): FilmControls {
       e.preventDefault()
       e.stopPropagation()
       film.togglePaused()
+      analytics.film.pause(film.state.paused, 'key')
     } else if (k === 'j') {
       e.preventDefault()
       e.stopPropagation()
+      const from = film.state.time
       film.nudge(-SEEK_BIG)
+      analytics.film.seek('key', from, film.state.time)
     } else if (k === 'l') {
       e.preventDefault()
       e.stopPropagation()
+      const from = film.state.time
       film.nudge(SEEK_BIG)
+      analytics.film.seek('key', from, film.state.time)
     } else if (k === 'd') {
       e.preventDefault()
       e.stopPropagation()
       toggleDepth()
+      analytics.track('film_depth', { on: depthOn })
     } else if (k === 't') {
       e.preventDefault()
       e.stopPropagation()
+      analytics.film.tldr('key')
       film.rush()
     }
   }
