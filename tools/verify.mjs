@@ -34,7 +34,7 @@ const ok = (name, cond, detail = '') => {
  * and holding one key is that.
  *
  * Three seconds of held ArrowUp is about twenty-five units at the player's top
- * speed; spawn is thirty units out and the radius is seventeen, so it arrives
+ * speed; spawn is thirty units out and the radius is twenty-one, so it arrives
  * with room either side and stops well short of the screen. Resolves true once
  * the picture is up, false if it never comes.
  */
@@ -175,7 +175,7 @@ console.log('\n5. The projector announces itself')
   ok('…and says whose time it is', /Elliot.s time/i.test(clock), clock)
   ok('it is not a control', (await page.locator('#clock button, #clock a, #clock input').count()) === 0)
 
-  // walk all the way in, well inside the projector's 17-unit radius
+  // walk all the way in, well inside the projector's 21-unit radius
   await page.keyboard.down('ArrowUp')
   await page.waitForTimeout(3000)
   await page.keyboard.up('ArrowUp')

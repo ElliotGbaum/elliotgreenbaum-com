@@ -412,6 +412,15 @@ function boot() {
     vantage = v
     await rig.cutTo(v.position, v.lookAt, REDUCED_MOTION ? 0.01 : 1.9, v.fov)
     if (mine !== seq) return
+    /* Elliot comes round to watch. The camera is on the screen now and he is
+       not in that shot — nothing off its cone is — so this is the one moment
+       he can cross the field unseen, and when the shot swings home at the
+       end he is standing off to the left, an audience member, twenty-odd
+       units away, rather than behind the lens where his path-side spot left
+       him. Behind the lens is where the visitor found him nowhere at all,
+       and the standing line was naming a person who was not on screen. He
+       stays there; see `comeToWatch` in src/world/landmarks/elliot.ts. */
+    elliot.comeToWatch()
     await stepped
     if (mine !== seq) return
 

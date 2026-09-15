@@ -182,7 +182,7 @@ function glowTexture(): THREE.CanvasTexture {
  * The nametag. A sprite, so it always faces the camera and reads from every
  * side, drawn once to a canvas in the mono every label out here uses — the
  * same voice as PROJECTOR under the compass — the name, and under it the
- * invitation, ASK ME ANYTHING, because a name over a head is a label and
+ * invitation, TALK TO HIM, because a name over a head is a label and
  * this figure is a thing to do. It used to be a display-serif heading
  * floating well above him, and it read as a UI overlay, not a thing in the
  * world; now it is small, close to his head, and his.
@@ -192,6 +192,9 @@ function glowTexture(): THREE.CanvasTexture {
  * on it, and a caption hanging over the person you are talking to reads as
  * a label on a chatbot. It comes back when you leave.
  */
+/** the invitation under the name: what he is for, and when */
+const TAG_LINE = 'TALK TO HIM'
+
 function tagTexture(mode: 'night' | 'day'): THREE.CanvasTexture {
   const S = (window.devicePixelRatio || 1) >= 2 ? 3 : 2
   const W = 640
@@ -228,7 +231,7 @@ function tagTexture(mode: 'night' | 'day'): THREE.CanvasTexture {
     // wide of it
     c.font = SUB_FONT
     c.letterSpacing = `${SUB_SPACING}px`
-    const subW = c.measureText('ASK ME ANYTHING').width
+    const subW = c.measureText(TAG_LINE).width
     c.font = NAME_FONT
     c.letterSpacing = '0px'
     const nameW = c.measureText('Elliot').width
@@ -255,8 +258,8 @@ function tagTexture(mode: 'night' | 'day'): THREE.CanvasTexture {
   c.fillStyle = day ? '#8A5A14' : PALETTE.amberLitCss
   c.font = SUB_FONT
   c.letterSpacing = `${SUB_SPACING}px`
-  c.fillText('ASK ME ANYTHING', W / 2, SUB_Y)
-  if (!day) c.fillText('ASK ME ANYTHING', W / 2, SUB_Y)
+  c.fillText(TAG_LINE, W / 2, SUB_Y)
+  if (!day) c.fillText(TAG_LINE, W / 2, SUB_Y)
 
   const t = new THREE.CanvasTexture(cv)
   t.colorSpace = THREE.SRGBColorSpace
@@ -500,7 +503,7 @@ export function createElliot(): Elliot {
        figure wearing a menu. It used to sit at his shoulders, and from the
        two-shot you are left in after a conversation — close, and looking
        slightly down — a badge hanging UP from the shoulders climbed straight
-       into ASK ME ANYTHING. Hanging up from the hips it tops out at his
+       into the invitation line. Hanging up from the hips it tops out at his
        chest, well clear of the tag, and still points at the person. */
     reach: new THREE.Vector3(EX, HIP_Y - 0.4, EZ),
     reachRadius: 8,

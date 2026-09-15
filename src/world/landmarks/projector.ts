@@ -535,8 +535,11 @@ export function createProjector(picture: HTMLCanvasElement): Projector {
     object: group,
     anchor,
     // Wide, because this is the only interactive thing in the field and the
-    // cost of arming it a beat early is nothing.
-    radius: 17,
+    // cost of arming it a beat early is nothing. It was 17, which put the
+    // switch in reach about four strides short of the machine; 21 lets the
+    // walk from the spawn end that much sooner, and the figure still covers
+    // the rest itself once E is pressed (see `startFilm` in main.ts).
+    radius: 21,
     /**
      * THE SAME SENTENCE AT EVERY DISTANCE, and that is the point. This used to
      * read "Switch on the projector — it plays the film" while the standing
