@@ -76,6 +76,10 @@
     --rule:rgba(233,228,214,.14);
     --amber:#E3A94A;
     --amber-lit:#F3C77E;
+    --paper:#E9E4D6;        /* PALETTE.buff — the film's paper */
+    --paper-ink:#0A1418;
+    --paper-ink-2:#4B5651;
+    --paper-rule:rgba(10,20,24,.22);
     --font-display:"Hoefler Text","Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
     --font-body:ui-sans-serif,-apple-system,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
     --font-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
@@ -96,39 +100,51 @@
      could not serve got handed the least interesting version of the thing —
      bullets and dates — as if that were the point. The name and three ways
      to reach him is the honest floor. */
+  /* The page behind the card stays the renderer's clear colour (see above),
+     but the card itself is a sheet of the film's paper: buff ground, dark
+     ink, the way the projector's screen reads. One block on the night. */
   .card{
-    min-height:100svh;display:grid;align-content:center;
-    gap:14px;max-width:520px;
-    margin:0 auto;padding:clamp(32px,8vw,64px) clamp(22px,6vw,32px);
+    min-height:100svh;display:grid;align-content:center;justify-items:start;
+    padding:clamp(24px,6vw,48px) clamp(16px,5vw,32px);
+  }
+  .card__sheet{
+    width:100%;max-width:520px;margin:0 auto;
+    background:var(--paper);color:var(--paper-ink);
+    padding:clamp(32px,8vw,56px) clamp(24px,6vw,44px);
+    border-radius:6px;
+    box-shadow:0 30px 80px rgba(0,0,0,.55),0 0 0 1px rgba(233,228,214,.08);
   }
   .card h1{
-    margin:0;font-family:var(--font-display);font-weight:600;
-    font-size:clamp(2.1rem,6vw,3rem);letter-spacing:-.02em;line-height:1.05;
+    margin:0 0 14px;font-family:var(--font-display);font-weight:600;
+    font-size:clamp(2.1rem,7vw,3rem);letter-spacing:-.02em;line-height:1.05;
   }
   .card .note{
-    margin:0;max-width:44ch;
-    font-size:.98rem;line-height:1.5;color:var(--ink-2);
+    margin:0;max-width:40ch;
+    font-size:1rem;line-height:1.5;color:var(--paper-ink-2);
   }
   .card .contact{
-    display:flex;flex-wrap:wrap;gap:0 20px;margin:10px 0 0;
-    padding-top:18px;border-top:1px solid var(--rule);
-    font-family:var(--font-mono);font-size:.74rem;letter-spacing:.06em;
+    display:flex;flex-wrap:wrap;gap:0 8px;margin:22px 0 0;
+    padding-top:18px;border-top:1px solid var(--paper-rule);
+    font-size:.82rem;font-weight:500;letter-spacing:.02em;
   }
   /* Three links, and reaching him is the ONLY thing this page does — so they
-     are 44px boxes, not 20px ones. The height is invisible: the type sits
-     centred in it and the row gap above was removed to pay for it, so the card
-     looks exactly as it did and the targets are twice the size. `X` is one
-     glyph and was under 8px wide, which no amount of vertical padding rescues,
-     hence the floor on the width as well.
-     The hover underline moved off `border-bottom` at the same time: on a 44px
-     box that border draws at the bottom of the BOX, an inch under the word it
-     is supposed to be underlining. text-decoration follows the text. */
+     are 44px boxes, not 20px ones. The padding is symmetrical and the first
+     link is pulled back by the same amount, so the words sit flush with the
+     left edge of the name while the boxes stay full size. */
   .card .contact a{
-    display:inline-flex;align-items:center;justify-content:center;
-    min-height:44px;min-width:44px;
-    text-decoration:none;
+    display:inline-flex;align-items:center;
+    min-height:44px;padding:0 12px;
+    color:var(--paper-ink);text-decoration:underline;
+    text-decoration-color:var(--paper-rule);text-underline-offset:5px;
   }
-  .card .contact a:hover{text-decoration:underline;text-underline-offset:4px}
+  .card .contact a:first-child{margin-left:-12px}
+  /* On a phone the row breaks and the orphan lands indented; a column is
+     three lines that start where the name does. */
+  @media (max-width:480px){
+    .card .contact{flex-direction:column;gap:0}
+    .card .contact a{margin-left:-12px}
+  }
+  .card .contact a:hover{text-decoration-color:var(--paper-ink)}
 
   /* ---------- the film, in words ----------
      One collapsed line under the addresses, and the whole film behind it —
@@ -139,10 +155,10 @@
      words and cannot drift from them. Collapsed rather than hidden: text a
      page hides from people and shows to crawlers is a trick, and this is
      not one — anyone can open it. */
-  .transcript{margin-top:22px;padding-top:18px;border-top:1px solid var(--rule);color:var(--ink-2)}
+  .transcript{margin-top:6px;padding-top:6px;border-top:1px solid var(--paper-rule);color:var(--paper-ink-2)}
   .transcript summary{
-    cursor:pointer;font-family:var(--font-mono);font-size:.74rem;letter-spacing:.06em;
-    color:var(--amber);min-height:44px;display:flex;align-items:center;
+    cursor:pointer;font-size:.82rem;font-weight:500;letter-spacing:.02em;
+    color:var(--paper-ink);min-height:44px;display:flex;align-items:center;
   }
   /* flex on the summary drops the browser's own triangle, so it is drawn back
      by hand — a thing that opens has to look like it opens */
@@ -153,13 +169,13 @@
   }
   .transcript summary::-webkit-details-marker{display:none}
   .transcript[open] summary::before{transform:rotate(90deg)}
-  .transcript summary:hover{text-decoration:underline;text-underline-offset:4px}
-  .transcript__note{margin:6px 0 18px;font-size:.86rem;color:var(--ink-3)}
+  .transcript summary:hover{text-decoration:underline;text-underline-offset:5px;text-decoration-color:var(--paper-rule)}
+  .transcript__note{margin:4px 0 18px;font-size:.9rem;color:var(--paper-ink-2)}
   .transcript h2{
-    margin:22px 0 4px;font-family:var(--font-mono);font-weight:500;font-size:.72rem;
-    letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);
+    margin:22px 0 4px;font-family:var(--font-mono);font-weight:500;font-size:.7rem;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--paper-ink-2);
   }
-  .transcript p{margin:0;font-size:.98rem;color:var(--ink)}
+  .transcript p{margin:0;font-size:.98rem;line-height:1.55;color:var(--paper-ink)}
 
   /* ---------- the world (shown only once WebGL is confirmed) ----------
      The class is set by the inline script below, before the body is parsed,
@@ -322,19 +338,21 @@
      Hidden the moment WebGL is confirmed (html.has-webgl .card).
      ===================================================================== -->
 <main class="card" id="card">
-  <h1>Elliot Greenbaum</h1>
-  <p class="note">
-    A 3D world exists on this page for browsers that can run it. Check
-    your settings.
-  </p>
-  <p class="contact">
-    <a href="mailto:elliotgreenbaum@gmail.com">elliotgreenbaum@gmail.com</a>
-    <a href="https://www.linkedin.com/in/elliot-greenbaum/">LinkedIn</a>
-    <a href="https://x.com/elliotgreenbaum">X</a>
-  </p>
-  <!-- Replaced at build time (and on the dev server) with the film's words,
-       act by act, as a collapsed <details>. See tools/agent-layer.ts. -->
-  <!--@transcript-->
+  <div class="card__sheet">
+    <h1>Elliot Greenbaum</h1>
+    <p class="note">
+      A 3D world exists on this page for browsers that can run it. Check
+      your settings.
+    </p>
+    <p class="contact">
+      <a href="mailto:elliotgreenbaum@gmail.com">elliotgreenbaum@gmail.com</a>
+      <a href="https://www.linkedin.com/in/elliot-greenbaum/">LinkedIn</a>
+      <a href="https://x.com/elliotgreenbaum">X</a>
+    </p>
+    <!-- Replaced at build time (and on the dev server) with the film's words,
+         act by act, as a collapsed <details>. See tools/agent-layer.ts. -->
+    <!--@transcript-->
+  </div>
 </main>
 
 
