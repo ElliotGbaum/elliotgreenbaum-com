@@ -427,8 +427,8 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
     if (live.ran) {
       const { li: r, body } = row('strava', L.strava, L.ran)
       const miles = live.ran.runs === 0 ? L.noRuns : `${live.ran.miles} mi`
-      // the joke is the reason the number is here: a public total is the
-      // accountability plan, and the line says so
+      // a public total is the accountability plan; the line used to say so in
+      // words and since 2026-09-16 says it with one emoji after the miles
       body.append(link(live.ran.url, miles), plain(` ${L.accountable}`))
       rows.push(r)
     }
