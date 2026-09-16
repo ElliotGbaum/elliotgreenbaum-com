@@ -774,6 +774,25 @@
     flex: 1 1 auto;
     min-height: 7em;
   }
+  /* The choices come first on a phone, the ledger under them (Elliot,
+     2026-09-16): the sheet is short, and what it is for should be the first
+     thing on it, not the third line under three facts. The DOM keeps the
+     window's order, so this is `order` alone; the asks go back under the
+     log once a choice is made and they are chips again. */
+  #talk-asks {
+    order: 3;
+  }
+  #talk-asks[data-picking='true'] {
+    order: 1;
+    margin-top: 6px;
+  }
+  .talk__body {
+    order: 2;
+  }
+  #talk-form,
+  #talk-status {
+    order: 4;
+  }
 }
 
 /* ---- a window: the right edge of the frame, the pair on the left ---- */

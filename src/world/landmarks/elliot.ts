@@ -102,6 +102,17 @@ const WALK_SPEED = 7.5
  * holds where he stood.
  */
 const NEAR = [-21, 0] as const
+/**
+ * On a phone held upright the follow frame is a horizontal crop of the 4:3
+ * floor (ASPECT_FLOOR in camera.ts): about a quarter of the depth to the
+ * half-frame, so from the follow cam at (−6, 31) the desktop spot, fifteen
+ * units left, is a long way past the edge and the visitor came out of the
+ * film to an empty field with "walk over to Elliot" under it (2026-09-16).
+ * Four units left and eleven ahead puts him and the whole nametag inside a
+ * 375px frame with a unit to spare, still outside the projector's press
+ * spot by his reach. Sideways the frame is the desktop's and so is the spot.
+ */
+const NEAR_PHONE_UP = [-10, -6] as const
 
 /**
  * WHERE HE STANDS ONCE THE FILM IS ON: off the screen's left, twenty-odd
@@ -355,7 +366,7 @@ export interface Elliot extends Landmark {
    * STANDS ONCE THE FILM IS OVER, over `NEAR`. Nothing, if the film was
    * never watched.
    */
-  comeCloser(): void
+  comeCloser(aspect: number): void
   /**
    * He is being talked to: keep facing the talking spot rather than tracking
    * the figure, and let the lantern hang still. Off again when the panel
@@ -691,9 +702,10 @@ export function createElliot(): Elliot {
       group.rotation.y = yaw
     },
 
-    comeCloser() {
+    comeCloser(aspect: number) {
       if (!watching) return
-      walkTo(NEAR[0], NEAR[1])
+      const [x, z] = PHONE && aspect < 1 ? NEAR_PHONE_UP : NEAR
+      walkTo(x, z)
     },
 
     setEngaged(on: boolean) {

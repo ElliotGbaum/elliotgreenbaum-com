@@ -243,7 +243,10 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
   // opening of the conversation and go up with it once it is long
   const scroller = log.parentElement ?? log
   function scrollDown(): void {
-    scroller.scrollTop = scroller.scrollHeight
+    /* while the choices are still up there is no conversation to follow,
+       only the ledger, and a ledger reads from its first row: on a phone it
+       sits under the choices and scrolling it down clipped the top line */
+    scroller.scrollTop = mode ? scroller.scrollHeight : 0
   }
 
   function setBusy(on: boolean): void {
@@ -427,9 +430,9 @@ function build({ panel, log, asks, form, input, send, closeBtn, status, now }: P
     if (live.ran) {
       const { li: r, body } = row('strava', L.strava, L.ran)
       const miles = live.ran.runs === 0 ? L.noRuns : `${live.ran.miles} mi`
-      // a public total is the accountability plan; the line used to say so in
-      // words and since 2026-09-16 says it with one emoji after the miles
-      body.append(link(live.ran.url, miles), plain(` ${L.accountable}`))
+      // the miles alone: the line used to add "(holding myself accountable)",
+      // then an emoji, and since 2026-09-16 the public total says it by itself
+      body.append(link(live.ran.url, miles))
       rows.push(r)
     }
 

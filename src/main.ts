@@ -475,7 +475,7 @@ function boot() {
     rig.release()
     // …and Elliot comes in from his watching spot to stand beside the visitor
     // while the shot swings home
-    elliot.comeCloser()
+    elliot.comeCloser(aspect())
     player.cancelTravel()
     player.setEnabled(true)
     suppressUntil = now() + 1.4
