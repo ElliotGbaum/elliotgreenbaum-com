@@ -28,7 +28,7 @@
  * sides still alternate, and the back-and-forth now has something in it.
  *
  * THE DUTIES ARE SENTENCES, NOT LABELS. Seven of them, and the long ones run
- * fifty characters — "reworked live automations based on client feedback",
+ * fifty characters — "reworked live automations based on customer feedback",
  * where the card used to say "and more". Two things had to give. The cards are
  * measured against the COLUMN as well as the band, because at that length the
  * old fit ran them off the side of the frame; and they do not share the frame

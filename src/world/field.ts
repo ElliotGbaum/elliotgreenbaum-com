@@ -166,15 +166,19 @@ const DAY: Look = {
    low and orange. The ground keeps its green: the first pass let it go to
    khaki and Elliot read the meadow as a swamp (2026-09-15), so the ground,
    the blades (scenery's DUSK.grass) and the bounce light under them stay a
-   warm yellow-green. The sky here must equal the scenery's DUSK.horizon —
+   warm yellow-green. A second pass (2026-09-16) pulled the ground and the
+   bounce light further toward the day's: under the orange sun the khaki
+   ground showed between the blades and the meadow read as thin and swampy,
+   where by day ground and blades are near enough one colour that it reads
+   as a solid field. The sky here must equal the scenery's DUSK.horizon —
    same trick as the other two. */
 const DUSK: Look = {
   sky: 0xe4b08c,
   haze: 0xe8c0a4,
   fogDensity: 0.0054,
-  ground: 0xc4cf8e,
-  hemiSky: 0xdcb49c,
-  hemiGround: 0x5e6448,
+  ground: 0xb9d494,
+  hemiSky: 0xd8b8a0,
+  hemiGround: 0x56684a,
   hemiIntensity: 1.6,
   fillColor: 0xdcb89e,
   fillIntensity: 0.48,

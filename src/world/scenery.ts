@@ -111,7 +111,7 @@ const DUSK = {
   horizon: 0xe4b08c,
   zenith: 0x5878ae,
   moon: 0.2,
-  grass: 0xa9c86e,
+  grass: 0xa2c86c,
   tree: 0x3a4e3e,
   trunk: 0x3a2e28,
   hill: 0x686670,
@@ -461,10 +461,10 @@ interface GrassLayer {
  *  the shot read as a thick band behind Elliot with thinner grass either
  *  side of it. Thinning from close in keeps the count per screen inch level. */
 const GRASS_NEAR: GrassLayer = PHONE
-  ? { n: 19000, span: 116, fade: [-1, 0, 12, 56], blade: [1, 1] }
+  ? { n: 27000, span: 116, fade: [-1, 0, 16, 56], blade: [1, 1] }
   : { n: 54000, span: 136, fade: [-1, 0, 14, 68], blade: [1, 1] }
 const GRASS_FAR: GrassLayer = PHONE
-  ? { n: 13000, span: 260, fade: [32, 56, 108, 128], blade: [1.5, 1.1] }
+  ? { n: 17000, span: 260, fade: [32, 56, 108, 128], blade: [1.5, 1.1] }
   : { n: 34000, span: 260, fade: [40, 68, 108, 128], blade: [1.5, 1.1] }
 function bladeGeometry(): THREE.BufferGeometry {
   const SEG = 3

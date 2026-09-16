@@ -20,24 +20,18 @@
  * instead of offering a control. Now there is a button per speed, lit on the
  * one you are at, which is what every video player on the web looks like.
  *
- * SPACE STILL SHUTTLES, and that is the subtle part: it is a MOMENTARY 2×, not
- * a toggle, so it has to put back whatever was chosen when you let go — not 1×.
+ * SPACE IS PLAY/PAUSE, like every video player on the web. It used to be a
+ * momentary 2× shuttle — held down, the film ran double speed and let go it
+ * fell back to the picked speed — and Elliot's first reaction on trying it
+ * was that the space bar should stop the film, not speed it up (2026-09-16).
  * `chosen` below is the picked speed and `state.rate` is what the clock is
- * actually running at; they are the same number except while the key is down.
- * Restoring to 1× was the first build and it silently cancelled the picker:
- * choose 3×, brush the space bar, and the film is at 1× with the 3× button
- * still lit, which is a control that lies about the thing it controls.
- *
- * The buttons reflect `state.rate`, so the shuttle lights the 2× button while
- * it is held and hands it back on release. What is on screen is always the
- * speed the film is running at.
+ * running at; with the shuttle gone they are always the same number.
  *
  * KEYS, and why they are the ones they are:
- *   Space (held)   2× while down. Not a toggle — a shuttle. Held keys repeat,
- *                  so the handler guards on its own flag rather than trusting
- *                  the first keydown to be the only one.
- *   k / click      pause. `k` because anyone who has used a video player in
- *                  the last fifteen years will try it.
+ *   Space / k      pause. Space because it is what everyone presses first;
+ *   / click        `k` because anyone who has used a video player in the
+ *                  last fifteen years will try it. Held keys repeat, so a
+ *                  repeat is ignored or a long press would flicker.
  *   ← →            ±5s.   ↑ ↓ / j l   previous / next chapter, ±10s.
  *   Escape         stop the film and give the field back.
  *   t              wind forward to the TL;DR card. The button over the corner
@@ -62,8 +56,9 @@
  *
  * Space is claimed at the window, in capture, because the world is still live
  * underneath — but only when focus is not on a button, since Space is how a
- * keyboard user presses a button and taking that away to add a shuttle would
- * be a bad trade. That guard is what lets the speed buttons be real buttons.
+ * keyboard user presses a button and taking that away to add a pause key
+ * would be a bad trade. That guard is what lets the speed buttons be real
+ * buttons.
  */
 
 import {
@@ -184,7 +179,7 @@ export function createFilmControls(film: Film): FilmControls {
    * that says what the speeds are.
    *
    * `chosen` is the speed the VIEWER picked; `film.state.rate` is what the
-   * clock is running at. They differ only while Space is held — see the header.
+   * clock is running at. With the shuttle gone they never differ — see the header.
    *
    * role="radio" rather than a pressed toggle, because that is what this is:
    * one of a set, exactly one on. A screen reader then announces it as "3×,
@@ -219,10 +214,6 @@ export function createFilmControls(film: Film): FilmControls {
     chosen = r
     film.setRate(r)
     analytics.film.rate(r, 'picker')
-    // …and take the shuttle off the hook. Choosing a speed while the space bar
-    // happens to be down otherwise leaves `spaceDown` true with no keyup owed
-    // to it, and the next release snaps you back to a speed you had left.
-    spaceDown = false
     if (focus) {
       const i = RATES.indexOf(r)
       try {
@@ -242,7 +233,7 @@ export function createFilmControls(film: Film): FilmControls {
     /* …and hand focus back to the scrubber, exactly as the pause button does
        and for exactly the same reason: a mouse click leaves focus on the
        button, Space on a focused button is a button press, so one click on a
-       speed would quietly cost you the shuttle for the rest of the film — and
+       speed would quietly cost you the pause key for the rest of the film — and
        worse than on pause, because the key would silently re-press the speed
        you are already at and look like it had done nothing.
        Pointer clicks only. `detail` is 0 when a keyboard activated it, and a
@@ -321,7 +312,7 @@ export function createFilmControls(film: Film): FilmControls {
     if (e.button !== 0) return
     // preventDefault kills the drag-selects-text behaviour, and with it the
     // click-to-focus that a tabindex element would otherwise get — so take
-    // focus explicitly. Space has to keep shuttling after you scrub.
+    // focus explicitly. Space has to keep pausing after you scrub.
     e.preventDefault()
     try {
       scrub.focus({ preventScroll: true })
@@ -421,8 +412,8 @@ export function createFilmControls(film: Film): FilmControls {
     film.togglePaused()
     analytics.film.pause(film.state.paused, 'button')
     // A mouse click leaves focus on the button, and Space on a focused button
-    // is a button press — so one click on pause would quietly cost you the 2×
-    // shuttle for the rest of the film. Hand focus back to the scrubber, but
+    // is a button press — so one click on pause would quietly cost you the
+    // pause key for the rest of the film. Hand focus back to the scrubber, but
     // only for pointer clicks: `detail` is 0 when a keyboard activated it, and
     // a keyboard user's focus is theirs to move.
     if (e instanceof MouseEvent && e.detail > 0) {
@@ -442,7 +433,7 @@ export function createFilmControls(film: Film): FilmControls {
   /* TLDR VERSION. It hands focus back to the scrubber for exactly
      the reason pause and the speed picker do — a click leaves focus on the
      button, Space on a focused button presses it again, and the film would be
-     winding forward every time somebody brushed the shuttle. */
+     winding forward every time somebody pressed Space to pause. */
   const onTldrClick = (e: Event) => {
     e.preventDefault()
     analytics.film.tldr('button')
@@ -502,8 +493,6 @@ export function createFilmControls(film: Film): FilmControls {
 
   /* ---------------- the keyboard ---------------- */
 
-  let spaceDown = false
-
   const onKeyDown = (e: KeyboardEvent) => {
     if (!film.state.running) return
     const onControl = (e.target as HTMLElement | null)?.closest?.('button')
@@ -513,10 +502,10 @@ export function createFilmControls(film: Film): FilmControls {
       if (onControl) return
       e.preventDefault()
       e.stopPropagation()
-      if (spaceDown) return
-      spaceDown = true
-      film.setRate(2)
-      analytics.film.rate(2, 'shuttle')
+      // held keys repeat, and a repeat must not un-pause what the press paused
+      if (e.repeat) return
+      film.togglePaused()
+      analytics.film.pause(film.state.paused, 'key')
       return
     }
 
@@ -559,26 +548,7 @@ export function createFilmControls(film: Film): FilmControls {
     }
   }
 
-  /* Back to the PICKED speed, not to 1×. See the header — restoring to 1× is
-     what makes the shuttle quietly cancel the picker. */
-  const releaseSpace = () => {
-    if (!spaceDown) return
-    spaceDown = false
-    film.setRate(chosen)
-  }
-
-  const onKeyUp = (e: KeyboardEvent) => {
-    if (e.key === ' ' || e.code === 'Space') releaseSpace()
-  }
-
-  // A key held while the tab loses focus never sends its keyup, and the film
-  // would be stuck at 2× for the rest of its runtime.
-  const onBlur = () => releaseSpace()
-
   window.addEventListener('keydown', onKeyDown, { capture: true })
-  window.addEventListener('keyup', onKeyUp, { capture: true })
-  window.addEventListener('blur', onBlur)
-  document.addEventListener('visibilitychange', onBlur)
 
   /* ---------------- reflecting state ---------------- */
 
@@ -673,11 +643,10 @@ export function createFilmControls(film: Film): FilmControls {
       bar.dataset.paused = s.paused ? 'true' : 'false'
     }
 
-    /* The buttons follow `state.rate`, not `chosen` — so the 2× button lights
-       while Space is held and hands it back on release, and what is lit is
-       always the speed the film is actually running at. `tabIndex` follows
-       `chosen` instead: the shuttle is momentary and must not move the tab
-       stop out from under a keyboard user mid-press. */
+    /* The buttons follow `state.rate`, not `chosen`, so what is lit is
+       always the speed the film is actually running at; since the space
+       shuttle went the two never differ, and the split is kept only so a
+       rate set from anywhere else still shows. `tabIndex` follows `chosen`. */
     if (s.rate !== shownRate) {
       shownRate = s.rate
       rateBtns.forEach((b, i) => {
@@ -711,7 +680,7 @@ export function createFilmControls(film: Film): FilmControls {
       shownPaused = null
       shownRate = -1
       sync()
-      // focus the scrubber rather than a button, so Space is the shuttle
+      // focus the scrubber rather than a button, so Space is play/pause
       try {
         scrub.focus({ preventScroll: true })
       } catch {
@@ -720,7 +689,6 @@ export function createFilmControls(film: Film): FilmControls {
     },
 
     hide() {
-      releaseSpace()
       /* …and the speed goes back to 1× with the film. A rate is a thing you set
          for the viewing you are in; leaving the film at 2× and coming back to
          the projector later to a film already running at double speed is a
@@ -799,9 +767,6 @@ export function createFilmControls(film: Film): FilmControls {
       speedBox.removeEventListener('click', onSpeedClick)
       speedBox.removeEventListener('keydown', onSpeedKey)
       window.removeEventListener('keydown', onKeyDown, { capture: true })
-      window.removeEventListener('keyup', onKeyUp, { capture: true })
-      window.removeEventListener('blur', onBlur)
-      document.removeEventListener('visibilitychange', onBlur)
     },
   }
 }

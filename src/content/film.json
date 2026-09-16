@@ -121,33 +121,33 @@
 
   "act10": {
     "chapter": "Cassidy",
-    "caption": "From there, I took a role at Cassidy as an AI Solutions Consultant. I was mainly focused on the post-sales side, serving as a technical point of contact for clients to scope and build new workflows, answer questions, troubleshoot errors, onboard new clients, and more.",
+    "caption": "From there, I took a role at Cassidy as an AI Solutions Consultant. I was mainly focused on the post-sales side, serving as a technical point of contact for customers to scope and build new workflows, answer questions, troubleshoot errors, onboard new customers, and more.",
     "index": "10",
     "heading": "Cassidy",
     "_role": "Printed in mono directly under the standing head, which is the only place it appears — the same subtitle slot the date at UPenn and the two firms use.",
     "role": "AI Solutions Consultant",
     "_lines": "THE TWO OF THEM ARE ONE BEAT. The lead used to arrive alone, leave, and be replaced by the body on the same baseline, which meant the frame said one thing, blanked, and said another — and the swap was the only thing happening for four seconds. They are up together now, in the middle of the frame rather than down at its foot, and they go together, so the thread gets the whole picture to itself afterwards.",
     "lead": "From there, I took a role at Cassidy as an AI Solutions Consultant.",
-    "body": "I was mainly focused on the post-sales side, serving as a technical POC for clients.",
+    "body": "I was mainly focused on the post-sales side, serving as a technical POC for customers.",
     "_duties": "The work itself, one duty per card on the thread. These are his own phrasing, and the longest runs about fifty characters. The act measures the widest one against the column and scales the whole stack to fit, so length is no longer a hard limit, but every character you add shrinks the type on EVERY card. Seven is what the band holds at a readable size; adding an eighth costs the other seven.",
     "duties": [
-      "onboarded new clients",
+      "onboarded new customers",
       "led discovery and requirements gathering sessions",
       "built new, multi-step workflow automations",
       "configured data integrations",
       "designed custom agents",
       "debugged production workflow errors",
-      "reworked live automations based on client feedback"
+      "reworked live automations based on customer feedback"
     ],
-    "_dutiesPhone": "THE SAME LIST, TRIMMED, AND IT IS THE ONLY PLACE IN THE FILM WHERE A PHONE READS DIFFERENT WORDS. What it costs is worth knowing before editing it, because the two edits below do completely different things. HOW MANY there are is the size of the type: the cards are the one thing set by the band rather than by the type scale, so every card is a seventh of the height the other six could have had. HOW LONG the longest one is, is a separate ceiling, and only the longest one counts — the widest card is measured against the frame and the whole stack scales to it. So dropping 'sessions' off the discovery line buys nothing at all while 'reworked live automations based on client feedback' is still here to be the longest; it is a shorter card and that is all it is. Nothing here is a claim the seven above do not make.",
+    "_dutiesPhone": "THE SAME LIST, TRIMMED, AND IT IS THE ONLY PLACE IN THE FILM WHERE A PHONE READS DIFFERENT WORDS. What it costs is worth knowing before editing it, because the two edits below do completely different things. HOW MANY there are is the size of the type: the cards are the one thing set by the band rather than by the type scale, so every card is a seventh of the height the other six could have had. HOW LONG the longest one is, is a separate ceiling, and only the longest one counts — the widest card is measured against the frame and the whole stack scales to it. So dropping 'sessions' off the discovery line buys nothing at all while 'reworked live automations based on customer feedback' is still here to be the longest; it is a shorter card and that is all it is. Nothing here is a claim the seven above do not make.",
     "dutiesPhone": [
-      "onboarded new clients",
+      "onboarded new customers",
       "led discovery and requirements gathering",
       "built new, multi-step workflow automations",
       "configured data integrations",
       "designed custom agents",
       "debugged production workflow errors",
-      "reworked live automations based on client feedback"
+      "reworked live automations based on customer feedback"
     ]
   },
   "digest": {
@@ -238,7 +238,7 @@
           "head": "Cassidy",
           "items": [
             {
-              "_subs": "The Cassidy slide's own duties, from act10.duties above, in this card's own order and shorter: 'built new, multi-step workflow automations' and 'designed custom agents' are folded into one line, 'onboarded new clients' is moved to the end and loses 'new', and 'configured data integrations', 'reworked live automations based on client feedback' and 'debugged production workflow errors' are not here at all — both read as keeping something running rather than as standing it up, which is the half of the job the roles in Next Steps are asking about. They are repeated rather than referenced because this card is the one place they are read cold, with no act around them — and because act10 trims its own list on a phone and this one does not.",
+              "_subs": "The Cassidy slide's own duties, from act10.duties above, in this card's own order and shorter: 'built new, multi-step workflow automations' and 'designed custom agents' are folded into one line, 'onboarded new customers' is moved to the end and loses 'new', and 'configured data integrations', 'reworked live automations based on customer feedback' and 'debugged production workflow errors' are not here at all — both read as keeping something running rather than as standing it up, which is the half of the job the roles in Next Steps are asking about. They are repeated rather than referenced because this card is the one place they are read cold, with no act around them — and because act10 trims its own list on a phone and this one does not.",
               "name": "AI Solutions Consultant",
               "linkWord": "",
               "href": "",

@@ -58,8 +58,8 @@
  *   V on purpose; nothing else does.
  *   NO TERMINAL IN OPEN SPACE except a hair tip, which is supposed to.
  *   NOTHING SHORTER THAN 0.04.
- *   THERE IS NO EAR. Half under hair in the photograph; drawn, it was read as
- *   a hoop, a bracket and a hook.
+ *   THE EAR IS ATTACHED AT BOTH ENDS to the head's contour (see EAR); drawn
+ *   free it was read as a hoop, a bracket and a hook.
  *   THE IRIS TOUCHES THE UPPER LID. White over an iris is a startled face.
  *   THE FACE GOES DOWN FIRST — cheeks, chin, eyes, nose, brows, mouth — and
  *   the hair arrives on a finished face. A hairdo with no eyes is a hat; a
@@ -222,38 +222,32 @@ const ARM = curve(1.6, [
  * ==================================================================== */
 
 /**
- * The outline, viewer's left half: down past the eye line where the mass
- * covers the ear, out to its widest at 0.19 and up into ONE big wave that
- * peaks left of the axis. The wave is the whole likeness — the hair lofts on
- * his right and lies flat on his left, so the silhouette leans.
+ * The outline, viewer's left half: the upper half of ONE ellipse, centred
+ * at (0.5, 0.35), 0.184 across by 0.245 tall, from eye level over the crown.
+ * It used to loft into a wave that peaked left of the axis with a seam at
+ * the crown and a tuft breaking through the top, and Elliot read the top of
+ * the head as uneven, "not a proper shaped head" (2026-09-16). So the dome
+ * is a true oval now, jittered only lightly, and the lean of his hair is
+ * carried by the hairline and the sweeps inside it instead of the silhouette.
  */
 const HAIR_L = curve(W.edge, [
-  [0.316, 0.35],
-  [0.307, 0.3],
-  [0.304, 0.25],
-  [0.31, 0.2],
-  [0.326, 0.15],
-  [0.352, 0.113],
-  [0.39, 0.09],
-  [0.425, 0.084],
-  [0.455, 0.09],
+  [0.316, 0.350],
+  [0.325, 0.274],
+  [0.351, 0.206],
+  [0.392, 0.152],
+  [0.443, 0.117],
+  [0.500, 0.105],
 ])
 
-/** The right half: no wave, a longer flatter run, carrying the mass out a
- *  little less far and back down past the ear. It starts where HAIR_L ends,
- *  ON the falling side of the wave: the join sits between its neighbours in
- *  height, so the crown is one dome. When it sat below both, the seam read
- *  as a dent in the top of the head. */
+/** The right half: the same ellipse on, from the crown back down to eye
+ *  level. It starts where HAIR_L ends, at the top of the dome. */
 const HAIR_R = curve(W.edge, [
-  [0.455, 0.09],
-  [0.5, 0.097],
-  [0.55, 0.107],
-  [0.6, 0.126],
-  [0.642, 0.16],
-  [0.668, 0.21],
-  [0.684, 0.265],
-  [0.688, 0.31],
-  [0.684, 0.35],
+  [0.500, 0.105],
+  [0.557, 0.117],
+  [0.608, 0.152],
+  [0.649, 0.206],
+  [0.675, 0.274],
+  [0.684, 0.350],
 ])
 
 /**
@@ -265,7 +259,7 @@ const HAIR_R = curve(W.edge, [
  * head is a brim whatever its shape: the head read as cut in two.
  */
 const HAIRLINE = curve(W.line, [
-  [0.308, 0.305],
+  [0.318, 0.305],
   [0.34, 0.268],
   // the wave comes forward here: one lock's worth of dip over the near brow
   [0.378, 0.262],
@@ -285,8 +279,8 @@ const HAIRLINE = curve(W.line, [
 const SWEEP_A = curve(W.line, [
   [0.565, 0.215],
   [0.515, 0.155],
-  [0.46, 0.125],
-  [0.412, 0.126],
+  [0.46, 0.138],
+  [0.418, 0.146],
 ])
 const SWEEP_B = curve(W.fine, [
   [0.63, 0.25],
@@ -294,15 +288,29 @@ const SWEEP_B = curve(W.fine, [
   [0.562, 0.172],
 ])
 /**
- * One tuft that leaves the mass and comes out through the top of the wave,
- * overshooting the outline by under a hundredth. A mark that stops at a
- * boundary is a crease in a cap; a mark that goes through it is the one thing
- * that proves the boundary is a mass and not a rim.
+ * One tuft climbing toward the crown and ending free a hundredth INSIDE the
+ * outline. It used to break through the top, and the break was the
+ * unevenness Elliot pointed at; the grain it gives is enough on its own.
  */
 const TUFT = curve(W.fine, [
-  [0.405, 0.16],
-  [0.375, 0.118],
-  [0.36, 0.093],
+  [0.43, 0.2],
+  [0.41, 0.178],
+  [0.395, 0.163],
+])
+
+/**
+ * THE EAR — asked for on 2026-09-16, after years of the file swearing there
+ * would not be one. Drawn so it cannot be read as a hoop or a hook: a single
+ * C that starts ON the head contour at the eye line, bows out a hundredth
+ * and a half, and lands back ON the cheek contour below. Both ends attached,
+ * nothing terminal in open space, and the hair mass still covers its top.
+ */
+const EAR = curve(W.line, [
+  [0.318, 0.34],
+  [0.303, 0.352],
+  [0.298, 0.372],
+  [0.306, 0.394],
+  [0.322, 0.405],
 ])
 
 /* ==================================================================== *
@@ -347,12 +355,15 @@ const HEAD: SketchStroke[] = [
   ]),
 
   /* ---- then the hair, on a finished face ---- */
-  hand(HAIR_L, 0.003, 2.7),
-  hand(HAIR_R, 0.003, 5.3),
+  hand(HAIR_L, 0.0012, 2.7),
+  hand(HAIR_R, 0.0012, 5.3),
   hand(HAIRLINE, 0.002, 9.4),
   hand(SWEEP_A, 0.002, 4.4),
   SWEEP_B,
   TUFT,
+
+  hand(EAR, 0.0015, 2.9),
+  hand(mirror(EAR, AXIS), 0.0015, 6.1),
 
   hand(mirror(NECK), 0.0024, 1.7),
   hand(NECK, 0.0024, 3.3),

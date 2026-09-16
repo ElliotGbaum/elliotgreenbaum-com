@@ -70,7 +70,14 @@ import { PALETTE, PHONE, REDUCED_MOTION, clamp, angleDelta, type Landmark, type 
 
 /* Where he stands, until the film is switched on — see WHERE HE STANDS in
    the header */
-const EX = 13
+/**
+ * On a phone held upright the shot is a horizontal crop of the 4:3 frame
+ * (ASPECT_FLOOR in camera.ts), a half-frame of about fourteen units at his
+ * depth, so at x = 13 he and his nametag were cut off by the right edge
+ * (2026-09-16). Seven keeps the whole tag inside a 375px frame with a
+ * margin; the desktop keeps the wider stance.
+ */
+const EX = PHONE ? 7 : 13
 const EZ = 25
 /** how fast he walks in beside the visitor, world units a second */
 const WALK_SPEED = 7.5

@@ -871,7 +871,7 @@ export function createFilm(): Film {
     },
 
     /* Snapped onto RATES rather than trusted. This is called by a button that
-       already holds one of them, by the space shuttle, and by whatever tries it
+       already holds one of them, and by whatever tries it
        from a console — and the clock multiplies by whatever lands here, so an
        unchecked 0 stops the film dead with the transport still saying it is
        playing, and a negative number runs it backwards into a negative

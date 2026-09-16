@@ -432,13 +432,16 @@ console.log('\n8. The film is a video player')
       `${sought}s of ${total}s`,
     )
 
-    // 2× — the shuttle is a held key, not a toggle
-    const before = await seconds()
-    await page.keyboard.down(' ')
-    await page.waitForTimeout(2000)
-    const after = await seconds()
-    await page.keyboard.up(' ')
-    ok('holding space runs at 2×', after - before >= 3, `${after - before}s in 2s`)
+    // Space is play/pause, not a 2× shuttle (2026-09-16)
+    await page.keyboard.press(' ')
+    const atPause = await seconds()
+    await page.waitForTimeout(1200)
+    const still = await seconds()
+    ok('space pauses the film', Math.abs(still - atPause) < 0.5, `${atPause}s → ${still}s over 1.2s`)
+    await page.keyboard.press(' ')
+    await page.waitForTimeout(1200)
+    const moving = await seconds()
+    ok('space again resumes it', moving - still >= 0.8, `${still}s → ${moving}s over 1.2s`)
 
     /* ── the TL;DR route ──────────────────────────────────────────────
        The button above the projector winds the reel forward and holds on a
